@@ -9,7 +9,7 @@
 	<!-- Basic Meta Information -->
 	<title>Lynmark Boarding House (CEBU)</title>
 	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 	<meta name="color-scheme" content="light only" />
 	<meta name="description" content="Tennant Captive Portal Landing Page" />
 
@@ -25,10 +25,8 @@
 		rel="stylesheet" type="text/css" />
 
 	<!-- Stylesheet Links -->
+	<link rel="stylesheet" href="normalize.css" />
 	<link rel="stylesheet" href="styles.css" />
-	<styles>
-		<link rel="stylesheet" href="styles.css" />
-	</styles>
 </head>
 
 <body class="is-loading">
@@ -77,32 +75,13 @@
 									<span class="frame"><img src="lynmark-logo.png" alt="" /></span>
 								</div>
 
-								<!-- Welcome Header with Dynamic Greeting -->
-								<h1 id="text02" class="text-component instance-2 style-1" style="text-align: center;">
-									<span id="greeting">Welcome</span>
-								</h1>
+								<!-- Dynamic Greeting Header -->
+								<h1 id="greeting-text" class="text-component instance-2 style-1">Good Evening</h1>
 
 								<!-- Authentication Status Message -->
-								<p id="text04" class="text-component instance-4 style-3" style="text-align: center;">
-									<span class="p" style="display: block; line-height: 1.6;">Device authenticated
-										successfully.<br />Use WhatsApp to contact admin or join the tenant chat.</span>
-								</p>
-
-								<!-- Dynamic Greeting Script -->
-								<script>
-									(function () {
-										const hour = new Date().getHours();
-										let greeting;
-										if (hour >= 5 && hour < 12) {
-											greeting = 'Good Morning';
-										} else if (hour >= 12 && hour < 18) {
-											greeting = 'Good Afternoon';
-										} else {
-											greeting = 'Good Evening';
-										}
-										document.getElementById('greeting').textContent = greeting;
-									})();
-								</script>
+								<p id="text04" class="text-component instance-4 style-3"><span class="p">Device
+										authenticated successfully.<br />Use WhatsApp to contact admin or join the
+										tenant chat.</span></p>
 								<!-- ============================================= -->
 								<!-- MAIN NAVIGATION BUTTONS                     -->
 								<!-- Primary tenant services and quick actions   -->
@@ -139,10 +118,6 @@
 												<title id="buttons01-icon-4-title">Chevron Right (Light)</title>
 												<use xlink:href="icons.svg#arrow-right-alt-light"></use>
 											</svg><span class="label">Kitchen Camera</span></a>
-									</li>
-									<li>
-
-
 									</li>
 								</ul>
 								<!-- Social Media & Communication Info -->
@@ -198,6 +173,28 @@
 											</svg><span class="label">Back</span></a>
 									</li>
 								</ul>
+
+								<!-- Page Title -->
+								<h2 id="text05" class="text-component instance-5 style-1">Internet Information</h2>
+								<!-- Internet Rules and Guidelines Text -->
+								<p id="text03" class="text-component instance-3 style-3" data-onvisible-trigger><span
+										class="p"><strong>Internet Plan — Rules &amp; Guidelines</strong></span><span
+										class="p"><u>Device Limits</u><br /><em>Free WiFi:</em> Each plan allows
+										<strong>2 devices</strong>
+										at a time. Additional devices cannot connect until one
+										disconnects.<br /><em>Voucher WiFi:</em> Each voucher code is
+										valid for <strong>1 device only</strong>. The same code cannot be used on a
+										different device.</span><span class="p"><u>System Maintenance</u><br />The
+										system will
+										automatically reboot at <code>3:00 AM</code> on the <code>1st</code> day of
+										every month to refresh memory and maintain stability.</span><span
+										class="p"><u>Speed Notice</u><br />Internet speeds may vary and are not always
+										guaranteed. If you experience issues, first verify your current plan limits,
+										then contact the boarding house administrator.<br />You may reach us via
+										WhatsApp and use the link on the homepage.</span><span class="p"><u>Fair
+											Use</u><br />Wi-Fi access is provided <strong>free of charge</strong> to
+										tenants. Guests may connect, but please be mindful of your plan's <strong>device
+											limits</strong>.</span></p>
 
 								<!-- ============================================= -->
 								<!-- INTERNET TIERS SELECTION WIDGET             -->
@@ -347,1786 +344,1727 @@
 
 										</div>
 
-
-										<!-- Clean Speed Section Wrapper -->
-										<div class="speed-section-wrapper">
-
-											<!-- Current Speed Display -->
-											<div class="current-speed-box">
-												<h3 class="speed-box-title">Your Current Speed</h3>
-												<div class="speed-values">
-													<div class="speed-item">
-														<div class="speed-label">Download</div>
-														<div class="speed-value">2.5 Mbps</div>
-													</div>
-													<div class="speed-divider"></div>
-													<div class="speed-item">
-														<div class="speed-label">Upload</div>
-														<div class="speed-value">1.3 Mbps</div>
-													</div>
+										<!-- Current Speed Network Widget -->
+										<div class="network-widget">
+											<div class="widget-header">CURRENT SPEED</div>
+											<div class="metric-card">
+												<div class="metric-row">
+													<div class="metric-label download-label">Download Speed</div>
+													<div class="metric-value download-value">1<span
+															class="unit">Mbps</span></div>
 												</div>
 											</div>
-
-											<!-- Upgrades Title -->
-											<h3 class="upgrades-section-title">Available Upgrades</h3>
-
-											<!-- Upgrade Options Container -->
-											<div class="upgrade-options">
-
-												<!-- Standard Plan -->
-												<a href="https://lmvouchersystem.vercel.app/" target="_blank"
-													class="upgrade-plan-link">
-													<div class="upgrade-plan">
-														<div class="plan-badge standard-badge">STANDARD</div>
-														<div class="plan-name">6 Mbps Plan</div>
-														<div class="plan-speeds">
-															<span class="plan-speed-item">⬇ 6 Mbps</span>
-															<span class="plan-speed-divider">•</span>
-															<span class="plan-speed-item">⬆ 3 Mbps</span>
-														</div>
-													</div>
-												</a>
-
-												<!-- Premium Plan -->
-												<a href="https://lmvouchersystem.vercel.app/" target="_blank"
-													class="upgrade-plan-link">
-													<div class="upgrade-plan">
-														<div class="plan-badge premium-badge">PREMIUM</div>
-														<div class="plan-name">12 Mbps Plan</div>
-														<div class="plan-speeds">
-															<span class="plan-speed-item">⬇ 12 Mbps</span>
-															<span class="plan-speed-divider">•</span>
-															<span class="plan-speed-item">⬆ 6 Mbps</span>
-														</div>
-													</div>
-												</a>
-
-											</div>
-
-											<!-- How to Upgrade Steps -->
-											<div class="upgrade-guide">
-												<h3 class="guide-title">How to Upgrade</h3>
-												<div class="guide-steps">
-													<div class="guide-step">
-														<span class="step-number">1</span>
-														<div class="step-content">
-															<strong>Get Voucher Code</strong>
-															<p>Visit <a href="https://lmvouchersystem.vercel.app"
-																	target="_blank">lmvouchersystem.vercel.app</a></p>
-														</div>
-													</div>
-													<div class="guide-step">
-														<span class="step-number">2</span>
-														<div class="step-content">
-															<strong>Copy the Code</strong>
-															<p>Copy your voucher code</p>
-														</div>
-													</div>
-													<div class="guide-step">
-														<span class="step-number">3</span>
-														<div class="step-content">
-															<strong>Connect to WiFi</strong>
-															<p>SSID: <code>LYNMARK VOUCHER</code></p>
-														</div>
-													</div>
-													<div class="guide-step">
-														<span class="step-number">4</span>
-														<div class="step-content">
-															<strong>Paste & Login</strong>
-															<p>Paste code and click LOG IN</p>
-														</div>
-													</div>
-													<div class="guide-step">
-														<span class="step-number">5</span>
-														<div class="step-content">
-															<strong>Enjoy!</strong>
-															<p>Speed upgraded successfully</p>
-														</div>
-													</div>
+											<div class="metric-card">
+												<div class="metric-row">
+													<div class="metric-label upload-label">Upload Speed</div>
+													<div class="metric-value upload-value">800<span
+															class="unit">Kbps</span></div>
 												</div>
 											</div>
-
 										</div>
 
-
-
-										<!-- Page Title -->
-										<h2 id="text05" class="text-component instance-5 style-1">Internet Information
-										</h2>
-										<!-- Internet Rules and Guidelines Text -->
-										<p id="text03" class="text-component instance-3 style-3" data-onvisible-trigger>
-											<span class="p"><strong>Internet Plan — Rules &amp;
-													Guidelines</strong></span><span class="p"><u>Device
-													Limits</u><br /><em>Free WiFi:</em> Each plan allows <strong>2
-													devices</strong> at a time. Additional devices cannot connect until
-												one disconnects.<br /><em>Voucher WiFi:</em> Each voucher code is valid
-												for <strong>1 device only</strong>. The same code cannot be used on a
-												different device.</span><span class="p"><u>System
-													Maintenance</u><br />The system will
-												automatically reboot at <code>3:00 AM</code> on the <code>1st</code> day
-												of
-												every month to refresh memory and maintain stability.</span><span
-												class="p"><u>Speed Notice</u><br />Internet speeds may vary and are not
-												always
-												guaranteed. If you experience issues, first verify your current plan
-												limits,
-												then contact the boarding house administrator.<br />You may reach us via
-												WhatsApp and use the link on the homepage.</span><span class="p"><u>Fair
-													Use</u><br />Wi-Fi access is provided <strong>free of
-													charge</strong> to
-												tenants. Guests may connect, but please be mindful of your plan's
-												<strong>device
-													limits</strong>.</span>
-										</p><input class="tier-radio" type="radio" name="tier" id="tier2"
-											value="Tier 2 — HD Stream">
-										<label class="card tier-2" for="tier2" data-price="₱200">
-											<header>
-												<span class="badge">Basic</span>
-
-												<p class="subtitle">HD Streaming, Video Calls, App Downloads • <strong>3
-														devices</strong></p>
-											</header>
-											<div class="speeds">
-												<div><span>Download</span><strong>5 Mbps</strong></div>
-												<div><span>Upload</span><strong>3 Mbps</strong></div>
+										<!-- Available Upgrades Glass Card -->
+										<div class="upgrades-glass-card">
+											<div class="upgrades-header">
+												AVAILABLE UPGRADES
 											</div>
-										</label>
-
-										<!-- Tier 3 -->
-										<input class="tier-radio" type="radio" name="tier" id="tier3"
-											value="Tier 3 — 1440p / Gaming / Business">
-										<label class="card tier-3" for="tier3" data-price="N/A">
-											<header>
-												<span class="badge">Pro</span>
-
-												<p class="subtitle">Gaming, Business Use, HD Calls • <strong>4
-														devices</strong></p>
-											</header>
-											<div class="speeds">
-												<div><span>Download</span><strong>14 Mbps</strong></div>
-												<div><span>Upload</span><strong>7.5 Mbps</strong></div>
-											</div>
-										</label>
-
-										<!-- Tier 4 -->
-										<input class="tier-radio" type="radio" name="tier" id="tier4"
-											value="Tier 4 — 4K Streaming">
-										<label class="card tier-4" for="tier4" data-price="N/A">
-											<header>
-												<span class="badge">Premium</span>
-
-												<p class="subtitle">Gaming Downloads, 4K Streaming, Premium Use •
-													<strong>4 devices</strong>
-												</p>
-											</header>
-											<div class="speeds">
-												<div><span>Download</span><strong>40 Mbps</strong></div>
-												<div><span>Upload</span><strong>15 Mbps</strong></div>
-											</div>
-										</label>
-
-									</section>
-
-									<style>
-										/* ================================================== */
-										/* INTERNET TIERS STYLING - MAIN CONFIGURATION      */
-										/* All glowing effects and tier designs are here    */
-										/* ================================================== */
-
-										/* Hide old tier elements */
-										.tier-radio,
-										label[for="tier1"],
-										label[for="tier2"],
-										label[for="tier3"],
-										label[for="tier4"] {
-											display: none !important;
-										}
-
-										/* New Section Titles - Compact */
-										.section-title {
-											color: #eef3ff;
-											font-size: 13px;
-											font-weight: 600;
-											text-align: center;
-											margin: 0.75rem 0 0.5rem;
-											text-transform: uppercase;
-											letter-spacing: 0.5px;
-										}
-
-										.upgrades-title {
-											margin-top: 1rem;
-											color: #22c55e;
-										}
-
-										/* Current Speed Section - Compact */
-										.current-speed-section {
-											width: 100%;
-											max-width: 280px;
-											margin: 0 auto;
-										}
-
-										.current-speed-card {
-											background: linear-gradient(135deg, rgba(125, 211, 252, 0.1), rgba(28, 34, 56, 0.9));
-											border: 1px solid #7dd3fc;
-											padding: 0.6rem 0.8rem;
-											border-radius: 10px;
-											text-align: center;
-										}
-
-										.current-speed-card .speeds {
-											display: flex;
-											justify-content: center;
-											gap: 1.5rem;
-										}
-
-										.current-speed-card .speeds div {
-											text-align: center;
-										}
-
-										.current-speed-card .speeds span {
-											display: block;
-											color: #c3c9dc;
-											font-size: 10px;
-											margin-bottom: 2px;
-										}
-
-										.current-speed-card .speeds strong {
-											color: #7dd3fc;
-											font-size: 16px;
-											font-weight: 700;
-										}
-
-										/* Upgrade Cards - Compact Inline Layout */
-										.upgrade-card {
-											max-width: 280px;
-											margin: 0.4rem auto;
-											padding: 0.5rem 0.8rem !important;
-											border-radius: 10px !important;
-										}
-
-										.upgrade-card header {
-											margin-bottom: 0.4rem !important;
-											display: flex;
-											align-items: center;
-											gap: 0.5rem;
-										}
-
-										.upgrade-card h2 {
-											margin: 0 !important;
-											font-size: 12px !important;
-										}
-
-										.upgrade-card .badge {
-											font-size: 9px !important;
-											padding: 2px 6px !important;
-											margin-bottom: 0 !important;
-										}
-
-										.upgrade-card .speeds {
-											gap: 1rem !important;
-										}
-
-										.upgrade-card .speeds div span {
-											font-size: 9px !important;
-										}
-
-										.upgrade-card .speeds div strong {
-											font-size: 14px !important;
-										}
-
-										/* Upgrade Instructions - Compact */
-										.upgrade-instructions {
-											width: 100%;
-											max-width: 300px;
-											margin: 0.75rem auto 0;
-											background: rgba(28, 34, 56, 0.85);
-											border: 1px solid rgba(255, 255, 255, 0.08);
-											border-radius: 10px;
-											padding: 0.6rem 0.8rem;
-										}
-
-										.upgrade-instructions .section-title {
-											margin-top: 0;
-											margin-bottom: 0.5rem;
-											color: #f59e0b;
-											font-size: 11px;
-										}
-
-										.upgrade-steps {
-											list-style: none;
-											padding: 0;
-											margin: 0;
-											counter-reset: step-counter;
-										}
-
-										.upgrade-steps li {
-											position: relative;
-											padding: 0.35rem 0 0.35rem 1.8rem;
-											color: #c3c9dc;
-											font-size: 11px;
-											line-height: 1.4;
-											border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-											counter-increment: step-counter;
-										}
-
-										.upgrade-steps li:last-child {
-											border-bottom: none;
-											padding-bottom: 0;
-										}
-
-										.upgrade-steps li::before {
-											content: counter(step-counter);
-											position: absolute;
-											left: 0;
-											top: 0.35rem;
-											width: 18px;
-											height: 18px;
-											background: linear-gradient(135deg, #22c55e, #16a34a);
-											color: white;
-											border-radius: 50%;
-											font-size: 10px;
-											font-weight: 700;
-											display: flex;
-											align-items: center;
-											justify-content: center;
-										}
-
-										.upgrade-steps li strong {
-											color: #eef3ff;
-											font-weight: 600;
-										}
-
-										.voucher-link {
-											color: #22c55e;
-											text-decoration: none;
-											font-weight: 600;
-											font-size: 10px;
-										}
-
-										.voucher-link:hover {
-											text-decoration: underline;
-										}
-
-										.upgrade-steps code {
-											background: rgba(125, 211, 252, 0.15);
-											color: #7dd3fc;
-											padding: 1px 5px;
-											border-radius: 3px;
-											font-family: 'Inconsolata', monospace;
-											font-weight: 600;
-											font-size: 10px;
-										}
-
-										/* ================================================== */
-										/* NEW CLEAN SPEED SECTION STYLES                     */
-										/* ================================================== */
-
-										.speed-section-wrapper {
-											width: 100%;
-											max-width: 480px;
-											margin: 0 auto;
-											padding: 0 16px;
-										}
-
-										/* Current Speed Box */
-										.current-speed-box {
-											background: #1a1f2e;
-											border: 1.5px solid #3b82f6;
-											border-radius: 12px;
-											padding: 10px 14px;
-											margin-bottom: 10px;
-										}
-
-										.speed-box-title {
-											color: #eef3ff;
-											font-size: 11px;
-											font-weight: 600;
-											text-transform: uppercase;
-											letter-spacing: 0.8px;
-											text-align: center;
-											margin: 0 0 6px 0;
-										}
-
-										.speed-values {
-											display: flex;
-											align-items: center;
-											justify-content: center;
-											gap: 12px;
-										}
-
-										.speed-item {
-											text-align: center;
-											flex: 1;
-										}
-
-										.speed-label {
-											color: #a8b3cf;
-											font-size: 9px;
-											text-transform: uppercase;
-											letter-spacing: 0.5px;
-											margin-bottom: 4px;
-										}
-
-										.speed-value {
-											color: #7dd3fc;
-											font-size: 18px;
-											font-weight: 700;
-										}
-
-										.speed-divider {
-											width: 1px;
-											height: 30px;
-											background: rgba(255, 255, 255, 0.15);
-										}
-
-										/* Upgrades Section */
-										.upgrades-section-title {
-color: #22d3ee;
-											font-size: 11px;
-											font-weight: 600;
-											text-transform: uppercase;
-											letter-spacing: 0.8px;
-											text-align: center;
-											margin: 0 0 8px 0;
-										}
-
-										.upgrade-plan-link {
-											text-decoration: none;
-											color: inherit;
-											display: block;
-										}
-
-										.upgrade-options {
-											display: flex;
-											flex-direction: column;
-											gap: 6px;
-											margin-bottom: 10px;
-										}
-
-										/* Upgrade Plan Cards */
-										.upgrade-plan {
-											background: rgba(28, 34, 56, 0.85);
-											border: 1px solid rgba(255, 255, 255, 0.1);
-											border-radius: 10px;
-											padding: 8px 12px;
-											transition: all 0.2s ease;
-										}
-
-										.upgrade-plan:hover {
-											border-color: rgba(255, 255, 255, 0.2);
-											transform: translateY(-1px);
-											box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-										}
-
-										.plan-badge {
-											display: inline-block;
-											font-size: 8px;
-											font-weight: 700;
-											padding: 3px 8px;
-											border-radius: 4px;
-											text-transform: uppercase;
-											letter-spacing: 0.5px;
-											margin-bottom: 6px;
-										}
-
-										.standard-badge {
-											background: linear-gradient(135deg, #22c55e, #16a34a);
-											color: white;
-										}
-
-										.premium-badge {
-											background: linear-gradient(135deg, #a78bfa, #7c3aed);
-											color: white;
-										}
-
-										.plan-name {
-											color: #eef3ff;
-											font-size: 13px;
-											font-weight: 600;
-											margin-bottom: 6px;
-										}
-
-										.plan-speeds {
-											display: flex;
-											align-items: center;
-											gap: 8px;
-											color: #c3c9dc;
-											font-size: 11px;
-										}
-
-										.plan-speed-item {
-											color: #c3c9dc;
-										}
-
-										.plan-speed-divider {
-											color: rgba(255, 255, 255, 0.3);
-										}
-
-										/* Upgrade Guide */
-										.upgrade-guide {
-											background: rgba(28, 34, 56, 0.8);
-											border: 1px solid rgba(255, 255, 255, 0.08);
-											border-radius: 12px;
-											padding: 12px 14px;
-										}
-
-										.guide-title {
-											color: #f59e0b;
-											font-size: 11px;
-											font-weight: 600;
-											text-transform: uppercase;
-											letter-spacing: 0.8px;
-											text-align: center;
-											margin: 0 0 12px 0;
-										}
-
-										.guide-steps {
-											display: flex;
-											flex-direction: column;
-											gap: 8px;
-										}
-
-										.guide-step {
-											display: flex;
-											align-items: flex-start;
-											gap: 10px;
-										}
-
-										.step-number {
-											flex-shrink: 0;
-											width: 20px;
-											height: 20px;
-											background: linear-gradient(135deg, #22c55e, #16a34a);
-											color: white;
-											border-radius: 50%;
-											font-size: 10px;
-											font-weight: 700;
-											display: flex;
-											align-items: center;
-											justify-content: center;
-										}
-
-										.step-content {
-											flex: 1;
-											line-height: 1.4;
-										}
-
-										.step-content strong {
-											display: block;
-											color: #eef3ff;
-											font-size: 11px;
-											font-weight: 600;
-											margin-bottom: 2px;
-										}
-
-										.step-content p {
-											color: #a8b3cf;
-											font-size: 10px;
-											margin: 0;
-											line-height: 1.4;
-										}
-
-										.step-content a {
-											color: #22c55e;
-											text-decoration: none;
-											font-weight: 600;
-										}
-
-										.step-content a:hover {
-											text-decoration: underline;
-										}
-
-										.step-content code {
-											background: rgba(125, 211, 252, 0.15);
-											color: #7dd3fc;
-											padding: 2px 6px;
-											border-radius: 3px;
-											font-family: 'Inconsolata', monospace;
-											font-size: 9px;
-											font-weight: 600;
-										}
-
-
-										/* ============================================= */
-										/* CSS VARIABLES - COLORS AND SETTINGS         */
-										/* Modify these to change overall appearance    */
-										/* ============================================= */
-										:root {
-											/* Card base colors */
-											--card-bg: rgba(28, 34, 56, .95);
-											/* Dark blue card background */
-											--card-border: rgba(255, 255, 255, 0.10);
-											/* Subtle white card border */
-											--ink: #eef3ff;
-											/* Main text color (light blue) */
-											--muted: #c3c9dc;
-											/* Subtitle text color (muted blue) */
-											--tile-bg: rgba(255, 255, 255, 0.06);
-											/* Speed tile background */
-											--tile-border: rgba(255, 255, 255, 0.14);
-											/* Speed tile border */
-											--radius: 16px;
-											/* Card corner radius */
-
-											/* ============================================= */
-											/* TIER ACCENT COLORS - GLOW EFFECT COLORS     */
-											/* Change these to modify glow colors          */
-											/* ============================================= */
-											--t1: #7dd3fc;
-											/* Tier 1 Free - Cyan blue */
-											--t2: #22c55e;
-											/* Tier 2 Basic - Green */
-											--t3: #a78bfa;
-											/* Tier 3 Pro - Purple */
-											--t4: #f59e0b;
-											/* Tier 4 Premium - Amber/Gold */
-										}
-
-										/* ============================================= */
-										/* GRID LAYOUT SETUP                           */
-										/* Controls how cards are arranged             */
-										/* ============================================= */
-										.tiers {
-											display: grid;
-											gap: 22px;
-											/* 22px space between cards */
-											grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-											/* Responsive grid */
-											overflow: visible;
-											/* Don't clip glow effects */
-											justify-content: center;
-											/* Center the grid */
-											justify-items: center;
-											/* Center items within grid cells */
-											align-items: start;
-											/* Align items to start */
-											margin: -1.25rem auto 0 auto !important;
-											/* Increased negative margin to bring closer */
-											max-width: 100%;
-											/* Ensure it doesn't exceed container */
-											padding: 0 20px 0 20px !important;
-											/* Remove top/bottom padding */
-										}
-
-										/* Tablet/iPad Responsive Layout - 768px to 1024px */
-										@media screen and (min-width: 768px) and (max-width: 1024px) {
-											.tiers {
-												gap: 18px;
-												/* Comfortable space for iPad */
-												grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-												/* Optimal card width for iPad */
-												padding: 0 25px !important;
-												/* Balanced padding */
-												max-width: 950px;
-												/* Constrained width for iPad */
-												margin: -1rem auto 0 auto !important;
-											}
-										}
-
-										/* Desktop Responsive Layout - 1025px to 1199px */
-										@media screen and (min-width: 1025px) and (max-width: 1199px) {
-											.tiers {
-												gap: 25px;
-												/* Optimized space between cards */
-												grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-												/* Good card width for medium desktop */
-												padding: 0 30px;
-												/* Balanced horizontal padding */
-												max-width: 1300px;
-												/* Moderate maximum container width */
-											}
-										}
-
-										/* Large Desktop - 1200px and above */
-										@media screen and (min-width: 1200px) {
-											.tiers {
-												gap: 30px;
-												/* Perfect spacing for large screens */
-												grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-												/* Maximum card size for alignment */
-												padding: 0 40px;
-												/* Optimal horizontal padding */
-												max-width: 1600px;
-												/* Maximum container width */
-											}
-										}
-
-										/* ============================================= */
-										/* TIER CARDS REVEAL ANIMATION                 */
-										/* Now handled by onvisible animation system   */
-										/* ============================================= */
-										.tiers .card {
-											/* Initial state - will be animated by onvisible system */
-											opacity: 1;
-											transform: translateY(0) scale(1);
-										}
-
-										/* ============================================= */
-										/* RADIO BUTTON SETUP                          */
-										/* Hidden inputs that control card selection   */
-										/* ============================================= */
-										.tier-radio {
-											position: absolute;
-											opacity: 0;
-											pointer-events: none;
-											/* Hide radio buttons, use labels as clickable cards */
-										}
-
-										/* ============================================= */
-										/* MAIN CARD STYLING                           */
-										/* Base appearance for all tier cards         */
-										/* ============================================= */
-										.card {
-											display: block;
-											position: relative;
-											background: var(--card-bg);
-											/* Dark blue background */
-											border: 1px solid var(--card-border);
-											/* Subtle border */
-											border-radius: var(--radius);
-											/* Rounded corners */
-											padding: 18px 18px 14px;
-											/* Internal spacing */
-											color: var(--ink);
-											/* Text color */
-											box-shadow: 0 14px 30px rgba(0, 0, 0, .28);
-											/* Base shadow (not glow) */
-											cursor: pointer;
-											/* Show it's clickable */
-											user-select: none;
-											/* Prevent text selection */
-											-webkit-user-select: none;
-											/* Safari */
-											-moz-user-select: none;
-											/* Firefox */
-											-ms-user-select: none;
-											/* IE10+/Edge */
-											-webkit-tap-highlight-color: transparent;
-											/* Remove tap highlight on mobile */
-											/* Premium smooth animations with iOS/Android-style easing */
-											transition:
-												transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-												/* Faster, responsive Material Design easing */
-												filter 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-												/* Smooth filter transitions */
-												box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-												/* Smooth shadow transitions */
-												border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-											/* Smooth border color transitions */
-											will-change: filter, transform;
-											/* Optimize animations */
-											z-index: 0;
-											/* Layer order */
-											width: 100%;
-											/* Full width within grid cell */
-											max-width: 300px;
-											/* Maximum card width for mobile */
-											margin: 0 auto;
-											/* Center each card */
-										}
-
-										/* Tablet/iPad Card Sizing - 768px to 1024px */
-										@media screen and (min-width: 768px) and (max-width: 1024px) {
-											.card {
-												max-width: 450px;
-												/* Optimal for iPad screens */
-												min-width: 320px;
-												/* Flexible minimum width */
-												padding: 22px 26px 18px;
-												/* Comfortable padding for iPad */
-												border-radius: 14px;
-												/* Smooth corners */
-												width: 100%;
-												/* Full width within grid cell */
-											}
-
-											.card h2 {
-												font-size: 20px;
-												/* Readable tier titles */
-												margin: 6px 0 4px;
-												/* Balanced spacing */
-												line-height: 1.2;
-												/* Optimized line height */
-											}
-
-											.subtitle {
-												font-size: 15px;
-												/* Clear description text */
-												line-height: 1.4;
-												/* Better text flow */
-												margin-bottom: 14px;
-												/* Consistent bottom spacing */
-											}
-
-											.badge {
-												font-size: 12px;
-												/* Clear badge text */
-												padding: 5px 12px;
-												/* Comfortable badge padding */
-												margin-bottom: 10px;
-												/* Balanced spacing */
-											}
-
-											.speeds strong {
-												font-size: 20px;
-												/* Clear speed numbers */
-												line-height: 1.1;
-												/* Tight line height for numbers */
-											}
-
-											.speeds span {
-												font-size: 14px;
-												/* Clear speed labels */
-												line-height: 1.3;
-												/* Consistent label spacing */
-											}
-
-											.card header {
-												margin-bottom: 14px;
-												/* Comfortable header spacing */
-											}
-										}
-
-										/* Desktop Card Sizing - 1025px to 1199px */
-										@media screen and (min-width: 1025px) and (max-width: 1199px) {
-											.card {
-												max-width: 520px;
-												/* Good size for medium desktop */
-												min-width: 380px;
-												/* Minimum width to ensure consistency */
-												padding: 26px 30px 22px;
-												/* Good padding for text spacing */
-												border-radius: 15px;
-												/* Smooth rounded corners */
-												width: 100%;
-												/* Full width within grid cell */
-											}
-
-											.card h2 {
-												font-size: 22px;
-												/* Good tier titles */
-												margin: 7px 0 5px;
-												/* Consistent spacing */
-												line-height: 1.2;
-												/* Optimized line height */
-											}
-
-											.subtitle {
-												font-size: 16px;
-												/* Good description text */
-												line-height: 1.4;
-												/* Better text flow */
-												margin-bottom: 15px;
-												/* Consistent bottom spacing */
-											}
-
-											.badge {
-												font-size: 13px;
-												/* Good badge text */
-												padding: 6px 13px;
-												/* Good badge padding */
-												margin-bottom: 11px;
-												/* Consistent spacing */
-											}
-
-											.speeds strong {
-												font-size: 21px;
-												/* Good speed numbers */
-												line-height: 1.1;
-												/* Tight line height for numbers */
-											}
-
-											.speeds span {
-												font-size: 14.5px;
-												/* Good speed labels */
-												line-height: 1.3;
-												/* Consistent label spacing */
-											}
-
-											.card header {
-												margin-bottom: 15px;
-												/* Good header spacing */
-											}
-										}
-
-										/* Large Desktop Card Sizing - 1200px and above */
-										@media screen and (min-width: 1200px) {
-											.card {
-												max-width: 600px;
-												/* Maximum card size for perfect alignment */
-												min-width: 480px;
-												/* Consistent minimum width */
-												padding: 32px 36px 28px;
-												/* Maximum internal padding for text alignment */
-												border-radius: 18px;
-												/* Most rounded corners */
-												width: 100%;
-												/* Full width utilization */
-											}
-
-											.card h2 {
-												font-size: 26px;
-												/* Maximum tier title size */
-												margin: 10px 0 8px;
-												/* Maximum spacing */
-												line-height: 1.15;
-												/* Perfect title line height */
-											}
-
-											.subtitle {
-												font-size: 19px;
-												/* Maximum description size */
-												line-height: 1.4;
-												/* Optimal readability */
-												margin-bottom: 18px;
-												/* Maximum bottom spacing */
-											}
-
-											.badge {
-												font-size: 14px;
-												/* Maximum badge text */
-												padding: 7px 16px;
-												/* Maximum badge padding */
-												margin-bottom: 14px;
-												/* Perfect badge spacing */
-											}
-
-											.speeds strong {
-												font-size: 24px;
-												/* Maximum speed numbers */
-												line-height: 1.0;
-												/* Tight number spacing */
-											}
-
-											.speeds span {
-												font-size: 16px;
-												/* Maximum speed labels */
-												line-height: 1.25;
-												/* Perfect label alignment */
-											}
-
-											.card header {
-												margin-bottom: 20px;
-												/* Maximum header spacing */
-											}
-										}
-
-										/* ================================================== */
-										/* 🎨 PREMIUM HOVER & CLICK EFFECTS - iOS/Android Style */
-										/* Smooth, responsive animations for modern UX          */
-										/* ================================================== */
-
-										/* Enhanced hover effect - subtle lift */
-										.card:hover {
-											transform: translateY(-4px) scale(1.01);
-											/* Gentle lift and slight scale */
-											z-index: 3;
-											/* Bring to front */
-											box-shadow:
-												0 12px 24px rgba(0, 0, 0, .25),
-												/* Moderate shadow for floating effect */
-												0 0 0 1px rgba(255, 255, 255, .08);
-											/* Subtle border highlight */
-										}
-
-										/* Enhanced hover glow for top bar */
-										.card:hover::before {
-											opacity: .8;
-											/* Subtle brightness increase on hover */
-											box-shadow:
-												0 0 6px var(--accent),
-												/* Subtle inner glow */
-												0 0 14px var(--accent),
-												/* Moderate middle glow */
-												0 0 24px var(--accent);
-											/* Controlled outer glow */
-										}
-
-										/* Active/Click effect - iOS/Android style press */
-										.card:active {
-											transform: translateY(-2px) scale(0.98);
-											/* Slight press down effect */
-											transition: transform 0.1s ease-out;
-											/* Quick response */
-										}
-
-										/* Speed tiles hover enhancement */
-										.card:hover .speeds div {
-											transform: translateY(-2px);
-											/* Lift speed tiles slightly */
-										}
-
-										/* Badge hover enhancement */
-										.card:hover .badge {
-											transform: scale(1.05);
-											/* Slightly enlarge badge */
-										}
-
-										/* Smooth transitions for all interactive elements */
-										.card .badge {
-											transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-											/* Material Design easing */
-										}
-
-										.speeds div {
-											transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-											/* Material Design easing */
-										}
-
-										/* ============================================= */
-										/* MOBILE TOUCH ENHANCEMENTS                   */
-										/* Optimized for iOS/Android touch experience  */
-										/* ============================================= */
-
-										/* Touch-friendly tap highlighting */
-										.card {
-											-webkit-tap-highlight-color: transparent;
-											/* Remove default mobile tap highlight */
-											-webkit-touch-callout: none;
-											/* Disable iOS callout */
-											-webkit-user-select: none;
-											/* Prevent text selection */
-											user-select: none;
-											/* Prevent text selection */
-										}
-
-										/* Enhanced mobile press effect */
-										@media (max-width: 768px) {
-											.card:active {
-												transform: translateY(-1px) scale(0.96);
-												/* More pronounced mobile press */
-												transition: transform 0.08s ease-out;
-												/* Faster mobile response */
-											}
-
-											/* Override mobile active state for tier cards - no upward movement */
-											.tier-radio+.card:active {
-												transform: scale(0.96) !important;
-												/* Only scale, no vertical movement on mobile */
-											}
-
-											.card:hover {
-												transform: translateY(-6px) scale(1.015);
-												/* Slightly less lift on mobile */
-											}
-										}
-
-										/* Smooth focus states for accessibility */
-										.card:focus-visible {
-											outline: 2px solid var(--accent);
-											/* Accessible focus ring */
-											outline-offset: 4px;
-										}
-
-										/* Selection state enhancement - no upward movement */
-										.tier-radio:checked+.card {
-											position: relative;
-											/* Maintain selection state without movement */
-										}
-
-										/* Prevent upward movement on click/active state for tier cards */
-										.tier-radio+.card:active {
-											transform: scale(0.98) !important;
-											/* Only scale down, no vertical movement */
-											transition: transform 0.1s ease-out;
-										}
-
-										/* Smooth selection transition - subtle hover only */
-										.tier-radio:checked+.card:hover {
-											transform: translateY(-2px) scale(1.005);
-											/* Very subtle lift when selected and hovered */
-										}
-
-										/* Override active state when hovering selected card */
-										.tier-radio:checked+.card:hover:active {
-											transform: scale(0.98) !important;
-											/* No upward movement even when active while selected and hovered */
-										}
-
-										/* Comprehensive override - ensure tier cards NEVER move upward */
-										.tiers .card:active,
-										.tier-1:active,
-										.tier-2:active,
-										.tier-3:active,
-										.tier-4:active {
-											transform: scale(0.98) !important;
-											/* Force no vertical movement for all tier cards */
-											transition: transform 0.1s ease-out !important;
-										}
-
-										/* ============================================= */
-										/* TIER CARD SELECTION STATE                   */
-										/* Visual feedback when a tier is selected     */
-										/* ============================================= */
-										.card.tier-selected {
-											border-color: var(--accent) !important;
-											box-shadow:
-												0 0 0 1px var(--accent),
-												0 8px 30px rgba(0, 0, 0, 0.3),
-												0 0 15px rgba(var(--accent), 0.4);
-											z-index: 5;
-										}
-
-										/* Enhanced hover for selected cards */
-										.card.tier-selected:hover {
-											transform: translateY(-2px) scale(1.005);
-											box-shadow:
-												0 0 0 1px var(--accent),
-												0 12px 35px rgba(0, 0, 0, 0.35),
-												0 0 20px rgba(var(--accent), 0.5);
-										}
-
-										/* ============================================= */
-										/* TIER ACCENT COLOR ASSIGNMENT                */
-										/* Each tier gets its own accent color         */
-										/* ============================================= */
-										.tier-1 {
-											--accent: var(--t1);
-										}
-
-										/* Cyan for Free tier */
-										.tier-2 {
-											--accent: var(--t2);
-										}
-
-										/* Green for Basic tier */
-										.tier-3 {
-											--accent: var(--t3);
-										}
-
-										/* Purple for Pro tier */
-										.tier-4 {
-											--accent: var(--t4);
-										}
-
-										/* Gold for Premium tier */
-
-										/* ================================================== */
-										/* 🔥 NEON TOP BAR GLOW EFFECT - MODIFY HERE! 🔥    */
-										/* This creates the glowing bar at top of each card  */
-										/* ================================================== */
-										.card::before {
-											content: "";
-											position: absolute;
-											inset: -1px -1px auto -1px;
-											/* Position: top edge */
-											height: 7px;
-											/* Bar height */
-											border-top-left-radius: var(--radius);
-											/* Match card corners */
-											border-top-right-radius: var(--radius);
-											background: var(--accent);
-											/* Use tier color */
-
-											/* ============================================= */
-											/* 🌟 GLOW INTENSITY SETTINGS 🌟               */
-											/* Increase numbers = stronger glow             */
-											/* Decrease numbers = softer glow               */
-											/* ============================================= */
-											box-shadow:
-												0 0 4px var(--accent),
-												/* Inner glow (closest) - reduced */
-												0 0 10px var(--accent),
-												/* Middle glow - reduced */
-												0 0 18px var(--accent);
-											/* Outer glow (widest) - reduced */
-											opacity: .65;
-											/* Overall brightness - reduced */
-										}
-
-										/* ================================================== */
-										/* ⚡ CARD SELECTION GLOW - MODIFY HERE! ⚡          */
-										/* Glows around entire card when selected           */
-										/* ================================================== */
-										.tier-radio:checked+.card {
-											z-index: 2;
-											/* Bring selected card to front */
-
-											/* ============================================= */
-											/* 🌟 SELECTION GLOW SETTINGS 🌟               */
-											/* Only bottom shadow for depth, no border glow */
-											/* ============================================= */
-											filter:
-												drop-shadow(0 6px 22px rgba(0, 0, 0, .35));
-											/* Bottom shadow for depth only */
-										}
-
-										/* ============================================= */
-										/* CARD CONTENT STYLING                        */
-										/* Text layout within each card                */
-										/* ============================================= */
-										.card header {
-											margin-bottom: 12px;
-										}
-
-										/* Space below header */
-										.card h2 {
-											margin: 4px 0 2px;
-											font-size: 18px;
-											line-height: 1.25;
-										}
-
-										/* Tier title */
-										.subtitle {
-											margin: 0;
-											color: var(--muted);
-											font-size: 14px;
-										}
-
-										/* Description text */
-
-										/* base badge */
-										.badge {
-											display: inline-block;
-											font-size: 11px;
-											text-transform: uppercase;
-											letter-spacing: .35px;
-											padding: 4px 10px;
-											border-radius: 999px;
-											font-weight: 800;
-											border: 1px solid rgba(255, 255, 255, .18);
-											background: #eef6ff;
-											color: #0f172a;
-											/* fallback */
-										}
-
-										/* tier badge colors */
-										.tier-1 .badge {
-											background: #7dd3fc;
-											color: #062332;
-											border-color: rgba(125, 211, 252, .6);
-										}
-
-										.tier-2 .badge {
-											background: #22c55e;
-											color: #fff;
-											border-color: rgba(34, 197, 94, .65);
-											font-weight: 900;
-											/* Make text bolder */
-											text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-											/* Add text shadow for better contrast */
-											letter-spacing: 0.5px;
-											/* Slightly wider letter spacing */
-										}
-
-										/* Pro (Tier 3) – Metallic Amethyst */
-										.tier-3 .badge {
-											background: linear-gradient(145deg,
-													#f5f3ff 0%,
-													/* very light lavender highlight */
-													#c4b5fd 30%,
-													/* soft violet */
-													#a78bfa 60%,
-													/* base amethyst */
-													#6d28d9 100%
-													/* deep royal purple */
-												);
-											color: #fff;
-											border: 1px solid #8b5cf6;
-											position: relative;
-											overflow: hidden;
-											font-weight: 900;
-											/* Make text bolder */
-											text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
-											/* Strong text shadow for metallic effect */
-											letter-spacing: 0.5px;
-											/* Slightly wider letter spacing */
-										}
-
-										.tier-3 .badge::after {
-											content: "";
-											position: absolute;
-											top: 0;
-											left: -50%;
-											width: 200%;
-											height: 100%;
-											background: linear-gradient(120deg,
-													transparent 0%,
-													rgba(255, 255, 255, .4) 50%,
-													transparent 100%);
-											transform: skewX(-20deg);
-											animation: shine 3s infinite;
-										}
-
-										/* Premium (Tier 4) – Metallic Gold */
-										.tier-4 .badge {
-											background: linear-gradient(145deg,
-													#fff9db 0%,
-													/* pale highlight */
-													#ffe173 30%,
-													/* soft gold */
-													#ffc107 60%,
-													/* classic gold */
-													#b45309 100%
-													/* deep golden brown */
-												);
-											color: #231a04;
-											border: 1px solid #e2b200;
-											position: relative;
-											overflow: hidden;
-										}
-
-										/* Glow only when selected */
-										.tier-1 .badge.is-selected {
-											box-shadow: 0 0 8px rgba(125, 211, 252, .8), 0 0 18px rgba(125, 211, 252, .6);
-										}
-
-										.tier-2 .badge.is-selected {
-											box-shadow: 0 0 8px rgba(34, 197, 94, .85), 0 0 18px rgba(34, 197, 94, .6);
-										}
-
-										.tier-3 .badge.is-selected {
-											box-shadow: 0 0 8px rgba(167, 139, 250, .9), 0 0 18px rgba(167, 139, 250, .65);
-										}
-
-										.tier-4 .badge.is-selected {
-											box-shadow: 0 0 10px rgba(255, 215, 0, .9), 0 0 20px rgba(255, 200, 0, .7);
-										}
-
-										/* Shine animation for Pro badge */
-										@keyframes shine {
-											0% {
-												left: -50%;
-											}
-
-											100% {
-												left: 100%;
-											}
-										}
-
-										/* Default: No glow */
-										.tier-1 .badge,
-										.tier-2 .badge,
-										.tier-3 .badge,
-										.tier-4 .badge {
-											box-shadow: none;
-										}
-
-										/* Glow only when selected */
-										.tier-1 .badge.is-selected {
-											box-shadow: 0 0 8px rgba(125, 211, 252, .8), 0 0 18px rgba(125, 211, 252, .6);
-										}
-
-										.tier-2 .badge.is-selected {
-											box-shadow: 0 0 8px rgba(34, 197, 94, .85), 0 0 18px rgba(34, 197, 94, .6);
-										}
-
-										.tier-3 .badge.is-selected {
-											box-shadow: 0 0 8px rgba(167, 139, 250, .9), 0 0 18px rgba(167, 139, 250, .65);
-										}
-
-										.tier-4 .badge.is-selected {
-											box-shadow: 0 0 10px rgba(255, 215, 0, .9), 0 0 20px rgba(255, 200, 0, .7);
-										}
-
-										/* speed tiles */
-										.speeds {
-											display: grid;
-											grid-template-columns: 1fr 1fr;
-											gap: 12px;
-											margin-top: 10px;
-										}
-
-										.speeds div {
-											background: var(--tile-bg);
-											border: 1px solid var(--tile-border);
-											border-radius: 12px;
-											padding: 12px 12px;
-											text-align: center;
-											backdrop-filter: blur(2px);
-										}
-
-										/* ================================================== */
-										/* 💎 TIER 4 PREMIUM SPEED TILES GLOW - MODIFY HERE! */
-										/* Special golden glow for Premium tier speed boxes  */
-										/* ================================================== */
-										.tier-4 .speeds div {
-											/* Override base styling with golden theme */
-											background: linear-gradient(180deg, rgba(255, 193, 7, .10), rgba(255, 193, 7, .03));
-											/* Golden gradient */
-											border-color: #e2b200;
-											/* Gold border */
-
-											/* ============================================= */
-											/* 🌟 GOLDEN GLOW SETTINGS 🌟                  */
-											/* Modify these for different glow intensity    */
-											/* ============================================= */
-											box-shadow:
-												0 0 0 1px rgba(255, 193, 7, .35) inset,
-												/* Inner golden ring */
-												0 0 5px rgba(255, 215, 0, .35),
-												/* Outer neon glow - reduced */
-												0 0 12px rgba(255, 200, 0, .2);
-											/* Soft wide glow - reduced */
-										}
-
-										/* ============================================= */
-										/* 💎 ENHANCED GLOW WHEN PREMIUM SELECTED      */
-										/* Stronger glow when Tier 4 card is selected  */
-										/* ============================================= */
-										.tier-radio:checked+.tier-4 .speeds div {
-											box-shadow:
-												0 0 0 1px rgba(255, 193, 7, .45) inset,
-												/* Brighter inner ring */
-												0 0 7px rgba(255, 215, 0, .5),
-												/* Moderate outer glow - reduced */
-												0 0 15px rgba(255, 200, 0, .3);
-											/* Controlled soft glow - reduced */
-										}
-
-										/* Tier 3 – Purple Glow Effect to Match Other Tiers */
-										.tier-3 .speeds div {
-											background: linear-gradient(180deg, rgba(17, 17, 23, .9), rgba(28, 28, 35, .85));
-											border-color: var(--t3);
-											/* Purple border */
-											box-shadow:
-												0 0 0 1px var(--t3) inset,
-												/* Inner purple ring */
-												0 0 4px rgba(167, 139, 250, .4),
-												/* Outer purple glow - reduced */
-												0 0 8px rgba(167, 139, 250, .2),
-												/* Soft wide purple glow - reduced */
-												inset 0 0 6px rgba(0, 0, 0, .35);
-											/* Inner depth for obsidian look */
-										}
-
-										.tier-3 .speeds span {
-											color: #c7bdfc;
-											/* muted lavender for labels */
-										}
-
-										.tier-3 .speeds strong {
-											color: #ede9fe;
-											/* pale violet for numbers */
-										}
-
-										/* ============================================= */
-										/* TIER 1 & 2 SPEED BOXES GLOW EFFECTS         */
-										/* Add glowing borders using tier accent colors */
-										/* ============================================= */
-										.tier-1 .speeds div {
-											border-color: var(--t1);
-											/* Cyan border */
-											box-shadow:
-												0 0 0 1px var(--t1) inset,
-												/* Inner cyan ring */
-												0 0 4px rgba(125, 211, 252, .4),
-												/* Outer cyan glow - reduced */
-												0 0 8px rgba(125, 211, 252, .2);
-											/* Soft wide cyan glow - reduced */
-										}
-
-										.tier-2 .speeds div {
-											border-color: var(--t2);
-											/* Green border */
-											box-shadow:
-												0 0 0 1px var(--t2) inset,
-												/* Inner green ring */
-												0 0 4px rgba(34, 197, 94, .4),
-												/* Outer green glow - reduced */
-												0 0 8px rgba(34, 197, 94, .2);
-											/* Soft wide green glow - reduced */
-										}
-
-										.speeds span {
-											display: block;
-											font-size: 12px;
-											color: #d6dbea;
-										}
-
-										.speeds strong {
-											font-size: 16px;
-											color: #fff;
-										}
-
-										@media (max-width:520px) {
-											.speeds {
-												grid-template-columns: 1fr;
-											}
-										}
-
-										/* price ribbon (kept simple/compatible) */
-										.card[data-price]::after {
-											content: attr(data-price);
-											position: absolute;
-											top: 16px;
-											right: 12px;
-											/* Moved down from 10px to 16px */
-											padding: 4px 8px;
-											border-radius: 8px;
-											background: rgba(0, 0, 0, .35);
-											border: 1px solid rgba(255, 255, 255, .18);
-											color: #fff;
-											font-weight: 700;
-											font-size: 12px;
-										}
-									</style><!-- mnbnbxmbzxmncbzxc -->
-								</div>
-
-
-							</div>
-						</div>
-					</div>
-				</section>
-
-				<!-- ================================================== -->
-				<!-- SPOTIFY MUSIC SECTION                            -->
-				<!-- Kitchen music sharing and Spotify app downloads  -->
-				<!-- ================================================== -->
-				<section id="two-section" data-title="Spotify">
-					<div id="container01" class="container-component instance-1 style-3 default">
-						<div class="wrapper">
-							<div class="inner">
-								<!-- Back Button (uses browser history) -->
-								<ul id="buttons03" class="buttons-component instance-3 style-3">
-									<li>
-										<a href="javascript:void(0);" onclick="goBack()" class="n01" role="button"><svg
-												aria-labelledby="buttons03-icon-1-title">
-												<title id="buttons03-icon-1-title">Chevron Left (Light)</title>
-												<use xlink:href="icons.svg#arrow-left-alt-light"></use>
-											</svg><span class="label">Back</span></a>
-									</li>
-								</ul>
-								<!-- ============================================= -->
-								<!-- SPOTIFY JAM WIDGET                          -->
-								<!-- Custom styled Spotify join button           -->
-								<!-- ============================================= -->
-								<div id="embed03" class="embed-component instance-3">
-									<!-- Spotify Join Widget Start -->
-									<div class="sp-code">
-										<div class="sp-head">
-											<div class="sp-logo">
-												<!-- Spotify glyph -->
-												<svg viewBox="0 0 64 64" width="28" height="28" aria-hidden="true">
-													<circle cx="32" cy="32" r="30" fill="#1DB954" />
-													<path d="M18 26c9-3 19-2 28 2" stroke="#0b0f17" stroke-width="4.2"
-														fill="none" stroke-linecap="round" opacity=".9" />
-													<path d="M20 33c7-2 15-2 22 1" stroke="#0b0f17" stroke-width="4.2"
-														fill="none" stroke-linecap="round" opacity=".85" />
-													<path d="M22 40c5-1 11-1 16 1" stroke="#0b0f17" stroke-width="4.2"
-														fill="none" stroke-linecap="round" opacity=".8" />
-												</svg>
-											</div>
-											<div class="sp-title">Join the Spotify Jam</div>
+											<div class="upgrades-divider"></div>
+
+											<a href="https://lmvouchersystem.vercel.app/" target="_blank"
+												class="upgrade-btn standard-btn">STANDARD</a>
+											<a href="https://lmvouchersystem.vercel.app/" target="_blank"
+												class="upgrade-btn premium-btn">PREMIUM</a>
 										</div>
 
-										<a href="https://spotify.link/xPON9GS2KWb" target="_blank" class="sp-btn">
-											🎵 Click Here to Join
-										</a>
-
-										<div class="sp-caption">Opens in Spotify</div>
-									</div>
-
-									<style>
-										/* Reset */
-										.sp-code,
-										.sp-code * {
-											box-sizing: border-box;
-											-webkit-tap-highlight-color: transparent;
-										}
-
-										.sp-code {
-											--green: #1DB954;
-											--glow: 0 0 18px rgba(29, 185, 84, .55), 0 0 42px rgba(29, 185, 84, .35);
-
-											font-family: system-ui, Segoe UI, Roboto, sans-serif;
-											color: #eaf4ef;
-
-											/* Responsive, no horizontal scroll on tiny screens */
-											width: 100%;
-											max-width: 460px;
-											margin: 24px auto;
-											padding: 16px;
-
-											border-radius: 18px;
-											background: linear-gradient(180deg, #0c111b 0%, #0a0f17 100%);
-											border: 1px solid rgba(255, 255, 255, .08);
-											box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
-											position: relative;
-
-											/* Keep the neon/top bar and shadows inside rounded edges */
-											overflow: clip;
-											/* falls back to hidden on older browsers */
-										}
-
-										.sp-code::before {
-											content: "";
-											position: absolute;
-											inset: 0 auto auto 0;
-											height: 8px;
-											width: 100%;
-											border-top-left-radius: 18px;
-											border-top-right-radius: 18px;
-											background: linear-gradient(90deg, #1DB954, #29f07a);
-											box-shadow: var(--glow);
-										}
-
-										/* Header */
-										.sp-head {
-											display: flex;
-											align-items: center;
-											justify-content: center;
-											gap: 12px;
-											margin-bottom: 14px;
-
-											/* Prevent overflow on narrow screens */
-											flex-wrap: wrap;
-										}
-
-										.sp-logo {
-											display: grid;
-											place-items: center;
-											width: 40px;
-											height: 40px;
-											border-radius: 12px;
-											box-shadow: var(--glow);
-											flex: 0 0 auto;
-										}
-
-										.sp-title {
-											font-size: 18px;
-											font-weight: 800;
-											line-height: 1.15;
-											/* Allow proper wrapping instead of pushing outside */
-											min-width: 0;
-											text-align: center;
-										}
-
-										/* Button */
-										.sp-btn {
-											display: block;
-											/* full width on mobile */
-											width: 100%;
-											margin-top: 10px;
-											padding: 12px 16px;
-
-											font-size: 16px;
-											font-weight: 700;
-											text-align: center;
-
-											border-radius: 12px;
-											background: var(--green);
-											color: #0b0f17;
-											text-decoration: none;
-											box-shadow: 0 0 14px rgba(29, 185, 84, .7), 0 0 32px rgba(29, 185, 84, .5);
-											transition: transform .18s ease, box-shadow .25s ease;
-										}
-
-										.sp-btn:hover {
-											transform: translateY(-2px);
-										}
-
-										.sp-btn:active {
-											transform: translateY(0);
-										}
-
-										.sp-caption {
-											margin-top: 10px;
-											font-size: 12px;
-											opacity: .7;
-										}
-
-										/* Small-screen polish */
-										@media (max-width:420px) {
-											.sp-code {
-												padding: 14px;
-												border-radius: 16px;
-											}
-
-											.sp-code::before {
-												border-top-left-radius: 16px;
-												border-top-right-radius: 16px;
-												height: 7px;
-											}
-
-											.sp-logo {
-												width: 36px;
-												height: 36px;
-												border-radius: 10px;
-											}
-
-											.sp-title {
-												font-size: 16px;
-											}
-
-											.sp-btn {
-												padding: 12px 14px;
-												font-size: 15px;
-												border-radius: 10px;
-											}
-										}
-									</style><!-- mnbnbxmbzxmncbzxc -->
-								</div>
-								<!-- Instructions for using Spotify Kitchen -->
-								<p id="text01" class="text-component instance-1 style-2"><span class="p">Enjoy Music in
-										the Kitchen 🎶<br />Open your Spotify app, look for "Spotify Jam – Kitchen" in
-										the device list, and connect with your own account (free or premium). Add songs,
-										skip tracks, and keep the vibe going together.</span></p>
-
-								<!-- ============================================= -->
-								<!-- SPOTIFY APP DOWNLOAD LINKS                  -->
-								<!-- Store badges and download buttons           -->
-								<!-- ============================================= -->
-								<div id="embed01" class="embed-component instance-1">
-									<!-- Spotify Download Widget Start -->
-									<div class="spotify-download">
-										<!-- Android -->
-										<a href="https://play.google.com/store/apps/details?id=com.spotify.music"
-											target="_blank">
-											<img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
-												alt="Get it on Google Play" class="store-badge">
-										</a>
-
-										<!-- iOS -->
-										<a href="https://apps.apple.com/app/spotify-music-and-podcasts/id324684580"
-											target="_blank">
-											<img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
-												alt="Download on the App Store" class="store-badge">
-										</a>
-
-										<!-- PC/Mac -->
-										<a href="https://www.spotify.com/download" target="_blank"
-											class="pc-btn">Download for Windows / Mac</a>
-									</div>
-
-									<style>
-										.spotify-download {
-											text-align: center;
-											margin-top: 20px;
-										}
-
-										.store-badge {
-											height: 50px;
-											margin: 8px;
-										}
-
-										.pc-btn {
-											display: inline-block;
-											margin: 8px;
-											padding: 10px 18px;
-											border-radius: 8px;
-											font-weight: 600;
-											background: #1DB954;
-											/* Spotify green */
-											color: #fff;
-											text-decoration: none;
-											font-family: sans-serif;
-											transition: transform .2s ease;
-										}
-
-										.pc-btn:hover {
-											transform: scale(1.05);
-											background: #1ed760;
-											/* brighter Spotify green */
-										}
-									</style><!-- mnbnbxmbzxmncbzxc -->
+										<!-- How to Request/Buy Voucher Code Card -->
+										<div class="voucher-guide-card">
+											<div class="voucher-guide-header">
+												HOW TO BUY A VOUCHER
+											</div>
+											<div class="voucher-guide-divider"></div>
+											<ul class="voucher-steps">
+												<li>Connect to <strong>LYNMARK BOARDING HOUSE WIFI</strong></li>
+												<li>Open your browser and go to:<br><a
+														href="https://lmvouchersystem.vercel.app/" target="_blank"
+														class="voucher-link">https://lmvouchersystem.vercel.app/</a>
+												</li>
+												<li>Create an account or log in</li>
+												<li>Verify your account using the <strong>Security Password</strong>
+													from Admin</li>
+												<li>Click <strong>REQUEST VOUCHER</strong></li>
+												<li>Select your preferred voucher plan</li>
+												<li>Pay the exact amount via <strong>GCash</strong></li>
+												<li>Upload your GCash payment receipt</li>
+												<li>Submit your request</li>
+												<li>Wait <strong>5–30 minutes</strong> for approval</li>
+												<li>Go to the <strong>CODES</strong> section</li>
+												<li>Copy your approved voucher code</li>
+												<li>Connect to <strong>LYNMARK VOUCHER WiFi</strong></li>
+												<li>Enter the voucher code to log in</li>
+												<li><strong>Done!</strong> Enjoy your upgraded internet connection.</li>
+											</ul>
+										</div>
 								</div>
 							</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+							<style>
+								/* ================================================== */
+								/* HIDE SPOTIFY SECTION ON INTERNET PAGE             */
+								/* ================================================== */
+								#two-section {
+									display: none !important;
+								}
+
+								/* ================================================== */
+								/* GLASSMORPHISM UPGRADES CARD                       */
+								/* ================================================== */
+								.upgrades-glass-card {
+									width: 100%;
+									max-width: 360px;
+									padding: 18px;
+									border-radius: 26px;
+									background: rgba(255, 255, 255, 0.35);
+									backdrop-filter: blur(20px);
+									box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.6);
+									border: 1px solid rgba(255, 255, 255, 0.4);
+									display: flex;
+									flex-direction: column;
+									gap: 12px;
+									margin: 0.25rem auto 0;
+								}
+
+								.upgrades-header {
+									padding: 14px;
+									border-radius: 18px;
+									border: none;
+									background: linear-gradient(145deg, #00d9ff, #009ecc);
+									color: white;
+									font-weight: bold;
+									letter-spacing: 1px;
+									box-shadow: inset 2px 2px 8px rgba(255, 255, 255, 0.6), inset -2px -2px 8px rgba(0, 0, 0, 0.2);
+									text-align: center;
+									font-size: 14px;
+								}
+
+								.upgrades-divider {
+									width: 100%;
+									height: 2px;
+									background: rgba(0, 0, 0, 0.7);
+									border-radius: 10px;
+									margin: 4px 0;
+									box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.2), 0 0 5px rgba(255, 255, 255, 0.6);
+								}
+
+
+								/* ================================================== */
+								/* VOUCHER GUIDE CARD                                 */
+								/* ================================================== */
+								.voucher-guide-card {
+									width: 100%;
+									max-width: 360px;
+									padding: 18px;
+									border-radius: 26px;
+									background: rgba(255, 255, 255, 0.35);
+									backdrop-filter: blur(20px);
+									box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.6);
+									border: 1px solid rgba(255, 255, 255, 0.4);
+									display: flex;
+									flex-direction: column;
+									gap: 12px;
+									margin: 1rem auto 0;
+								}
+
+								.voucher-guide-header {
+									padding: 14px;
+									border-radius: 18px;
+									border: none;
+									background: linear-gradient(145deg, #ff9800, #e65100);
+									color: white;
+									font-weight: bold;
+									letter-spacing: 1px;
+									box-shadow: inset 2px 2px 8px rgba(255, 255, 255, 0.6), inset -2px -2px 8px rgba(0, 0, 0, 0.2);
+									text-align: center;
+									font-size: 12px;
+								}
+
+								.voucher-guide-divider {
+									width: 100%;
+									height: 2px;
+									background: rgba(0, 0, 0, 0.7);
+									border-radius: 10px;
+									margin: 4px 0;
+									box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.2), 0 0 5px rgba(255, 255, 255, 0.6);
+								}
+
+								.voucher-steps {
+									padding-left: 20px;
+									margin: 0;
+									font-size: 13px;
+									color: #333;
+									line-height: 1.5;
+									list-style-type: disc;
+								}
+
+								.voucher-steps li {
+									margin-bottom: 8px;
+									padding-left: 5px;
+								}
+
+								.voucher-steps li:last-child {
+									margin-bottom: 0;
+								}
+
+								.voucher-steps strong {
+									color: #e65100;
+								}
+
+								.voucher-link {
+									color: #0066cc;
+									word-break: break-all;
+									font-size: 11px;
+								}
+
+								.voucher-link:hover {
+									text-decoration: underline;
+								}
+
+								@media screen and (max-width: 480px) {
+									.voucher-guide-card {
+										padding: 16px;
+										max-width: 320px;
+									}
+
+									.voucher-guide-header {
+										font-size: 11px;
+										padding: 12px;
+									}
+
+									.voucher-steps {
+										font-size: 12px;
+										padding-left: 18px;
+									}
+								}
+
+								.upgrade-btn {
+									padding: 16px;
+									border-radius: 20px;
+									border: none;
+									font-size: 15px;
+									font-weight: bold;
+									letter-spacing: 1px;
+									color: white;
+									cursor: pointer;
+									transition: all 0.25s ease;
+									box-shadow: 6px 6px 14px rgba(0, 0, 0, 0.25), -6px -6px 14px rgba(255, 255, 255, 0.6);
+									position: relative;
+									overflow: hidden;
+									text-align: center;
+									text-decoration: none;
+									display: block;
+								}
+
+								.upgrade-btn::before {
+									content: "";
+									position: absolute;
+									top: 0;
+									left: -100%;
+									width: 60%;
+									height: 100%;
+									background: rgba(255, 255, 255, 0.3);
+									transform: skewX(-20deg);
+									transition: 0.6s;
+								}
+
+								.standard-btn {
+									background: linear-gradient(145deg, #3adf77, #2ab764);
+								}
+
+								.premium-btn {
+									background: linear-gradient(145deg, #ff4444, #cc0000);
+								}
+
+								.upgrade-btn:hover::before {
+									left: 120%;
+								}
+
+								.upgrade-btn:hover {
+									transform: translateY(-2px);
+									box-shadow: 0 0 20px rgba(255, 255, 255, 0.7), 6px 6px 20px rgba(0, 0, 0, 0.3);
+								}
+
+								.upgrade-btn:active {
+									box-shadow: inset 4px 4px 10px rgba(0, 0, 0, 0.3), inset -4px -4px 10px rgba(255, 255, 255, 0.5);
+								}
+
+								/* Hide old tier cards */
+								.card.tier-2,
+								.card.tier-3,
+								input#tier2,
+								input#tier3 {
+									display: none !important;
+								}
+
+								/* ================================================== */
+								/* NETWORK WIDGET - CURRENT SPEED CARD              */
+								/* ================================================== */
+								.network-widget {
+									width: 100%;
+									max-width: 360px;
+									padding: 18px;
+									border-radius: 26px;
+									background: rgba(255, 255, 255, 0.35);
+									backdrop-filter: blur(20px);
+									box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.6);
+									border: 1px solid rgba(255, 255, 255, 0.4);
+									display: flex;
+									flex-direction: column;
+									gap: 12px;
+									margin: 0 auto 0.25rem auto;
+								}
+
+								.widget-header {
+									padding: 14px;
+									border-radius: 18px;
+									border: none;
+									background: linear-gradient(145deg, #00d9ff, #009ecc);
+									color: white;
+									font-weight: bold;
+									letter-spacing: 1px;
+									box-shadow: inset 2px 2px 8px rgba(255, 255, 255, 0.6), inset -2px -2px 8px rgba(0, 0, 0, 0.2);
+									text-align: center;
+									font-size: 14px;
+								}
+
+								.metric-card {
+									padding: 16px;
+									border-radius: 20px;
+									border: none;
+									background: rgba(255, 255, 255, 0.5);
+									box-shadow:
+										6px 6px 14px rgba(0, 0, 0, 0.15),
+										-6px -6px 14px rgba(255, 255, 255, 0.8),
+										inset 2px 2px 6px rgba(0, 0, 0, 0.08),
+										inset -2px -2px 6px rgba(255, 255, 255, 0.5);
+									position: relative;
+									overflow: hidden;
+								}
+
+								.metric-card:last-child {
+									margin-bottom: 0;
+								}
+
+								.metric-row {
+									display: flex;
+									justify-content: space-between;
+									align-items: center;
+								}
+
+								.metric-label {
+									font-size: 14px;
+									font-weight: bold;
+								}
+
+								.download-label {
+									color: #0a0301;
+								}
+
+								.upload-label {
+									color: #0a0301;
+								}
+
+								.metric-value {
+									font-size: 22px;
+									font-weight: 700;
+								}
+
+								.download-value {
+									color: #0a0301;
+								}
+
+								.upload-value {
+									color: #0a0301;
+								}
+
+								.metric-value .unit {
+									font-size: 13px;
+									margin-left: 3px;
+									font-weight: 600;
+								}
+
+								/* Mobile responsive */
+								@media screen and (max-width: 480px) {
+									.network-widget {
+										padding: 16px;
+										max-width: 320px;
+									}
+
+									.metric-value {
+										font-size: 20px;
+									}
+
+									.metric-label {
+										font-size: 13px;
+									}
+								}
+
+								/* ================================================== */
+								/* INTERNET TIERS STYLING - MAIN CONFIGURATION      */
+								/* All glowing effects and tier designs are here    */
+								/* ================================================== */
+
+								/* ============================================= */
+								/* CSS VARIABLES - COLORS AND SETTINGS         */
+								/* Modify these to change overall appearance    */
+								/* ============================================= */
+								:root {
+									/* Card base colors */
+									--card-bg: rgba(28, 34, 56, .95);
+									/* Dark blue card background */
+									--card-border: rgba(255, 255, 255, 0.10);
+									/* Subtle white card border */
+									--ink: #eef3ff;
+									/* Main text color (light blue) */
+									--muted: #c3c9dc;
+									/* Subtitle text color (muted blue) */
+									--tile-bg: rgba(255, 255, 255, 0.06);
+									/* Speed tile background */
+									--tile-border: rgba(255, 255, 255, 0.14);
+									/* Speed tile border */
+									--radius: 16px;
+									/* Card corner radius */
+
+									/* ============================================= */
+									/* TIER ACCENT COLORS - GLOW EFFECT COLORS     */
+									/* Change these to modify glow colors          */
+									/* ============================================= */
+									--t1: #7dd3fc;
+									/* Tier 1 Free - Cyan blue */
+									--t2: #22c55e;
+									/* Tier 2 Basic - Green */
+									--t3: #a78bfa;
+									/* Tier 3 Pro - Purple */
+									--t4: #f59e0b;
+									/* Tier 4 Premium - Amber/Gold */
+								}
+
+								/* ============================================= */
+
+								/* ============================================= */
+
+								/* ============================================= */
+								/* MOBILE SPACING FIX                          */
+								/* ============================================= */
+								@media screen and (max-width: 767px) {
+									.tiers {
+										gap: 12px !important;
+										margin: 1rem auto 0 auto !important;
+										padding: 15px 15px 30px 15px !important;
+									}
+
+									.card {
+										padding: 20px 16px 16px !important;
+										margin-bottom: 5px !important;
+									}
+
+									.available-upgrades-header {
+										margin: 1rem 0 0.5rem 0 !important;
+									}
+
+									.upgrades-label {
+										padding: 8px 20px !important;
+										font-size: 12px !important;
+									}
+
+									.speedtest-section {
+										margin-bottom: 1.5rem !important;
+									}
+								}
+
+								/* AVAILABLE UPGRADES HEADER                   */
+								/* ============================================= */
+								.available-upgrades-header {
+									grid-column: 1 / -1;
+									display: flex;
+									justify-content: center;
+									margin: 1.5rem 0 0.5rem 0;
+									width: 100%;
+								}
+
+								.upgrades-label {
+									display: inline-block;
+									padding: 10px 28px;
+									background: rgba(43, 181, 156, 0.9);
+									border: 1.5px solid rgba(43, 181, 156, 0.5);
+									border-radius: 25px;
+									color: white;
+									font-family: 'Inconsolata', monospace;
+									font-size: 14px;
+									font-weight: 700;
+									letter-spacing: 2px;
+									text-transform: uppercase;
+								}
+
+								/* Standard Badge - Green */
+								.standard-badge {
+									background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+									color: white !important;
+									border: none !important;
+								}
+
+
+								/* Hide ::before pseudo-elements on upgrade cards */
+								.tier-2::before,
+								.tier-3::before {
+									display: none !important;
+									content: none !important;
+								}
+
+								/* Hide price on upgrade cards */
+								.tier-2::after,
+								.tier-3::after {
+									display: none !important;
+								}
+
+								/* Remove card backgrounds - just show buttons INLINE */
+								.tier-2,
+								.tier-3 {
+									background: transparent !important;
+									border: none !important;
+									box-shadow: none !important;
+									padding: 5px 8px !important;
+									display: inline-flex !important;
+									width: auto !important;
+									min-width: auto !important;
+									max-width: none !important;
+									vertical-align: middle !important;
+								}
+
+								.tier-2 header,
+								.tier-3 header {
+									display: flex !important;
+									justify-content: center !important;
+									align-items: center !important;
+								}
+
+								.tier-2 h2,
+								.tier-3 h2 {
+									display: none !important;
+								}
+
+								.tier-2 .badge,
+								.tier-3 .badge {
+									font-size: 13px !important;
+									padding: 12px 28px !important;
+									border-radius: 25px !important;
+									cursor: pointer !important;
+								}
+
+
+								/* Make upgrade buttons horizontal in one row */
+								.tier-2,
+								.tier-3 {
+									float: none !important;
+								}
+
+								/* Parent container for horizontal layout */
+								input#tier2,
+								input#tier3 {
+									display: none !important;
+								}
+
+								/* Force horizontal display using flexbox on parent */
+								.tiers {
+									display: flex !important;
+									flex-wrap: wrap !important;
+									justify-content: center !important;
+									align-items: center !important;
+								}
+
+								.available-upgrades-header+input+label,
+								.available-upgrades-header~input+label {
+									display: inline-flex !important;
+								}
+
+								/* Container for upgrade buttons - side by side */
+								.tier-2,
+								.tier-3 {
+									margin: 0 8px !important;
+								}
+
+								/* Premium Badge - Purple */
+								.premium-badge {
+									background: linear-gradient(135deg, #a78bfa, #8b5cf6) !important;
+									color: white !important;
+									border: none !important;
+								}
+
+								/* GRID LAYOUT SETUP                           */
+								/* Controls how cards are arranged             */
+								/* ============================================= */
+								.tiers {
+									display: grid;
+									gap: 14px;
+									/* 22px space between cards */
+									grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+									/* Responsive grid */
+									overflow: visible;
+									/* Don't clip glow effects */
+									justify-content: center;
+									/* Center the grid */
+									justify-items: center;
+									/* Center items within grid cells */
+									align-items: start;
+									/* Align items to start */
+									margin: -1.25rem auto 0 auto !important;
+									/* Increased negative margin to bring closer */
+									max-width: 100%;
+									/* Ensure it doesn't exceed container */
+									padding: 0 20px 0 20px !important;
+									/* Remove top/bottom padding */
+								}
+
+								/* Tablet/iPad Responsive Layout - 768px to 1024px */
+								@media screen and (min-width: 768px) and (max-width: 1024px) {
+									.tiers {
+										gap: 18px;
+										/* Comfortable space for iPad */
+										grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+										/* Optimal card width for iPad */
+										padding: 0 25px !important;
+										/* Balanced padding */
+										max-width: 950px;
+										/* Constrained width for iPad */
+										margin: -1rem auto 0 auto !important;
+									}
+								}
+
+								/* Desktop Responsive Layout - 1025px to 1199px */
+								@media screen and (min-width: 1025px) and (max-width: 1199px) {
+									.tiers {
+										gap: 25px;
+										/* Optimized space between cards */
+										grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+										/* Good card width for medium desktop */
+										padding: 0 30px;
+										/* Balanced horizontal padding */
+										max-width: 1300px;
+										/* Moderate maximum container width */
+									}
+								}
+
+								/* Large Desktop - 1200px and above */
+								@media screen and (min-width: 1200px) {
+									.tiers {
+										gap: 30px;
+										/* Perfect spacing for large screens */
+										grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+										/* Maximum card size for alignment */
+										padding: 0 40px;
+										/* Optimal horizontal padding */
+										max-width: 1600px;
+										/* Maximum container width */
+									}
+								}
+
+								/* ============================================= */
+								/* TIER CARDS REVEAL ANIMATION                 */
+								/* Now handled by onvisible animation system   */
+								/* ============================================= */
+								.tiers .card {
+									/* Initial state - will be animated by onvisible system */
+									opacity: 1;
+									transform: translateY(0) scale(1);
+								}
+
+								/* ============================================= */
+								/* RADIO BUTTON SETUP                          */
+								/* Hidden inputs that control card selection   */
+								/* ============================================= */
+								.tier-radio {
+									position: absolute;
+									opacity: 0;
+									pointer-events: none;
+									/* Hide radio buttons, use labels as clickable cards */
+								}
+
+								/* ============================================= */
+								/* MAIN CARD STYLING                           */
+								/* Base appearance for all tier cards         */
+								/* ============================================= */
+								.card {
+									display: block;
+									position: relative;
+									background: var(--card-bg);
+									/* Dark blue background */
+									border: 1px solid var(--card-border);
+									/* Subtle border */
+									border-radius: var(--radius);
+									/* Rounded corners */
+									padding: 18px 18px 14px;
+									/* Internal spacing */
+									color: var(--ink);
+									/* Text color */
+									box-shadow: 0 14px 30px rgba(0, 0, 0, .28);
+									/* Base shadow (not glow) */
+									cursor: pointer;
+									/* Show it's clickable */
+									user-select: none;
+									/* Prevent text selection */
+									-webkit-user-select: none;
+									/* Safari */
+									-moz-user-select: none;
+									/* Firefox */
+									-ms-user-select: none;
+									/* IE10+/Edge */
+									-webkit-tap-highlight-color: transparent;
+									/* Remove tap highlight on mobile */
+									/* Premium smooth animations with iOS/Android-style easing */
+									transition:
+										transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+										/* Faster, responsive Material Design easing */
+										filter 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+										/* Smooth filter transitions */
+										box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+										/* Smooth shadow transitions */
+										border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+									/* Smooth border color transitions */
+									will-change: filter, transform;
+									/* Optimize animations */
+									z-index: 0;
+									/* Layer order */
+									width: 100%;
+									/* Full width within grid cell */
+									max-width: 300px;
+									/* Maximum card width for mobile */
+									margin: 0 auto;
+									/* Center each card */
+								}
+
+								/* Tablet/iPad Card Sizing - 768px to 1024px */
+								@media screen and (min-width: 768px) and (max-width: 1024px) {
+									.card {
+										max-width: 450px;
+										/* Optimal for iPad screens */
+										min-width: 320px;
+										/* Flexible minimum width */
+										padding: 22px 26px 18px;
+										/* Comfortable padding for iPad */
+										border-radius: 14px;
+										/* Smooth corners */
+										width: 100%;
+										/* Full width within grid cell */
+									}
+
+									.card h2 {
+										font-size: 20px;
+										/* Readable tier titles */
+										margin: 6px 0 4px;
+										/* Balanced spacing */
+										line-height: 1.2;
+										/* Optimized line height */
+									}
+
+									.subtitle {
+										font-size: 15px;
+										/* Clear description text */
+										line-height: 1.4;
+										/* Better text flow */
+										margin-bottom: 14px;
+										/* Consistent bottom spacing */
+									}
+
+									.badge {
+										font-size: 12px;
+										/* Clear badge text */
+										padding: 5px 12px;
+										/* Comfortable badge padding */
+										margin-bottom: 10px;
+										/* Balanced spacing */
+									}
+
+									.speeds strong {
+										font-size: 20px;
+										/* Clear speed numbers */
+										line-height: 1.1;
+										/* Tight line height for numbers */
+									}
+
+									.speeds span {
+										font-size: 14px;
+										/* Clear speed labels */
+										line-height: 1.3;
+										/* Consistent label spacing */
+									}
+
+									.card header {
+										margin-bottom: 14px;
+										/* Comfortable header spacing */
+									}
+								}
+
+								/* Desktop Card Sizing - 1025px to 1199px */
+								@media screen and (min-width: 1025px) and (max-width: 1199px) {
+									.card {
+										max-width: 520px;
+										/* Good size for medium desktop */
+										min-width: 380px;
+										/* Minimum width to ensure consistency */
+										padding: 26px 30px 22px;
+										/* Good padding for text spacing */
+										border-radius: 15px;
+										/* Smooth rounded corners */
+										width: 100%;
+										/* Full width within grid cell */
+									}
+
+									.card h2 {
+										font-size: 22px;
+										/* Good tier titles */
+										margin: 7px 0 5px;
+										/* Consistent spacing */
+										line-height: 1.2;
+										/* Optimized line height */
+									}
+
+									.subtitle {
+										font-size: 16px;
+										/* Good description text */
+										line-height: 1.4;
+										/* Better text flow */
+										margin-bottom: 15px;
+										/* Consistent bottom spacing */
+									}
+
+									.badge {
+										font-size: 13px;
+										/* Good badge text */
+										padding: 6px 13px;
+										/* Good badge padding */
+										margin-bottom: 11px;
+										/* Consistent spacing */
+									}
+
+									.speeds strong {
+										font-size: 21px;
+										/* Good speed numbers */
+										line-height: 1.1;
+										/* Tight line height for numbers */
+									}
+
+									.speeds span {
+										font-size: 14.5px;
+										/* Good speed labels */
+										line-height: 1.3;
+										/* Consistent label spacing */
+									}
+
+									.card header {
+										margin-bottom: 15px;
+										/* Good header spacing */
+									}
+								}
+
+								/* Large Desktop Card Sizing - 1200px and above */
+								@media screen and (min-width: 1200px) {
+									.card {
+										max-width: 600px;
+										/* Maximum card size for perfect alignment */
+										min-width: 480px;
+										/* Consistent minimum width */
+										padding: 32px 36px 28px;
+										/* Maximum internal padding for text alignment */
+										border-radius: 18px;
+										/* Most rounded corners */
+										width: 100%;
+										/* Full width utilization */
+									}
+
+									.card h2 {
+										font-size: 26px;
+										/* Maximum tier title size */
+										margin: 10px 0 8px;
+										/* Maximum spacing */
+										line-height: 1.15;
+										/* Perfect title line height */
+									}
+
+									.subtitle {
+										font-size: 19px;
+										/* Maximum description size */
+										line-height: 1.4;
+										/* Optimal readability */
+										margin-bottom: 18px;
+										/* Maximum bottom spacing */
+									}
+
+									.badge {
+										font-size: 14px;
+										/* Maximum badge text */
+										padding: 7px 16px;
+										/* Maximum badge padding */
+										margin-bottom: 14px;
+										/* Perfect badge spacing */
+									}
+
+									.speeds strong {
+										font-size: 24px;
+										/* Maximum speed numbers */
+										line-height: 1.0;
+										/* Tight number spacing */
+									}
+
+									.speeds span {
+										font-size: 16px;
+										/* Maximum speed labels */
+										line-height: 1.25;
+										/* Perfect label alignment */
+									}
+
+									.card header {
+										margin-bottom: 20px;
+										/* Maximum header spacing */
+									}
+								}
+
+								/* ================================================== */
+								/* 🎨 PREMIUM HOVER & CLICK EFFECTS - iOS/Android Style */
+								/* Smooth, responsive animations for modern UX          */
+								/* ================================================== */
+
+								/* Enhanced hover effect - subtle lift */
+								.card:hover {
+									transform: translateY(-4px) scale(1.01);
+									/* Gentle lift and slight scale */
+									z-index: 3;
+									/* Bring to front */
+									box-shadow:
+										0 12px 24px rgba(0, 0, 0, .25),
+										/* Moderate shadow for floating effect */
+										0 0 0 1px rgba(255, 255, 255, .08);
+									/* Subtle border highlight */
+								}
+
+								/* Enhanced hover glow for top bar */
+								.card:hover::before {
+									opacity: .8;
+									/* Subtle brightness increase on hover */
+									box-shadow:
+										0 0 6px var(--accent),
+										/* Subtle inner glow */
+										0 0 14px var(--accent),
+										/* Moderate middle glow */
+										0 0 24px var(--accent);
+									/* Controlled outer glow */
+								}
+
+								/* Active/Click effect - iOS/Android style press */
+								.card:active {
+									transform: translateY(-2px) scale(0.98);
+									/* Slight press down effect */
+									transition: transform 0.1s ease-out;
+									/* Quick response */
+								}
+
+								/* Speed tiles hover enhancement */
+								.card:hover .speeds div {
+									transform: translateY(-2px);
+									/* Lift speed tiles slightly */
+								}
+
+								/* Badge hover enhancement */
+								.card:hover .badge {
+									transform: scale(1.05);
+									/* Slightly enlarge badge */
+								}
+
+								/* Smooth transitions for all interactive elements */
+								.card .badge {
+									transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+									/* Material Design easing */
+								}
+
+								.speeds div {
+									transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+									/* Material Design easing */
+								}
+
+								/* ============================================= */
+								/* MOBILE TOUCH ENHANCEMENTS                   */
+								/* Optimized for iOS/Android touch experience  */
+								/* ============================================= */
+
+								/* Touch-friendly tap highlighting */
+								.card {
+									-webkit-tap-highlight-color: transparent;
+									/* Remove default mobile tap highlight */
+									-webkit-touch-callout: none;
+									/* Disable iOS callout */
+									-webkit-user-select: none;
+									/* Prevent text selection */
+									user-select: none;
+									/* Prevent text selection */
+								}
+
+								/* Enhanced mobile press effect */
+								@media (max-width: 768px) {
+									.card:active {
+										transform: translateY(-1px) scale(0.96);
+										/* More pronounced mobile press */
+										transition: transform 0.08s ease-out;
+										/* Faster mobile response */
+									}
+
+									/* Override mobile active state for tier cards - no upward movement */
+									.tier-radio+.card:active {
+										transform: scale(0.96) !important;
+										/* Only scale, no vertical movement on mobile */
+									}
+
+									.card:hover {
+										transform: translateY(-6px) scale(1.015);
+										/* Slightly less lift on mobile */
+									}
+								}
+
+								/* Smooth focus states for accessibility */
+								.card:focus-visible {
+									outline: 2px solid var(--accent);
+									/* Accessible focus ring */
+									outline-offset: 4px;
+								}
+
+								/* Selection state enhancement - no upward movement */
+								.tier-radio:checked+.card {
+									position: relative;
+									/* Maintain selection state without movement */
+								}
+
+								/* Prevent upward movement on click/active state for tier cards */
+								.tier-radio+.card:active {
+									transform: scale(0.98) !important;
+									/* Only scale down, no vertical movement */
+									transition: transform 0.1s ease-out;
+								}
+
+								/* Smooth selection transition - subtle hover only */
+								.tier-radio:checked+.card:hover {
+									transform: translateY(-2px) scale(1.005);
+									/* Very subtle lift when selected and hovered */
+								}
+
+								/* Override active state when hovering selected card */
+								.tier-radio:checked+.card:hover:active {
+									transform: scale(0.98) !important;
+									/* No upward movement even when active while selected and hovered */
+								}
+
+								/* Comprehensive override - ensure tier cards NEVER move upward */
+								.tiers .card:active,
+								.tier-1:active,
+								.tier-2:active,
+								.tier-3:active,
+								.tier-4:active {
+									transform: scale(0.98) !important;
+									/* Force no vertical movement for all tier cards */
+									transition: transform 0.1s ease-out !important;
+								}
+
+								/* ============================================= */
+								/* TIER CARD SELECTION STATE                   */
+								/* Visual feedback when a tier is selected     */
+								/* ============================================= */
+								.card.tier-selected {
+									border-color: var(--accent) !important;
+									box-shadow:
+										0 0 0 1px var(--accent),
+										0 8px 30px rgba(0, 0, 0, 0.3),
+										0 0 15px rgba(var(--accent), 0.4);
+									z-index: 5;
+								}
+
+								/* Enhanced hover for selected cards */
+								.card.tier-selected:hover {
+									transform: translateY(-2px) scale(1.005);
+									box-shadow:
+										0 0 0 1px var(--accent),
+										0 12px 35px rgba(0, 0, 0, 0.35),
+										0 0 20px rgba(var(--accent), 0.5);
+								}
+
+								/* ============================================= */
+								/* TIER ACCENT COLOR ASSIGNMENT                */
+								/* Each tier gets its own accent color         */
+								/* ============================================= */
+								.tier-1 {
+									--accent: var(--t1);
+								}
+
+								/* Cyan for Free tier */
+								.tier-2 {
+									--accent: var(--t2);
+								}
+
+								/* Green for Basic tier */
+								.tier-3 {
+									--accent: var(--t3);
+								}
+
+								/* Purple for Pro tier */
+								.tier-4 {
+									--accent: var(--t4);
+								}
+
+								/* Gold for Premium tier */
+
+								/* ================================================== */
+								/* 🔥 NEON TOP BAR GLOW EFFECT - MODIFY HERE! 🔥    */
+								/* This creates the glowing bar at top of each card  */
+								/* ================================================== */
+								.card::before {
+									content: "";
+									position: absolute;
+									inset: -1px -1px auto -1px;
+									/* Position: top edge */
+									height: 7px;
+									/* Bar height */
+									border-top-left-radius: var(--radius);
+									/* Match card corners */
+									border-top-right-radius: var(--radius);
+									background: var(--accent);
+									/* Use tier color */
+
+									/* ============================================= */
+									/* 🌟 GLOW INTENSITY SETTINGS 🌟               */
+									/* Increase numbers = stronger glow             */
+									/* Decrease numbers = softer glow               */
+									/* ============================================= */
+									box-shadow:
+										0 0 4px var(--accent),
+										/* Inner glow (closest) - reduced */
+										0 0 10px var(--accent),
+										/* Middle glow - reduced */
+										0 0 18px var(--accent);
+									/* Outer glow (widest) - reduced */
+									opacity: .65;
+									/* Overall brightness - reduced */
+								}
+
+								/* ================================================== */
+								/* ⚡ CARD SELECTION GLOW - MODIFY HERE! ⚡          */
+								/* Glows around entire card when selected           */
+								/* ================================================== */
+								.tier-radio:checked+.card {
+									z-index: 2;
+									/* Bring selected card to front */
+
+									/* ============================================= */
+									/* 🌟 SELECTION GLOW SETTINGS 🌟               */
+									/* Only bottom shadow for depth, no border glow */
+									/* ============================================= */
+									filter:
+										drop-shadow(0 6px 22px rgba(0, 0, 0, .35));
+									/* Bottom shadow for depth only */
+								}
+
+								/* ============================================= */
+								/* CARD CONTENT STYLING                        */
+								/* Text layout within each card                */
+								/* ============================================= */
+								.card header {
+									margin-bottom: 12px;
+								}
+
+								/* Space below header */
+								.card h2 {
+									margin: 4px 0 2px;
+									font-size: 18px;
+									line-height: 1.25;
+								}
+
+								/* Tier title */
+								.subtitle {
+									margin: 0;
+									color: var(--muted);
+									font-size: 14px;
+								}
+
+								/* Description text */
+
+								/* base badge */
+								.badge {
+									display: inline-block;
+									font-size: 11px;
+									text-transform: uppercase;
+									letter-spacing: .35px;
+									padding: 4px 10px;
+									border-radius: 999px;
+									font-weight: 800;
+									border: 1px solid rgba(255, 255, 255, .18);
+									background: #eef6ff;
+									color: #0f172a;
+									/* fallback */
+								}
+
+								/* tier badge colors */
+								.tier-1 .badge {
+									background: #7dd3fc;
+									color: #062332;
+									border-color: rgba(125, 211, 252, .6);
+								}
+
+								.tier-2 .badge {
+									background: #22c55e;
+									color: #fff;
+									border-color: rgba(34, 197, 94, .65);
+									font-weight: 900;
+									/* Make text bolder */
+									text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+									/* Add text shadow for better contrast */
+									letter-spacing: 0.5px;
+									/* Slightly wider letter spacing */
+								}
+
+								/* Pro (Tier 3) – Metallic Amethyst */
+								.tier-3 .badge {
+									background: linear-gradient(145deg,
+											#f5f3ff 0%,
+											/* very light lavender highlight */
+											#c4b5fd 30%,
+											/* soft violet */
+											#a78bfa 60%,
+											/* base amethyst */
+											#6d28d9 100%
+											/* deep royal purple */
+										);
+									color: #fff;
+									border: 1px solid #8b5cf6;
+									position: relative;
+									overflow: hidden;
+									font-weight: 900;
+									/* Make text bolder */
+									text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+									/* Strong text shadow for metallic effect */
+									letter-spacing: 0.5px;
+									/* Slightly wider letter spacing */
+								}
+
+								.tier-3 .badge::after {
+									content: "";
+									position: absolute;
+									top: 0;
+									left: -50%;
+									width: 200%;
+									height: 100%;
+									background: linear-gradient(120deg,
+											transparent 0%,
+											rgba(255, 255, 255, .4) 50%,
+											transparent 100%);
+									transform: skewX(-20deg);
+									animation: shine 3s infinite;
+								}
+
+								/* Premium (Tier 4) – Metallic Gold */
+								.tier-4 .badge {
+									background: linear-gradient(145deg,
+											#fff9db 0%,
+											/* pale highlight */
+											#ffe173 30%,
+											/* soft gold */
+											#ffc107 60%,
+											/* classic gold */
+											#b45309 100%
+											/* deep golden brown */
+										);
+									color: #231a04;
+									border: 1px solid #e2b200;
+									position: relative;
+									overflow: hidden;
+								}
+
+								/* Glow only when selected */
+								.tier-1 .badge.is-selected {
+									box-shadow: 0 0 8px rgba(125, 211, 252, .8), 0 0 18px rgba(125, 211, 252, .6);
+								}
+
+								.tier-2 .badge.is-selected {
+									box-shadow: 0 0 8px rgba(34, 197, 94, .85), 0 0 18px rgba(34, 197, 94, .6);
+								}
+
+								.tier-3 .badge.is-selected {
+									box-shadow: 0 0 8px rgba(167, 139, 250, .9), 0 0 18px rgba(167, 139, 250, .65);
+								}
+
+								.tier-4 .badge.is-selected {
+									box-shadow: 0 0 10px rgba(255, 215, 0, .9), 0 0 20px rgba(255, 200, 0, .7);
+								}
+
+								/* Shine animation for Pro badge */
+								@keyframes shine {
+									0% {
+										left: -50%;
+									}
+
+									100% {
+										left: 100%;
+									}
+								}
+
+								/* Default: No glow */
+								.tier-1 .badge,
+								.tier-2 .badge,
+								.tier-3 .badge,
+								.tier-4 .badge {
+									box-shadow: none;
+								}
+
+								/* Glow only when selected */
+								.tier-1 .badge.is-selected {
+									box-shadow: 0 0 8px rgba(125, 211, 252, .8), 0 0 18px rgba(125, 211, 252, .6);
+								}
+
+								.tier-2 .badge.is-selected {
+									box-shadow: 0 0 8px rgba(34, 197, 94, .85), 0 0 18px rgba(34, 197, 94, .6);
+								}
+
+								.tier-3 .badge.is-selected {
+									box-shadow: 0 0 8px rgba(167, 139, 250, .9), 0 0 18px rgba(167, 139, 250, .65);
+								}
+
+								.tier-4 .badge.is-selected {
+									box-shadow: 0 0 10px rgba(255, 215, 0, .9), 0 0 20px rgba(255, 200, 0, .7);
+								}
+
+								/* speed tiles */
+								.speeds {
+									display: grid;
+									grid-template-columns: 1fr 1fr;
+									gap: 12px;
+									margin-top: 10px;
+								}
+
+								.speeds div {
+									background: var(--tile-bg);
+									border: 1px solid var(--tile-border);
+									border-radius: 12px;
+									padding: 12px 12px;
+									text-align: center;
+									backdrop-filter: blur(2px);
+								}
+
+								/* ================================================== */
+								/* 💎 TIER 4 PREMIUM SPEED TILES GLOW - MODIFY HERE! */
+								/* Special golden glow for Premium tier speed boxes  */
+								/* ================================================== */
+								.tier-4 .speeds div {
+									/* Override base styling with golden theme */
+									background: linear-gradient(180deg, rgba(255, 193, 7, .10), rgba(255, 193, 7, .03));
+									/* Golden gradient */
+									border-color: #e2b200;
+									/* Gold border */
+
+									/* ============================================= */
+									/* 🌟 GOLDEN GLOW SETTINGS 🌟                  */
+									/* Modify these for different glow intensity    */
+									/* ============================================= */
+									box-shadow:
+										0 0 0 1px rgba(255, 193, 7, .35) inset,
+										/* Inner golden ring */
+										0 0 5px rgba(255, 215, 0, .35),
+										/* Outer neon glow - reduced */
+										0 0 12px rgba(255, 200, 0, .2);
+									/* Soft wide glow - reduced */
+								}
+
+								/* ============================================= */
+								/* 💎 ENHANCED GLOW WHEN PREMIUM SELECTED      */
+								/* Stronger glow when Tier 4 card is selected  */
+								/* ============================================= */
+								.tier-radio:checked+.tier-4 .speeds div {
+									box-shadow:
+										0 0 0 1px rgba(255, 193, 7, .45) inset,
+										/* Brighter inner ring */
+										0 0 7px rgba(255, 215, 0, .5),
+										/* Moderate outer glow - reduced */
+										0 0 15px rgba(255, 200, 0, .3);
+									/* Controlled soft glow - reduced */
+								}
+
+								/* Tier 3 – Purple Glow Effect to Match Other Tiers */
+								.tier-3 .speeds div {
+									background: linear-gradient(180deg, rgba(17, 17, 23, .9), rgba(28, 28, 35, .85));
+									border-color: var(--t3);
+									/* Purple border */
+									box-shadow:
+										0 0 0 1px var(--t3) inset,
+										/* Inner purple ring */
+										0 0 4px rgba(167, 139, 250, .4),
+										/* Outer purple glow - reduced */
+										0 0 8px rgba(167, 139, 250, .2),
+										/* Soft wide purple glow - reduced */
+										inset 0 0 6px rgba(0, 0, 0, .35);
+									/* Inner depth for obsidian look */
+								}
+
+								.tier-3 .speeds span {
+									color: #c7bdfc;
+									/* muted lavender for labels */
+								}
+
+								.tier-3 .speeds strong {
+									color: #ede9fe;
+									/* pale violet for numbers */
+								}
+
+								/* ============================================= */
+								/* TIER 1 & 2 SPEED BOXES GLOW EFFECTS         */
+								/* Add glowing borders using tier accent colors */
+								/* ============================================= */
+								.tier-1 .speeds div {
+									border-color: var(--t1);
+									/* Cyan border */
+									box-shadow:
+										0 0 0 1px var(--t1) inset,
+										/* Inner cyan ring */
+										0 0 4px rgba(125, 211, 252, .4),
+										/* Outer cyan glow - reduced */
+										0 0 8px rgba(125, 211, 252, .2);
+									/* Soft wide cyan glow - reduced */
+								}
+
+								.tier-2 .speeds div {
+									border-color: var(--t2);
+									/* Green border */
+									box-shadow:
+										0 0 0 1px var(--t2) inset,
+										/* Inner green ring */
+										0 0 4px rgba(34, 197, 94, .4),
+										/* Outer green glow - reduced */
+										0 0 8px rgba(34, 197, 94, .2);
+									/* Soft wide green glow - reduced */
+								}
+
+								.speeds span {
+									display: block;
+									font-size: 12px;
+									color: #d6dbea;
+								}
+
+								.speeds strong {
+									font-size: 16px;
+									color: #fff;
+								}
+
+								@media (max-width:520px) {
+									.speeds {
+										grid-template-columns: 1fr;
+									}
+								}
+
+								/* price ribbon (kept simple/compatible) */
+								.card[data-price]::after {
+									content: attr(data-price);
+									position: absolute;
+									top: 16px;
+									right: 12px;
+									/* Moved down from 10px to 16px */
+									padding: 4px 8px;
+									border-radius: 8px;
+									background: rgba(0, 0, 0, .35);
+									border: 1px solid rgba(255, 255, 255, .18);
+									color: #fff;
+									font-weight: 700;
+									font-size: 12px;
+								}
+							</style><!-- mnbnbxmbzxmncbzxc -->
 						</div>
+
+
 					</div>
-				</section>
 			</div>
 		</div>
+		</section>
+
+		<!-- ================================================== -->
+		<!-- SPOTIFY MUSIC SECTION                            -->
+		<!-- Kitchen music sharing and Spotify app downloads  -->
+		<!-- ================================================== -->
+		<section id="two-section" data-title="Spotify">
+			<div id="container01" class="container-component instance-1 style-3 default">
+				<div class="wrapper">
+					<div class="inner">
+						<!-- Back Button (uses browser history) -->
+						<ul id="buttons03" class="buttons-component instance-3 style-3">
+							<li>
+								<a href="javascript:void(0);" onclick="goBack()" class="n01" role="button"><svg
+										aria-labelledby="buttons03-icon-1-title">
+										<title id="buttons03-icon-1-title">Chevron Left (Light)</title>
+										<use xlink:href="icons.svg#arrow-left-alt-light"></use>
+									</svg><span class="label">Back</span></a>
+							</li>
+						</ul>
+						<!-- ============================================= -->
+						<!-- SPOTIFY JAM WIDGET                          -->
+						<!-- Custom styled Spotify join button           -->
+						<!-- ============================================= -->
+						<div id="embed03" class="embed-component instance-3">
+							<!-- Spotify Join Widget Start -->
+							<div class="sp-code">
+								<div class="sp-head">
+									<div class="sp-logo">
+										<!-- Spotify glyph -->
+										<svg viewBox="0 0 64 64" width="28" height="28" aria-hidden="true">
+											<circle cx="32" cy="32" r="30" fill="#1DB954" />
+											<path d="M18 26c9-3 19-2 28 2" stroke="#0b0f17" stroke-width="4.2"
+												fill="none" stroke-linecap="round" opacity=".9" />
+											<path d="M20 33c7-2 15-2 22 1" stroke="#0b0f17" stroke-width="4.2"
+												fill="none" stroke-linecap="round" opacity=".85" />
+											<path d="M22 40c5-1 11-1 16 1" stroke="#0b0f17" stroke-width="4.2"
+												fill="none" stroke-linecap="round" opacity=".8" />
+										</svg>
+									</div>
+									<div class="sp-title">Join the Spotify Jam</div>
+								</div>
+
+								<a href="https://spotify.link/xPON9GS2KWb" target="_blank" class="sp-btn">
+									🎵 Click Here to Join
+								</a>
+
+								<div class="sp-caption">Opens in Spotify</div>
+							</div>
+
+							<style>
+								/* Reset */
+								.sp-code,
+								.sp-code * {
+									box-sizing: border-box;
+									-webkit-tap-highlight-color: transparent;
+								}
+
+								.sp-code {
+									--green: #1DB954;
+									--glow: 0 0 18px rgba(29, 185, 84, .55), 0 0 42px rgba(29, 185, 84, .35);
+
+									font-family: system-ui, Segoe UI, Roboto, sans-serif;
+									color: #eaf4ef;
+
+									/* Responsive, no horizontal scroll on tiny screens */
+									width: 100%;
+									max-width: 460px;
+									margin: 24px auto;
+									padding: 16px;
+
+									border-radius: 18px;
+									background: linear-gradient(180deg, #0c111b 0%, #0a0f17 100%);
+									border: 1px solid rgba(255, 255, 255, .08);
+									box-shadow: 0 18px 48px rgba(0, 0, 0, .45);
+									position: relative;
+
+									/* Keep the neon/top bar and shadows inside rounded edges */
+									overflow: clip;
+									/* falls back to hidden on older browsers */
+								}
+
+								.sp-code::before {
+									content: "";
+									position: absolute;
+									inset: 0 auto auto 0;
+									height: 8px;
+									width: 100%;
+									border-top-left-radius: 18px;
+									border-top-right-radius: 18px;
+									background: linear-gradient(90deg, #1DB954, #29f07a);
+									box-shadow: var(--glow);
+								}
+
+								/* Header */
+								.sp-head {
+									display: flex;
+									align-items: center;
+									justify-content: center;
+									gap: 12px;
+									margin-bottom: 14px;
+
+									/* Prevent overflow on narrow screens */
+									flex-wrap: wrap;
+								}
+
+								.sp-logo {
+									display: grid;
+									place-items: center;
+									width: 40px;
+									height: 40px;
+									border-radius: 12px;
+									box-shadow: var(--glow);
+									flex: 0 0 auto;
+								}
+
+								.sp-title {
+									font-size: 18px;
+									font-weight: 800;
+									line-height: 1.15;
+									/* Allow proper wrapping instead of pushing outside */
+									min-width: 0;
+									text-align: center;
+								}
+
+								/* Button */
+								.sp-btn {
+									display: block;
+									/* full width on mobile */
+									width: 100%;
+									margin-top: 10px;
+									padding: 12px 16px;
+
+									font-size: 16px;
+									font-weight: 700;
+									text-align: center;
+
+									border-radius: 12px;
+									background: var(--green);
+									color: #0b0f17;
+									text-decoration: none;
+									box-shadow: 0 0 14px rgba(29, 185, 84, .7), 0 0 32px rgba(29, 185, 84, .5);
+									transition: transform .18s ease, box-shadow .25s ease;
+								}
+
+								.sp-btn:hover {
+									transform: translateY(-2px);
+								}
+
+								.sp-btn:active {
+									transform: translateY(0);
+								}
+
+								.sp-caption {
+									margin-top: 10px;
+									font-size: 12px;
+									opacity: .7;
+								}
+
+								/* Small-screen polish */
+								@media (max-width:420px) {
+									.sp-code {
+										padding: 14px;
+										border-radius: 16px;
+									}
+
+									.sp-code::before {
+										border-top-left-radius: 16px;
+										border-top-right-radius: 16px;
+										height: 7px;
+									}
+
+									.sp-logo {
+										width: 36px;
+										height: 36px;
+										border-radius: 10px;
+									}
+
+									.sp-title {
+										font-size: 16px;
+									}
+
+									.sp-btn {
+										padding: 12px 14px;
+										font-size: 15px;
+										border-radius: 10px;
+									}
+								}
+							</style><!-- mnbnbxmbzxmncbzxc -->
+						</div>
+						<!-- Instructions for using Spotify Kitchen -->
+						<p id="text01" class="text-component instance-1 style-2"><span class="p">Enjoy Music in
+								the Kitchen 🎶<br />Open your Spotify app, look for "Spotify Jam – Kitchen" in
+								the device list, and connect with your own account (free or premium). Add songs,
+								skip tracks, and keep the vibe going together.</span></p>
+
+						<!-- ============================================= -->
+						<!-- SPOTIFY APP DOWNLOAD LINKS                  -->
+						<!-- Store badges and download buttons           -->
+						<!-- ============================================= -->
+						<div id="embed01" class="embed-component instance-1">
+							<!-- Spotify Download Widget Start -->
+							<div class="spotify-download">
+								<!-- Android -->
+								<a href="https://play.google.com/store/apps/details?id=com.spotify.music"
+									target="_blank">
+									<img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+										alt="Get it on Google Play" class="store-badge">
+								</a>
+
+								<!-- iOS -->
+								<a href="https://apps.apple.com/app/spotify-music-and-podcasts/id324684580"
+									target="_blank">
+									<img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
+										alt="Download on the App Store" class="store-badge">
+								</a>
+
+								<!-- PC/Mac -->
+								<a href="https://www.spotify.com/download" target="_blank" class="pc-btn">Download
+									for
+									Windows / Mac</a>
+							</div>
+
+							<style>
+								.spotify-download {
+									text-align: center;
+									margin-top: 20px;
+								}
+
+								.store-badge {
+									height: 50px;
+									margin: 8px;
+								}
+
+								.pc-btn {
+									display: inline-block;
+									margin: 8px;
+									padding: 10px 18px;
+									border-radius: 8px;
+									font-weight: 600;
+									background: #1DB954;
+									/* Spotify green */
+									color: #fff;
+									text-decoration: none;
+									font-family: sans-serif;
+									transition: transform .2s ease;
+								}
+
+								.pc-btn:hover {
+									transform: scale(1.05);
+									background: #1ed760;
+									/* brighter Spotify green */
+								}
+							</style><!-- mnbnbxmbzxmncbzxc -->
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+	</div>
+	</div>
 	</div>
 
 	<!-- ================================================== -->

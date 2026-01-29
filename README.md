@@ -15,7 +15,6 @@ Key Components
 1. Logo Configuration
 - Main Header: `index.html` lines 70-72
 - File: `lynmark-logo.png` (110px recommended size for optimal display)
-
 2. Main Content Sections
 File: `index.html`
 
