@@ -90,92 +90,9 @@
                     </div>
                 </div>
 
-                <!-- Mode of Payment Section (Public/Guest) -->
-                <div id="payment-info-section" class="glass-panel payment-info-section">
-                    <h3 class="billing-header" style="border: none;">💳 Mode of Payment</h3>
-
-                    <div class="payment-info-display">
-                        <div class="payment-detail">
-                            <span class="label">GCash Account:</span>
-                            <span id="display-gcash-name" class="value">Loading...</span>
-                        </div>
-                        <div class="payment-detail">
-                            <span class="label">GCash Number:</span>
-                            <span id="display-gcash-number" class="value">Loading...</span>
-                            <button onclick="copyGcashNumber()" class="copy-btn" title="Copy Number">
-                                📋 Copy
-                            </button>
-                        </div>
-
-                        <div style="text-align: center; margin: 10px 0;">
-                            <div class="qr-display" id="qr-display-container" style="display: none;"
-                                onclick="openQRFullscreen()">
-                                <img id="display-qr-code" src="" alt="GCash QR Code">
-                                <div class="qr-tap-hint">👆 Tap to enlarge</div>
-                            </div>
-                        </div>
-
-                        <div class="payment-instructions-display">
-                            <h4>📝 Payment Instructions</h4>
-                            <p id="display-instructions">Loading instructions...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Payment Submission Form (Public) -->
-                <div id="payment-submit-section" class="glass-panel payment-submit-section">
-                    <h3 class="billing-header" style="border: none;">📤 Submit Payment</h3>
-
-                    <form id="payment-submission-form" class="payment-submit-form">
-                        <div>
-                            <label>YOUR GCASH NUMBER</label>
-                            <input type="tel" id="sender-gcash" class="billing-input" placeholder="09XXXXXXXXX"
-                                maxlength="11" required>
-                        </div>
-
-                        <div>
-                            <label>YOUR FULL NAME</label>
-                            <input type="text" id="sender-name" class="billing-input" placeholder="Juan Dela Cruz"
-                                required>
-                        </div>
-
-                        <div>
-                            <label>CONTACT NUMBER</label>
-                            <input type="tel" id="sender-contact" class="billing-input" placeholder="09XXXXXXXXX"
-                                maxlength="11" required>
-                        </div>
-
-                        <div>
-                            <label>SELECT ROOM TO PAY</label>
-                            <div class="custom-select-wrapper">
-                                <div class="custom-select-trigger" id="room-select-trigger"
-                                    onclick="toggleRoomDropdown()">
-                                    <span id="room-select-text">-- Select Room --</span>
-                                    <span class="custom-select-arrow">▼</span>
-                                </div>
-                                <div class="custom-select-options" id="room-select-options">
-                                    <!-- Options populated by JS -->
-                                </div>
-                                <input type="hidden" id="payment-room-select" name="room" required>
-                            </div>
-                        </div>
-
-                        <div class="amount-display">
-                            <div class="amount-label">Amount to Pay</div>
-                            <div class="amount-value" id="payment-amount">₱0.00</div>
-                        </div>
-
-                        <div>
-                            <label>UPLOAD GCASH RECEIPT</label>
-                            <input type="file" id="receipt-upload" accept="image/png,image/jpeg,image/webp" required>
-                        </div>
-
-                        <button type="submit" class="submit-payment-btn">
-                            ✅ Submit Payment
-                        </button>
-                    </form>
-                </div>
             </div>
+
+
 
             <!-- Auth Container (Hidden by default) -->
             <div id="billing-auth-container" class="login-panel" style="display: none;">
@@ -355,6 +272,95 @@
                                 placeholder="Send exact amount and upload screenshot as proof of payment."></textarea>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Shared Payment Container (Visible for Public & Tenants) -->
+            <div id="shared-payment-container" style="display: none;">
+                <!-- Mode of Payment Section -->
+                <div id="payment-info-section" class="glass-panel payment-info-section">
+                    <h3 class="billing-header" style="border: none;">💳 Mode of Payment</h3>
+
+                    <div class="payment-info-display">
+                        <div class="payment-detail">
+                            <span class="label">GCash Account:</span>
+                            <span id="display-gcash-name" class="value">Loading...</span>
+                        </div>
+                        <div class="payment-detail">
+                            <span class="label">GCash Number:</span>
+                            <span id="display-gcash-number" class="value">Loading...</span>
+                            <button onclick="copyGcashNumber()" class="copy-btn" title="Copy Number">
+                                📋 Copy
+                            </button>
+                        </div>
+
+                        <div style="text-align: center; margin: 10px 0;">
+                            <div class="qr-display" id="qr-display-container" style="display: none;"
+                                onclick="openQRFullscreen()">
+                                <img id="display-qr-code" src="" alt="GCash QR Code">
+                                <div class="qr-tap-hint">👆 Tap to enlarge</div>
+                            </div>
+                        </div>
+
+                        <div class="payment-instructions-display">
+                            <h4>📝 Payment Instructions</h4>
+                            <p id="display-instructions">Loading instructions...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Submission Form -->
+                <div id="payment-submit-section" class="glass-panel payment-submit-section">
+                    <h3 class="billing-header" style="border: none;">📤 Submit Payment</h3>
+
+                    <form id="payment-submission-form" class="payment-submit-form">
+                        <div>
+                            <label>YOUR GCASH NUMBER</label>
+                            <input type="tel" id="sender-gcash" class="billing-input" placeholder="09XXXXXXXXX"
+                                maxlength="11" required>
+                        </div>
+
+                        <div>
+                            <label>YOUR FULL NAME</label>
+                            <input type="text" id="sender-name" class="billing-input" placeholder="Juan Dela Cruz"
+                                required>
+                        </div>
+
+                        <div>
+                            <label>CONTACT NUMBER</label>
+                            <input type="tel" id="sender-contact" class="billing-input" placeholder="09XXXXXXXXX"
+                                maxlength="11" required>
+                        </div>
+
+                        <div>
+                            <label>SELECT ROOM TO PAY</label>
+                            <div class="custom-select-wrapper">
+                                <div class="custom-select-trigger" id="room-select-trigger"
+                                    onclick="toggleRoomDropdown()">
+                                    <span id="room-select-text">-- Select Room --</span>
+                                    <span class="custom-select-arrow">▼</span>
+                                </div>
+                                <div class="custom-select-options" id="room-select-options">
+                                    <!-- Options populated by JS -->
+                                </div>
+                                <input type="hidden" id="payment-room-select" name="room" required>
+                            </div>
+                        </div>
+
+                        <div class="amount-display">
+                            <div class="amount-label">Amount to Pay</div>
+                            <div class="amount-value" id="payment-amount">₱0.00</div>
+                        </div>
+
+                        <div>
+                            <label>UPLOAD GCASH RECEIPT</label>
+                            <input type="file" id="receipt-upload" accept="image/png,image/jpeg,image/webp" required>
+                        </div>
+
+                        <button type="submit" class="submit-payment-btn">
+                            ✅ Submit Payment
+                        </button>
+                    </form>
                 </div>
             </div>
 

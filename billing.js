@@ -120,11 +120,21 @@ function showSection(section) {
     const authContainer = document.getElementById('billing-auth-container');
     const tenantView = document.getElementById('billing-tenant-view');
     const adminView = document.getElementById('billing-admin-view');
+    const sharedPayment = document.getElementById('shared-payment-container');
 
     if (publicView) publicView.style.display = section === 'public' ? 'block' : 'none';
     if (authContainer) authContainer.style.display = section === 'login' ? 'block' : 'none';
     if (tenantView) tenantView.style.display = section === 'tenant' ? 'block' : 'none';
     if (adminView) adminView.style.display = section === 'admin' ? 'block' : 'none';
+
+    // Show payment container on Public or Tenant view
+    if (sharedPayment) {
+        if (section === 'public' || section === 'tenant') {
+            sharedPayment.style.display = 'block';
+        } else {
+            sharedPayment.style.display = 'none';
+        }
+    }
 }
 
 // Show login modal (from public view)
@@ -523,11 +533,16 @@ if (recordForm) {
             const applyRate = document.getElementById('apply-all-rate').checked;
 
             if (applyPeriod) {
-                const { error: periodError } = await supabaseClient.rpc('bulk_update_period', {
-                    p_user_id: currentUser.id,
-                    p_period_start: p_start,
-                    p_period_end: p_end
-                });
+                // Use direct update to ensure it works even if RPC is missing
+                const { error: periodError } = await supabaseClient
+                    .from('bills')
+                    .update({
+                        period_start: p_start,
+                        period_end: p_end,
+                        month: p_end // Legacy sync
+                    })
+                    .eq('user_id', currentUser.id);
+
                 if (periodError) {
                     showToast("Bulk Update Failed: " + periodError.message, 'error');
                     console.error("Bulk Period Error:", periodError);
@@ -535,6 +550,7 @@ if (recordForm) {
                     showToast("Success! Billing period updated for ALL records.");
                 }
             }
+
 
             if (applyRate) {
                 const { error: rateError } = await supabaseClient.rpc('bulk_update_rate', {
@@ -654,6 +670,7 @@ window.printBillingReport = function () {
                     <th>Rate</th>
                     <th>Amount</th>
                     <th style="text-align: center;">Status</th>
+                    <th style="width: 150px;">Remarks</th>
                 </tr>
             </thead>
             <tbody>
@@ -670,6 +687,7 @@ window.printBillingReport = function () {
                 <td>₱${record.rate}</td>
                 <td style="font-weight: bold;">₱${record.amount.toFixed(2)}</td>
                 <td style="text-align: center;"><span class="badge ${record.status === 'PAID' ? 'paid' : 'due'}">${record.status}</span></td>
+                <td></td>
             </tr>
         `;
     });
@@ -706,6 +724,7 @@ window.printBillingReport = function () {
                     margin-bottom: 0;
                     text-align: center;
                     -webkit-print-color-adjust: exact;
+                    border: 1px solid #000;
                 }
 
                 table {
@@ -748,12 +767,14 @@ window.printBillingReport = function () {
                 th, td {
                     padding: 12px 15px;
                     border: 1px solid #333;
+                    font-weight: 800; /* Extra Bold */
                 }
                 
                 /* Zebra Striping */
                 tbody tr:nth-child(even) {
-                    background-color: #f8f9fa;
+                    background-color: #d3d3d3 !important; /* Visible Grey */
                     -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
                 }
 
                 .badge {
