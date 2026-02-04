@@ -1,0 +1,1217 @@
+/* ================================================== */
+/* ELECTRIC BILLING SYSTEM LOGIC                      */
+/* Specific for Billing Page functionality            */
+/* ================================================== */
+
+// Global state
+let currentUser = null;
+let userProfile = null;
+let billingRecords = [];
+
+// Initialize Supabase
+const SUPABASE_URL = 'https://jlbvoiqexugdobzgpvyb.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsYnZvaXFleHVnZG9iemdwdnliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NTU1MzAsImV4cCI6MjA4MDMzMTUzMH0.2RVENuR1AVPbjM5vBG7c2_fppn3D4zAZCuBFVCI08SA';
+let supabaseClient;
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', async () => {
+    if (typeof window.supabase !== 'undefined') {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        checkSession();
+    } else {
+        console.error('Supabase SDK not loaded');
+        const errMsg = document.getElementById('auth-error-msg');
+        if (errMsg) {
+            errMsg.textContent = 'System Error: Database not connected.';
+            errMsg.style.display = 'block';
+        }
+    }
+});
+
+// Helper: Format Date
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleString('default', { month: 'short', year: 'numeric' });
+}
+
+// Back Button Functionality
+function goBack() {
+    window.location.href = 'index.html';
+}
+
+// Auth Handlers
+const loginForm = document.getElementById('billing-login-form');
+if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('auth-username').value;
+        const password = document.getElementById('auth-password').value;
+        const errorMsg = document.getElementById('auth-error-msg');
+
+        errorMsg.style.display = 'none';
+
+        try {
+            // Call Custom Login RPC
+            const { data, error } = await supabaseClient.rpc('custom_login', {
+                p_username: username,
+                p_password: password
+            });
+
+            if (error) throw error;
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            if (data.success) {
+                // Save Session
+                currentUser = data.user;
+                localStorage.setItem('billing_user', JSON.stringify(currentUser));
+                showToast('Logged in successfully!', 'success');
+                handleSession();
+            }
+        } catch (err) {
+            // Show clean error message instead of debug info
+            errorMsg.textContent = 'Incorrect username or password.';
+            errorMsg.style.display = 'block';
+        }
+    });
+}
+
+function logoutBilling() {
+    localStorage.removeItem('billing_user');
+    currentUser = null;
+    showSection('public');
+    fetchPublicBills();
+}
+
+function checkSession() {
+    const storedUser = localStorage.getItem('billing_user');
+    if (storedUser) {
+        currentUser = JSON.parse(storedUser);
+        handleSession();
+    } else {
+        showSection('public');
+        fetchPublicBills();
+    }
+}
+
+function handleSession() {
+    if (!currentUser) {
+        showSection('public');
+        fetchPublicBills();
+        return;
+    }
+
+    if (currentUser.role === 'admin') {
+        showSection('admin');
+        fetchAdminBills();
+    } else {
+        showSection('tenant');
+        const roomEl = document.getElementById('tenant-room-no');
+        if (roomEl) roomEl.textContent = currentUser.tenant_location || 'Not Assigned';
+        fetchTenantBills();
+    }
+}
+
+function showSection(section) {
+    const publicView = document.getElementById('billing-public-view');
+    const authContainer = document.getElementById('billing-auth-container');
+    const tenantView = document.getElementById('billing-tenant-view');
+    const adminView = document.getElementById('billing-admin-view');
+
+    if (publicView) publicView.style.display = section === 'public' ? 'block' : 'none';
+    if (authContainer) authContainer.style.display = section === 'login' ? 'block' : 'none';
+    if (tenantView) tenantView.style.display = section === 'tenant' ? 'block' : 'none';
+    if (adminView) adminView.style.display = section === 'admin' ? 'block' : 'none';
+}
+
+// Show login modal (from public view)
+window.showLoginModal = function () {
+    showSection('login');
+};
+
+// Close login modal (return to public view)
+window.closeLoginModal = function () {
+    showSection('public');
+    fetchPublicBills();
+};
+
+// Toggle password visibility
+window.togglePassword = function () {
+    const passwordInput = document.getElementById('auth-password');
+    const eyeIcon = document.getElementById('eye-icon');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        // Change to eye-off icon
+        eyeIcon.innerHTML = `
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+        `;
+    } else {
+        passwordInput.type = 'password';
+        // Change to eye icon
+        eyeIcon.innerHTML = `
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        `;
+    }
+};
+
+// Public View Logic (No authentication required)
+async function fetchPublicBills() {
+    const tbody = document.getElementById('public-billing-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan=\'6\'>Loading...</td></tr>';
+
+    let data = null;
+    let error = null;
+
+    // Try using the get_public_bills RPC first (if exists)
+    const result1 = await supabaseClient.rpc('get_public_bills');
+    if (!result1.error && result1.data) {
+        data = result1.data;
+    } else {
+        // Fallback: Try direct query to bills table (if RLS allows)
+        const result2 = await supabaseClient
+            .from('bills')
+            .select('id, room_no, month, period_start, period_end, previous_reading, current_reading, rate, amount, status');
+
+        if (!result2.error && result2.data) {
+            data = result2.data;
+        } else {
+            error = result2.error || result1.error;
+        }
+    }
+
+    if (error) {
+        tbody.innerHTML = '<tr><td colspan=\'6\'>Unable to load billing data. Please login to view.</td></tr>';
+        console.error('Public fetch error:', error);
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan=\'6\'>No records found.</td></tr>';
+        return;
+    }
+
+    // Sort records by room_no in natural alphanumeric order
+    data.sort((a, b) => {
+        return a.room_no.localeCompare(b.room_no, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    tbody.innerHTML = data.map(record => {
+        const kwhUsed = (record.current_reading - record.previous_reading).toFixed(1);
+        const amount = (kwhUsed * record.rate).toFixed(2);
+        return `
+        <tr>
+            <td style='font-weight:bold;'>${record.room_no}</td>
+            <td>${formatPeriod(record.period_start, record.period_end, record.month)}</td>
+            <td>${kwhUsed} kWh</td>
+            <td style='font-weight:bold; color: ${record.status === 'PAID' ? '#9ACD32' : '#FFA500'};'>₱${amount}</td>
+            <td><span class='status-badge ${record.status === 'PAID' ? 'status-paid' : 'status-due'}'>${record.status}</span></td>
+            <td>
+                <small>Prev: ${record.previous_reading} | Curr: ${record.current_reading} | Rate: ₱${record.rate}</small>
+            </td>
+        </tr>
+    `}).join('');
+}
+
+// Global data store for edit modal
+window.allBillingRecords = [];
+
+// Tenant Logic
+async function fetchTenantBills() {
+    const tbody = document.getElementById('tenant-billing-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan=\'6\'>Loading...</td></tr>';
+
+    // Use RPC to get bills safe for this user
+    const { data, error } = await supabaseClient.rpc('get_bills', { p_user_id: currentUser.id });
+
+    if (error) {
+        tbody.innerHTML = '<tr><td colspan=\'6\'>Error: ' + error.message + '</td></tr>';
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan=\'6\'>No records found.</td></tr>';
+        return;
+    }
+
+    // Sort records by room_no in natural alphanumeric order
+    data.sort((a, b) => {
+        return a.room_no.localeCompare(b.room_no, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    // Get user's room (normalize for comparison - remove all spaces)
+    const normalizeRoom = (room) => (room || '').toLowerCase().replace(/\s+/g, '');
+    const userRoom = normalizeRoom(currentUser.tenant_location);
+
+    tbody.innerHTML = data.map(record => {
+        const isMyRoom = normalizeRoom(record.room_no) === userRoom;
+        return `
+        <tr class="${isMyRoom ? 'my-room-row' : ''}">
+            <td style='font-weight:bold;'>${record.room_no}${isMyRoom ? ' <span style="color:#FFA500;font-size:0.65rem;">(You)</span>' : ''}</td>
+            <td>${formatPeriod(record.period_start, record.period_end, record.month)}</td>
+            <td>${record.kwh_used} kWh</td>
+            <td style='font-weight:bold; color: ${record.status === 'PAID' ? '#9ACD32' : '#FFA500'};'>₱${record.amount.toFixed(2)}</td>
+            <td><span class='status-badge ${record.status === 'PAID' ? 'status-paid' : 'status-due'}'>${record.status}</span></td>
+            <td>
+                <small>Prev: ${record.previous_reading} | Curr: ${record.current_reading} | Rate: ₱${record.rate}</small>
+            </td>
+        </tr>
+    `}).join('');
+}
+
+// Admin Logic
+async function fetchAdminBills() {
+    const tbody = document.getElementById('admin-billing-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan=\'9\'>Loading...</td></tr>';
+
+    const { data, error } = await supabaseClient.rpc('get_bills', { p_user_id: currentUser.id });
+
+    if (error) {
+        tbody.innerHTML = '<tr><td colspan=\'9\'>Error: ' + error.message + '</td></tr>';
+        return;
+    }
+
+    window.allBillingRecords = data || []; // Store for edit/print
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan=\'9\'>No records found.</td></tr>';
+        return;
+    }
+
+    // Sort records by room_no in natural alphanumeric order
+    data.sort((a, b) => {
+        return a.room_no.localeCompare(b.room_no, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    tbody.innerHTML = data.map(record => `
+        <tr>
+            <td style='font-weight:bold;'>${record.room_no}</td>
+            <td>${formatPeriod(record.period_start, record.period_end, record.month)}</td>
+            <td>${record.previous_reading}/${record.current_reading}</td>
+            <td>${record.kwh_used}</td>
+            <td>₱${record.rate}</td>
+            <td style='font-weight:bold; color: ${record.status === 'PAID' ? '#9ACD32' : '#FFA500'};'>₱${record.amount.toFixed(2)}</td>
+            <td><span class='status-badge ${record.status === 'PAID' ? 'status-paid' : 'status-due'}'>${record.status}</span></td>
+            <td style="display:flex; gap:4px;">
+                <button onclick='editRecord("${record.id}")' class='icon-btn edit-icon' title="Edit">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button onclick='deleteRecord("${record.id}")' class='icon-btn del-icon' title="Delete">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Helper to format period display (compact for mobile)
+function formatPeriod(start, end, month) {
+    const shortDate = (d) => {
+        if (!d) return '';
+        const date = new Date(d);
+        const yr = String(date.getFullYear()).slice(-2);
+        return `${date.getMonth() + 1}/${date.getDate()}/${yr}`;
+    };
+
+    if (start && end) {
+        return `${shortDate(start)}-${shortDate(end)}`;
+    }
+    if (month) {
+        const d = new Date(month);
+        return `${d.getMonth() + 1}/${d.getFullYear()}`;
+    }
+    return '-';
+}
+
+// CRUD
+// Template defaults for new records
+const BILLING_TEMPLATE = {
+    periodStart: '2026-01-01',
+    periodEnd: '2026-01-31',
+    rate: 16.9
+};
+
+window.openAddRecordModal = function () {
+    const form = document.getElementById('admin-record-form');
+    if (form) form.reset();
+
+    // Reset apply checkboxes
+    if (document.getElementById('apply-all-period')) document.getElementById('apply-all-period').checked = false;
+    if (document.getElementById('apply-all-rate')) document.getElementById('apply-all-rate').checked = false;
+
+    const idField = document.getElementById('record-id');
+    if (idField) idField.value = '';
+
+    const modalTitle = document.getElementById('modal-title');
+    if (modalTitle) modalTitle.textContent = 'Add New Record';
+
+    // Pre-fill template values for new records
+    const periodStartField = document.getElementById('record-period-start');
+    const periodEndField = document.getElementById('record-period-end');
+    const monthField = document.getElementById('record-month');
+    const rateField = document.getElementById('record-rate');
+
+    if (periodStartField) periodStartField.value = BILLING_TEMPLATE.periodStart;
+    if (periodEndField) periodEndField.value = BILLING_TEMPLATE.periodEnd;
+    if (monthField) monthField.value = BILLING_TEMPLATE.periodEnd;
+    if (rateField) rateField.value = BILLING_TEMPLATE.rate;
+
+    // Load room suggestions
+    loadRoomSuggestions();
+
+    const modal = document.getElementById('admin-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+// Fetch rooms from tenant_locations for dropdown suggestions
+let allRooms = [];
+let availableRooms = []; // Rooms not yet in billing records
+
+async function loadRoomSuggestions() {
+    if (!supabaseClient) return;
+
+    const { data, error } = await supabaseClient
+        .from('tenant_locations')
+        .select('name')
+        .order('name');
+
+    if (error) {
+        console.error('Error loading rooms:', error);
+        return;
+    }
+
+    allRooms = data || [];
+
+    // Filter out rooms that already have billing records
+    const existingRooms = (window.allBillingRecords || []).map(r => r.room_no.toLowerCase());
+    availableRooms = allRooms.filter(room => !existingRooms.includes(room.name.toLowerCase()));
+}
+
+function renderRoomDropdown(rooms) {
+    const dropdown = document.getElementById('room-dropdown');
+    if (!dropdown) return;
+
+    if (rooms.length === 0) {
+        dropdown.innerHTML = '<div class="room-option" style="color: #888; cursor: default;">All rooms already have records</div>';
+    } else {
+        dropdown.innerHTML = rooms.map(r =>
+            `<div class="room-option" onclick="selectRoom('${r.name}')">${r.name}</div>`
+        ).join('');
+    }
+}
+
+window.showRoomDropdown = async function () {
+    await loadRoomSuggestions(); // Always refresh to get latest available rooms
+    const dropdown = document.getElementById('room-dropdown');
+    if (dropdown) {
+        renderRoomDropdown(availableRooms);
+        dropdown.style.display = 'block';
+    }
+};
+
+window.filterRoomDropdown = function () {
+    const input = document.getElementById('record-room').value.toLowerCase();
+    const filtered = availableRooms.filter(r => r.name.toLowerCase().includes(input));
+    renderRoomDropdown(filtered);
+    const dropdown = document.getElementById('room-dropdown');
+    if (dropdown) dropdown.style.display = 'block';
+};
+
+window.selectRoom = function (name) {
+    document.getElementById('record-room').value = name;
+    document.getElementById('room-dropdown').style.display = 'none';
+};
+
+// Hide dropdown when clicking outside
+document.addEventListener('click', function (e) {
+    const wrapper = document.querySelector('.room-dropdown-wrapper');
+    const dropdown = document.getElementById('room-dropdown');
+    if (wrapper && dropdown && !wrapper.contains(e.target)) {
+        dropdown.style.display = 'none';
+    }
+});
+
+window.closeAdminModal = function () {
+    const modal = document.getElementById('admin-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+window.editRecord = function (id) {
+    const record = window.allBillingRecords.find(r => r.id === id);
+    if (!record) return;
+
+    document.getElementById('record-id').value = record.id;
+    document.getElementById('record-room').value = record.room_no;
+
+    // Set dates
+    if (record.period_start) document.getElementById('record-period-start').value = record.period_start;
+    if (record.period_end) {
+        document.getElementById('record-period-end').value = record.period_end;
+        document.getElementById('record-month').value = record.period_end;
+    } else {
+        document.getElementById('record-month').value = record.month;
+    }
+
+    document.getElementById('record-prev').value = record.previous_reading;
+    document.getElementById('record-curr').value = record.current_reading;
+    document.getElementById('record-rate').value = record.rate;
+    document.getElementById('record-status').value = record.status;
+
+    document.getElementById('modal-title').textContent = 'Edit Record';
+    document.getElementById('admin-modal').style.display = 'flex';
+}
+
+const recordForm = document.getElementById('admin-record-form');
+if (recordForm) {
+    recordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('record-id').value;
+        const room_no = document.getElementById('record-room').value.trim();
+
+        // Check for duplicate room when adding new record (not editing)
+        if (!id) {
+            // Refresh data from server to ensure we have latest records
+            const { data: latestRecords } = await supabaseClient.rpc('get_bills', { p_user_id: currentUser.id });
+            const existingRoom = (latestRecords || []).find(
+                r => r.room_no.toLowerCase().trim() === room_no.toLowerCase()
+            );
+            if (existingRoom) {
+                showToast(`Record for "${room_no}" already exists. Please edit the existing record instead.`, 'error');
+                return;
+            }
+        }
+
+        // Dates
+        const p_start = document.getElementById('record-period-start').value;
+        const p_end = document.getElementById('record-period-end').value;
+        // Use end date as the "month" for sorting if not explicit, or just strictly use end date
+        const billing_month = p_end;
+
+        const previous_reading = document.getElementById('record-prev').value;
+        const current_reading = document.getElementById('record-curr').value;
+        const rate = document.getElementById('record-rate').value;
+        const status = document.getElementById('record-status').value;
+
+        const payload = {
+            p_user_id: currentUser.id,
+            p_id: id || null,
+            p_room_no: room_no,
+            p_month: billing_month,
+            p_period_start: p_start,
+            p_period_end: p_end,
+            p_previous_reading: parseFloat(previous_reading),
+            p_current_reading: parseFloat(current_reading),
+            p_rate: parseFloat(rate),
+            p_status: status
+        };
+
+        const { data, error } = await supabaseClient.rpc('upsert_bill', payload);
+
+        if (error) {
+            showToast('Error saving record: ' + error.message, 'error');
+        } else {
+            // --- BULK UPDATES ---
+            const applyPeriod = document.getElementById('apply-all-period').checked;
+            const applyRate = document.getElementById('apply-all-rate').checked;
+
+            if (applyPeriod) {
+                const { error: periodError } = await supabaseClient.rpc('bulk_update_period', {
+                    p_user_id: currentUser.id,
+                    p_period_start: p_start,
+                    p_period_end: p_end
+                });
+                if (periodError) {
+                    showToast("Bulk Update Failed: " + periodError.message, 'error');
+                    console.error("Bulk Period Error:", periodError);
+                } else {
+                    showToast("Success! Billing period updated for ALL records.");
+                }
+            }
+
+            if (applyRate) {
+                const { error: rateError } = await supabaseClient.rpc('bulk_update_rate', {
+                    p_user_id: currentUser.id,
+                    p_rate: parseFloat(rate)
+                });
+                if (rateError) {
+                    showToast("Bulk Update Failed: " + rateError.message, 'error');
+                    console.error("Bulk Rate Error:", rateError);
+                } else {
+                    showToast("Success! Rate updated for ALL records.");
+                }
+            }
+
+            closeAdminModal();
+            fetchAdminBills();
+        }
+    });
+}
+
+// --- Custom Notifications (Toasts) ---
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+
+    // Choose icon based on type
+    let icon = '✅';
+    if (type === 'error') icon = '⚠️';
+    if (type === 'info') icon = 'ℹ️';
+
+    toast.innerHTML = `
+        <span style="font-size: 0.85rem;">${icon}</span>
+        <span>${message}</span>
+    `;
+
+    container.appendChild(toast);
+
+    // Remove after 4.5s (animation ends at 4.3s)
+    setTimeout(() => {
+        toast.remove();
+    }, 4500);
+}
+
+// Show Coming Soon Toast for Create Account
+window.showComingSoonToast = function () {
+    showToast('🚀 Create Account is under development. Coming soon!', 'info');
+};
+
+// --- Custom Confirmation Modal ---
+function showConfirm(message, onConfirm) {
+    // Create modal on the fly
+    const modalId = 'custom-confirm-modal';
+    let modal = document.getElementById(modalId);
+
+    if (modal) modal.remove(); // Cleanup old one
+
+    const modalHtml = `
+        <div id="${modalId}" class="modal-overlay">
+            <div class="modal-content glass-panel" style="max-width: 260px; text-align: center; padding: 16px;">
+                <h4 style="margin: 0 0 8px; font-size: 0.9rem; color: #fff;">Confirm Delete</h4>
+                <p style="margin: 0 0 14px; color: var(--text-secondary); font-size: 0.75rem;">${message}</p>
+                <div style="display: flex; gap: 8px;">
+                    <button id="confirm-cancel" class="billing-btn secondary-btn" style="flex:1; padding: 6px 10px; font-size: 0.75rem;">Cancel</button>
+                    <button id="confirm-ok" class="billing-btn primary-btn" style="flex:1; padding: 6px 10px; font-size: 0.75rem; background: #dc3545;">Delete</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Handlers
+    document.getElementById('confirm-cancel').onclick = () => document.getElementById(modalId).remove();
+    document.getElementById('confirm-ok').onclick = () => {
+        document.getElementById(modalId).remove();
+        onConfirm();
+    };
+}
+
+window.deleteRecord = function (id) {
+    showConfirm('Are you sure you want to delete this record?', async () => {
+        const { data, error } = await supabaseClient.rpc('delete_bill', {
+            p_user_id: currentUser.id,
+            p_bill_id: id
+        });
+
+        if (error) {
+            showToast('Error deleting record: ' + error.message, 'error');
+        } else {
+            showToast('Record deleted successfully!', 'success');
+            fetchAdminBills();
+        }
+    });
+}
+
+// Print Report
+window.printBillingReport = function () {
+    const data = window.allBillingRecords || [];
+    if (data.length === 0) {
+        showToast('No records to print.', 'error');
+        return;
+    }
+
+    let printContent = `
+        <div class="header">
+            <h1>LYNMARK BOARDING HOUSE ELECTRIC BILL</h1>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Room</th>
+                    <th>Billing Period</th>
+                    <th>Readings (Prev - Curr)</th>
+                    <th>Usage (kWh)</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                    <th style="text-align: center;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    data.forEach(record => {
+        const usage = (record.current_reading - record.previous_reading).toFixed(1);
+        printContent += `
+            <tr>
+                <td style="font-weight: bold;">${record.room_no}</td>
+                <td>${formatPeriod(record.period_start, record.period_end, record.month)}</td>
+                <td>${record.previous_reading} - ${record.current_reading}</td>
+                <td>${record.kwh_used} kWh</td>
+                <td>₱${record.rate}</td>
+                <td style="font-weight: bold;">₱${record.amount.toFixed(2)}</td>
+                <td style="text-align: center;"><span class="badge ${record.status === 'PAID' ? 'paid' : 'due'}">${record.status}</span></td>
+            </tr>
+        `;
+    });
+
+    printContent += `
+            </tbody>
+        </table>
+        <div class="footer">
+            <p><strong>Total Records:</strong> ${data.length}</p>
+            <p>Generated On: ${new Date().toLocaleString()}</p>
+        </div>
+    `;
+
+    const printWindow = window.open('', '', 'width=900,height=600');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Electric Bill Report</title>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+                
+                body {
+                    font-family: 'Inter', sans-serif;
+                    margin: 0;
+                    padding: 20px;
+                    color: #333;
+                    background: #fff;
+                }
+                
+                .header {
+                    background: #FF8C00;
+                    color: #000;
+                    padding: 10px 30px;
+                    margin-bottom: 0;
+                    text-align: center;
+                    -webkit-print-color-adjust: exact;
+                }
+
+                table {
+                    margin-top: 0;
+                }
+                
+                .header h1 {
+                    margin: 0;
+                    font-size: 18px;
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                    text-transform: uppercase;
+                    color: #000;
+                }
+
+                .meta {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 20px;
+                    font-size: 14px;
+                    color: #555;
+                    border-bottom: 2px solid #eee;
+                    padding-bottom: 10px;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 20px;
+                    font-size: 15px;
+                }
+                
+                thead tr {
+                    background-color: #9ACD32;
+                    color: #000;
+                    text-align: left;
+                    -webkit-print-color-adjust: exact;
+                }
+                
+                th, td {
+                    padding: 12px 15px;
+                    border: 1px solid #333;
+                }
+                
+                /* Zebra Striping */
+                tbody tr:nth-child(even) {
+                    background-color: #f8f9fa;
+                    -webkit-print-color-adjust: exact;
+                }
+
+                .badge {
+                    padding: 4px 8px;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    font-size: 11px;
+                    color: white;
+                    -webkit-print-color-adjust: exact;
+                }
+                
+                .badge.paid {
+                    background-color: #28a745;
+                    border: 1px solid #1e7e34;
+                }
+                
+                .badge.due {
+                    background-color: #dc3545;
+                    border: 1px solid #bd2130;
+                }
+
+                .footer {
+                    margin-top: 30px;
+                    text-align: center;
+                    font-size: 12px;
+                    color: #333;
+                    border-top: 2px solid #FF8C00;
+                    padding-top: 15px;
+                }
+                
+                .footer p {
+                    margin: 5px 0;
+                }
+            </style>
+        </head>
+        <body>
+            ${printContent}
+        </body>
+        </html >
+        `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 500);
+}
+
+/* ================================================== */
+/* PAYMENT SYSTEM FUNCTIONS                           */
+/* ================================================== */
+
+// Global storage for public bills data (for room selection dropdown)
+window.publicBillsData = [];
+
+// Load payment settings on page load
+async function loadPaymentSettings() {
+    if (!supabaseClient) return;
+
+    try {
+        const { data, error } = await supabaseClient.rpc('get_payment_settings');
+
+        if (error) {
+            console.error('Error loading payment settings:', error);
+            return;
+        }
+
+        if (data && data.length > 0) {
+            const settings = data[0];
+
+            // Populate admin form fields
+            const gcashNumberInput = document.getElementById('gcash-number');
+            const gcashAccountInput = document.getElementById('gcash-account-name');
+            const instructionsInput = document.getElementById('payment-instructions');
+            const qrPreview = document.getElementById('qr-preview');
+
+            if (gcashNumberInput) gcashNumberInput.value = settings.gcash_number || '';
+            if (gcashAccountInput) gcashAccountInput.value = settings.gcash_account_name || '';
+            if (instructionsInput) instructionsInput.value = settings.payment_instructions || '';
+            if (qrPreview && settings.gcash_qr_url) {
+                qrPreview.src = settings.gcash_qr_url;
+                qrPreview.style.display = 'block';
+            }
+
+            // Populate public display fields
+            const displayName = document.getElementById('display-gcash-name');
+            const displayNumber = document.getElementById('display-gcash-number');
+            const displayQR = document.getElementById('display-qr-code');
+            const qrContainer = document.getElementById('qr-display-container');
+            const displayInstructions = document.getElementById('display-instructions');
+
+            if (displayName) displayName.textContent = settings.gcash_account_name || 'Not configured';
+            if (displayNumber) displayNumber.textContent = settings.gcash_number || 'Not configured';
+            if (displayInstructions) displayInstructions.textContent = settings.payment_instructions || 'No instructions available.';
+
+            if (displayQR && settings.gcash_qr_url) {
+                displayQR.src = settings.gcash_qr_url;
+                if (qrContainer) qrContainer.style.display = 'inline-block';
+            }
+        }
+    } catch (err) {
+        console.error('Failed to load payment settings:', err);
+    }
+}
+
+// Preview QR Code before upload (Admin)
+window.previewQRCode = function (input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('File too large. Maximum size is 2MB.', 'error');
+        input.value = '';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const preview = document.getElementById('qr-preview');
+        if (preview) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        }
+    };
+    reader.readAsDataURL(file);
+};
+
+// Fullscreen QR Modal Functions
+window.openQRFullscreen = function () {
+    const qrImg = document.getElementById('display-qr-code');
+    const modal = document.getElementById('qr-fullscreen-modal');
+    const fullscreenImg = document.getElementById('qr-fullscreen-img');
+
+    if (qrImg && modal && fullscreenImg) {
+        fullscreenImg.src = qrImg.src;
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+};
+
+window.closeQRFullscreen = function () {
+    const modal = document.getElementById('qr-fullscreen-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+};
+
+// Save payment settings (Admin)
+window.savePaymentSettings = async function () {
+    if (!currentUser || currentUser.role !== 'admin') {
+        showToast('You must be an admin to save settings.', 'error');
+        return;
+    }
+
+    const gcashNumber = document.getElementById('gcash-number').value.trim();
+    const accountName = document.getElementById('gcash-account-name').value.trim();
+    const instructions = document.getElementById('payment-instructions').value.trim();
+
+    if (!gcashNumber || !accountName) {
+        showToast('GCash number and account name are required.', 'error');
+        return;
+    }
+
+    let qrUrl = null;
+
+    // Check if a new QR file was uploaded
+    const qrFile = document.getElementById('qr-upload').files[0];
+    if (qrFile) {
+        try {
+            // Upload to Supabase Storage
+            const fileName = `qr_${Date.now()}_${qrFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                .from('payment-assets')
+                .upload(`qr-codes/${fileName}`, qrFile, {
+                    cacheControl: '3600',
+                    upsert: true
+                });
+
+            if (uploadError) {
+                console.error('Upload error:', uploadError);
+                showToast('Error uploading QR code. Please try again.', 'error');
+                return;
+            }
+
+            // Get public URL
+            const { data: urlData } = supabaseClient.storage
+                .from('payment-assets')
+                .getPublicUrl(`qr-codes/${fileName}`);
+
+            qrUrl = urlData.publicUrl;
+        } catch (err) {
+            console.error('Upload failed:', err);
+            showToast('Failed to upload QR code.', 'error');
+            return;
+        }
+    } else {
+        // Keep existing QR URL
+        const preview = document.getElementById('qr-preview');
+        if (preview && preview.src && !preview.src.includes('data:')) {
+            qrUrl = preview.src;
+        }
+    }
+
+    // Save to database
+    const { error } = await supabaseClient.rpc('upsert_payment_settings', {
+        p_gcash_number: gcashNumber,
+        p_gcash_account_name: accountName,
+        p_gcash_qr_url: qrUrl,
+        p_payment_instructions: instructions
+    });
+
+    if (error) {
+        console.error('Save error:', error);
+        showToast('Error saving settings: ' + error.message, 'error');
+    } else {
+        showToast('Payment settings saved successfully!', 'success');
+        loadPaymentSettings(); // Refresh display
+    }
+};
+
+// Copy GCash number to clipboard
+window.copyGcashNumber = function () {
+    const numberEl = document.getElementById('display-gcash-number');
+    if (!numberEl) return;
+
+    const number = numberEl.textContent;
+    if (number === 'Loading...' || number === 'Not configured') {
+        showToast('No GCash number available to copy.', 'error');
+        return;
+    }
+
+    navigator.clipboard.writeText(number).then(() => {
+        showToast('📋 GCash number copied to clipboard!', 'success');
+    }).catch(() => {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = number;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('📋 GCash number copied!', 'success');
+    });
+};
+
+// Populate room dropdown for payment (Custom dropdown)
+async function populatePaymentRoomDropdown() {
+    const optionsContainer = document.getElementById('room-select-options');
+    if (!optionsContainer) return;
+
+    // Get bills data
+    let data = window.publicBillsData;
+
+    if (!data || data.length === 0) {
+        // Fetch fresh
+        const result = await supabaseClient.rpc('get_public_bills');
+        if (!result.error && result.data) {
+            data = result.data;
+            window.publicBillsData = data;
+        }
+    }
+
+    if (!data || data.length === 0) {
+        optionsContainer.innerHTML = '<div class="custom-select-option">No rooms available</div>';
+        return;
+    }
+
+    // Filter to only show rooms with DUE status
+    const dueRooms = data.filter(r => r.status === 'DUE');
+
+    // Sort by room number
+    dueRooms.sort((a, b) => a.room_no.localeCompare(b.room_no, undefined, { numeric: true }));
+
+    // Store room data for amount lookup
+    window.paymentRoomData = {};
+
+    optionsContainer.innerHTML = '<div class="custom-select-option" data-value="" onclick="selectRoom(\'\', \'-- Select Room --\', \'0.00\')">-- Select Room --</div>';
+    dueRooms.forEach(room => {
+        const amount = ((room.current_reading - room.previous_reading) * room.rate).toFixed(2);
+        window.paymentRoomData[room.room_no] = amount;
+        optionsContainer.innerHTML += `<div class="custom-select-option" data-value="${room.room_no}" data-amount="${amount}" onclick="selectRoom('${room.room_no}', '${room.room_no} - ₱${amount}', '${amount}')">${room.room_no} - ₱${amount}</div>`;
+    });
+}
+
+// Toggle room dropdown
+window.toggleRoomDropdown = function () {
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    if (wrapper) {
+        wrapper.classList.toggle('open');
+    }
+};
+
+// Select room from custom dropdown
+window.selectRoom = function (value, text, amount) {
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    const trigger = document.getElementById('room-select-text');
+    const hiddenInput = document.getElementById('payment-room-select');
+
+    if (trigger) trigger.textContent = text;
+    if (hiddenInput) hiddenInput.value = value;
+    if (wrapper) wrapper.classList.remove('open');
+
+    // Update amount display
+    const amountDisplay = document.getElementById('payment-amount');
+    if (amountDisplay) {
+        amountDisplay.textContent = value ? `₱${amount || '0.00'}` : '₱0.00';
+    }
+
+    // Mark selected
+    document.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
+    const selectedOpt = document.querySelector(`.custom-select-option[data-value="${value}"]`);
+    if (selectedOpt) selectedOpt.classList.add('selected');
+};
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function (e) {
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+        wrapper.classList.remove('open');
+    }
+});
+
+// Payment submission form handler
+const paymentForm = document.getElementById('payment-submission-form');
+if (paymentForm) {
+    paymentForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const senderGcash = document.getElementById('sender-gcash').value.trim();
+        const senderName = document.getElementById('sender-name').value.trim();
+        const senderContact = document.getElementById('sender-contact').value.trim();
+        const roomNo = document.getElementById('payment-room-select').value;
+        const amountText = document.getElementById('payment-amount').textContent;
+        const amount = parseFloat(amountText.replace('₱', '').replace(',', '')) || 0;
+        const receiptFile = document.getElementById('receipt-upload').files[0];
+
+        // Validation
+        if (!senderGcash || !senderName || !senderContact || !roomNo) {
+            showToast('Please fill in all required fields.', 'error');
+            return;
+        }
+
+        if (!receiptFile) {
+            showToast('Please upload your GCash receipt.', 'error');
+            return;
+        }
+
+        if (amount <= 0) {
+            showToast('Invalid amount. Please select a valid room.', 'error');
+            return;
+        }
+
+        // Disable submit button
+        const submitBtn = paymentForm.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '⏳ Submitting...';
+        }
+
+        try {
+            // Upload receipt image
+            const fileName = `receipt_${Date.now()}_${receiptFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                .from('payment-assets')
+                .upload(`receipts/${fileName}`, receiptFile, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) {
+                throw new Error('Failed to upload receipt: ' + uploadError.message);
+            }
+
+            // Get public URL
+            const { data: urlData } = supabaseClient.storage
+                .from('payment-assets')
+                .getPublicUrl(`receipts/${fileName}`);
+
+            const receiptUrl = urlData.publicUrl;
+
+            // Save to database
+            const { data: submissionId, error: insertError } = await supabaseClient.rpc('submit_payment', {
+                p_sender_gcash_number: senderGcash,
+                p_sender_full_name: senderName,
+                p_sender_contact_number: senderContact,
+                p_room_no: roomNo,
+                p_amount_to_pay: amount,
+                p_receipt_image_url: receiptUrl
+            });
+
+            if (insertError) {
+                throw new Error('Failed to submit payment: ' + insertError.message);
+            }
+
+            // Send email notification via Edge Function
+            try {
+                const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/send-payment-email`;
+                await fetch(edgeFunctionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    },
+                    body: JSON.stringify({
+                        senderName,
+                        senderGcash,
+                        senderContact,
+                        roomNo,
+                        amount: amount.toFixed(2),
+                        receiptUrl
+                    })
+                });
+            } catch (emailErr) {
+                console.error('Email notification failed:', emailErr);
+                // Don't fail the submission if email fails
+            }
+
+            // Success!
+            showToast('✅ Payment submitted successfully! Please wait 5-30 minutes for review. You can check your payment status anytime. Thank you!', 'success');
+
+            // Reset form
+            paymentForm.reset();
+            document.getElementById('payment-amount').textContent = '₱0.00';
+
+        } catch (err) {
+            console.error('Payment submission error:', err);
+            showToast(err.message || 'Failed to submit payment. Please try again.', 'error');
+        } finally {
+            // Re-enable submit button
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '✅ Submit Payment';
+            }
+        }
+    });
+}
+
+// Initialize payment system on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Load payment settings for display
+    setTimeout(() => {
+        loadPaymentSettings();
+        populatePaymentRoomDropdown();
+    }, 500); // Slight delay to ensure Supabase is initialized
+});
+
+// Also load when public bills are fetched
+const originalFetchPublicBills = window.fetchPublicBills || fetchPublicBills;
+window.fetchPublicBills = async function () {
+    await originalFetchPublicBills.call(this);
+    // Store bills data for room dropdown
+    const result = await supabaseClient.rpc('get_public_bills');
+    if (!result.error && result.data) {
+        window.publicBillsData = result.data;
+        populatePaymentRoomDropdown();
+    }
+};
+
