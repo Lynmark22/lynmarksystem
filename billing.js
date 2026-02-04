@@ -1172,10 +1172,27 @@ if (paymentForm) {
                 throw new Error('Failed to submit payment: ' + insertError.message);
             }
 
+            // Get detailed billing info
+            let billDetails = {};
+            if (window.publicBillsData) {
+                const billRecord = window.publicBillsData.find(b => b.room_no === roomNo && b.status === 'DUE');
+                if (billRecord) {
+                    billDetails = {
+                        periodStart: billRecord.period_start,
+                        periodEnd: billRecord.period_end,
+                        month: billRecord.month,
+                        prevReading: billRecord.previous_reading,
+                        currReading: billRecord.current_reading,
+                        kwhUsed: (billRecord.current_reading - billRecord.previous_reading).toFixed(1),
+                        rate: billRecord.rate
+                    };
+                }
+            }
+
             // Send email notification via Edge Function
             try {
                 const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/send-payment-email`;
-                await fetch(edgeFunctionUrl, {
+                const emailRes = await fetch(edgeFunctionUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1187,12 +1204,20 @@ if (paymentForm) {
                         senderContact,
                         roomNo,
                         amount: amount.toFixed(2),
-                        receiptUrl
+                        receiptUrl,
+                        ...billDetails // Spread detailed info
                     })
                 });
+
+                if (!emailRes.ok) {
+                    const errorData = await emailRes.json();
+                    console.warn('Email service warning:', errorData);
+                    showToast('Payment submitted, but email notification failed.', 'info');
+                }
+
             } catch (emailErr) {
                 console.error('Email notification failed:', emailErr);
-                // Don't fail the submission if email fails
+                showToast('Payment submitted, but email notification failed.', 'info');
             }
 
             // Success!
