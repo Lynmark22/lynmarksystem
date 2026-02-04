@@ -1,0 +1,1385 @@
+/* ================================================== */
+/* LYNMARK BILLING - LIQUID GLASSMORPHISM THEME       */
+/* ================================================== */
+
+:root {
+    /* Increased opacity for better visibility */
+    /* Increased opacity for better visibility */
+    --glass-bg: #1e1e24;
+    /* Solid Dark Background */
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.85);
+    /* Solid vibrant colors */
+    --accent-color: #00d2ff;
+    --accent-solid: #007bff;
+    --accent-gradient: #007bff;
+    /* Solid Blue - No Gradient */
+    --danger-gradient: #dc3545;
+    /* Solid Red - No Gradient */
+    --success-color: #28a745;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text-primary);
+
+    /* RESTORED BACKGROUND IMAGE */
+    background: url('bg.jpg') no-repeat center center fixed;
+    background-size: cover;
+
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow-x: hidden;
+    position: relative;
+    padding-top: 10px;
+}
+
+/* --- Animated Background Blobs (made subtler overlay) --- */
+.background-blobs {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    /* Behind content but above bg image if needed, or -1 */
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    /* Blends with the image */
+}
+
+/* ... existing blob styles ... */
+
+/* --- Layout --- */
+.site-wrapper {
+    width: 100%;
+    max-width: 1000px;
+    padding: 20px;
+    z-index: 1;
+    box-sizing: border-box;
+    /* Ensure padding doesn't affect width */
+}
+
+/* Mobile Optimizations */
+@media (max-width: 600px) {
+    .site-wrapper {
+        padding: 10px;
+        max-width: 100%;
+    }
+
+    .glass-panel {
+        padding: 20px;
+        border-radius: 20px;
+    }
+
+    .header-nav {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+
+    .page-title {
+        font-size: 1.5rem;
+    }
+
+    .back-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Make table scrollable but cards full width */
+    .table-responsive {
+        margin-top: 10px;
+    }
+
+    .billing-table th,
+    .billing-table td {
+        padding: 10px;
+        font-size: 0.85rem;
+    }
+
+    .admin-actions {
+        flex-direction: column;
+    }
+
+    .admin-actions button {
+        width: 100%;
+    }
+}
+
+.blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.6;
+    animation: blob-float 10s infinite alternate;
+}
+
+.blob-1 {
+    width: 400px;
+    height: 400px;
+    background: #ff00cc;
+    top: -100px;
+    left: -100px;
+}
+
+.blob-2 {
+    width: 500px;
+    height: 500px;
+    background: #333399;
+    bottom: -100px;
+    right: -100px;
+    animation-delay: -5s;
+}
+
+.blob-3 {
+    width: 300px;
+    height: 300px;
+    background: #00d2ff;
+    top: 40%;
+    left: 40%;
+    animation-duration: 15s;
+}
+
+@keyframes blob-float {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    100% {
+        transform: translate(20px, -20px) scale(1.1);
+    }
+}
+
+/* --- Layout --- */
+.site-wrapper {
+    width: 100%;
+    max-width: 900px;
+    padding: 8px;
+    z-index: 1;
+}
+
+.header-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.page-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    white-space: nowrap;
+    background: #E65C00;
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(230, 92, 0, 0.3);
+    box-shadow: 0 4px 15px rgba(230, 92, 0, 0.3);
+}
+
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 10px;
+    color: var(--text-primary);
+}
+
+.glass-panel:hover {
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+h3.billing-header {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* --- Forms --- */
+.billing-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Minimalistic Login Panel */
+.login-panel {
+    max-width: 320px;
+    margin: 0 auto;
+    padding: 0;
+    position: relative;
+    text-align: center;
+    background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+/* Header with gradient */
+.login-header {
+    background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
+    padding: 24px 20px 20px;
+    margin-bottom: 0;
+}
+
+.login-logo-img {
+    max-width: 80px;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    background: #fff;
+    padding: 8px;
+}
+
+.login-subtitle {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.7rem;
+    margin: 10px 0 0;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* Login Form */
+.login-form {
+    padding: 24px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.input-group {
+    position: relative;
+}
+
+.input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+    transition: color 0.3s;
+}
+
+.input-group:focus-within .input-icon {
+    color: #FFA500;
+}
+
+.login-input {
+    width: 100%;
+    padding: 12px 14px 12px 42px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.85rem;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.login-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.login-input:focus {
+    border-color: #FFA500;
+    background: rgba(255, 165, 0, 0.08);
+    box-shadow: 0 0 0 3px rgba(255, 165, 0, 0.15);
+}
+
+/* Password Toggle */
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.password-toggle:hover {
+    color: #FFA500;
+}
+
+/* Sign In Button */
+.login-btn {
+    width: 100%;
+    padding: 12px 20px;
+    margin-top: 6px;
+    background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 165, 0, 0.3);
+}
+
+.login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(255, 165, 0, 0.4);
+    background: linear-gradient(135deg, #FFB733 0%, #FF7F50 100%);
+}
+
+.login-btn:active {
+    transform: translateY(0);
+}
+
+.login-btn svg {
+    transition: transform 0.3s;
+}
+
+.login-btn:hover svg {
+    transform: translateX(3px);
+}
+
+/* Error Message */
+.login-error {
+    color: #ff6b6b;
+    margin: 0;
+    padding: 0 24px 16px;
+    text-align: center;
+    font-weight: 500;
+    font-size: 0.8rem;
+    display: none;
+}
+
+.login-panel .billing-input {
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    color: #333;
+}
+
+.login-panel .billing-input::placeholder {
+    color: rgba(0, 0, 0, 0.4);
+}
+
+.login-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.login-close-btn:hover {
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+}
+
+.billing-input {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: #fff;
+    font-size: 0.8rem;
+    font-family: inherit;
+    outline: none;
+    transition: all 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.billing-input:focus {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(0, 210, 255, 0.2);
+}
+
+.billing-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Room Dropdown */
+.room-dropdown-wrapper {
+    position: relative;
+}
+
+.room-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #2a2a3e;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 100;
+    margin-top: 2px;
+}
+
+.room-option {
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.room-option:hover {
+    background: rgba(0, 210, 255, 0.2);
+}
+
+.room-option:last-child {
+    border-bottom: none;
+}
+
+/* --- Buttons --- */
+.billing-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    letter-spacing: 0.02em;
+}
+
+.primary-btn {
+    background: #007bff;
+    /* Fallback */
+    background: var(--accent-gradient);
+    color: white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    background: #0069d9;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+}
+
+.secondary-btn {
+    background: #4a4a5e;
+    /* Solid color */
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.secondary-btn:hover {
+    background: #5a5a6e;
+    transform: translateY(-1px);
+}
+
+/* Login Toggle Button (Public View) */
+.login-toggle-btn {
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    font-size: 0.7rem;
+    padding: 6px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    gap: 5px;
+}
+
+.login-toggle-btn:hover {
+    background: rgba(0, 0, 0, 0.6);
+    border-color: var(--accent-color);
+}
+
+.action-btn {
+    background: #2c3e50;
+    /* Solid dark blue-grey */
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-btn:hover {
+    background: #34495e;
+    transform: translateY(-1px);
+}
+
+.back-btn {
+    background: #000000;
+    /* Solid Black */
+    /* Solid black/grey */
+    color: white;
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.back-btn:hover {
+    background: #333;
+}
+
+/* --- Tables (iOS List Style) --- */
+.table-responsive {
+    overflow-x: auto;
+    margin-top: 10px;
+}
+
+.billing-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 2px;
+}
+
+/* Fixed header styling */
+.billing-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.billing-table th {
+    text-align: left;
+    padding: 8px 10px;
+    color: white;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    background: #E65C00;
+    border-right: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.billing-table th:last-child {
+    border-right: none;
+}
+
+/* Scrollable tbody - max 14 rows visible */
+.billing-table-wrapper {
+    max-height: 420px !important;
+    overflow-y: auto !important;
+    overflow-x: auto;
+    border-radius: 8px;
+    display: block;
+}
+
+/* Tenant table - max 19 rows visible */
+.tenant-table-wrapper {
+    max-height: 500px !important;
+}
+
+/* Custom scrollbar styling */
+.billing-table-wrapper::-webkit-scrollbar {
+    width: 8px;
+}
+
+.billing-table-wrapper::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.billing-table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.billing-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.billing-table tbody tr {
+    background: rgba(255, 255, 255, 0.07);
+    transition: transform 0.2s;
+}
+
+.billing-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(1.01);
+}
+
+/* Highlight user's own room row */
+.billing-table tbody tr.my-room-row {
+    background: rgba(255, 165, 0, 0.2);
+    border-left: 4px solid #FFA500;
+}
+
+.billing-table tbody tr.my-room-row:hover {
+    background: rgba(255, 165, 0, 0.3);
+}
+
+.billing-table td {
+    padding: 5px 6px;
+    color: #fff;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.billing-table td:last-child {
+    border-right: none;
+}
+
+.billing-table td:first-child {
+    border-top-left-radius: 16px;
+    border-bottom-left-radius: 16px;
+}
+
+.billing-table td:last-child {
+    border-top-right-radius: 16px;
+    border-bottom-right-radius: 16px;
+}
+
+/* Status Badge */
+.status-badge {
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-paid {
+    background: rgba(0, 176, 155, 0.2);
+    color: #4ceacb;
+    border: 1px solid rgba(0, 176, 155, 0.3);
+}
+
+.status-due {
+    background: rgba(255, 65, 108, 0.2);
+    color: #ff9a9e;
+    border: 1px solid rgba(255, 65, 108, 0.3);
+}
+
+/* Center the Status column (5th for public, 7th for admin) */
+.billing-table th:nth-child(5),
+.billing-table td:nth-child(5),
+.billing-table th:nth-child(7),
+.billing-table td:nth-child(7) {
+    text-align: center;
+}
+
+/* --- Modal --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #1a1a2e;
+    background: linear-gradient(145deg, rgba(40, 40, 60, 0.95), rgba(20, 20, 30, 0.95));
+    width: 92%;
+    max-width: 320px;
+    padding: 12px;
+    border-radius: 12px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.billing-row {
+    display: flex;
+    gap: 8px;
+}
+
+.billing-col {
+    flex: 1;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.modal-actions button {
+    flex: 1;
+}
+
+/* Small Buttons */
+.small-btn {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Icon Buttons for Edit/Delete */
+.icon-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 6px;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn.edit-icon {
+    color: #4dabf7;
+}
+
+.icon-btn.del-icon {
+    color: #ff6b6b;
+}
+
+.icon-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* --- Toast Notifications --- */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    /* Allow clicks through container */
+}
+
+.toast {
+    pointer-events: auto;
+    min-width: 200px;
+    max-width: 260px;
+    background: #1e1e24;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(-20px);
+    animation: toast-in 0.3s forwards, toast-out 0.3s forwards 4s;
+    backdrop-filter: blur(10px);
+}
+
+.toast.success {
+    border-left: 4px solid var(--success-color);
+}
+
+.toast.error {
+    border-left: 4px solid #dc3545;
+}
+
+@keyframes toast-in {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes toast-out {
+    to {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+
+
+/* ================================================== */
+/* PRINT STYLES - Table Borders                       */
+/* ================================================== */
+@media print {
+
+    /* Reset background for printing */
+    body {
+        background: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Glass panel print styles */
+    .glass-panel {
+        background: white !important;
+        box-shadow: none !important;
+        border: none !important;
+        backdrop-filter: none !important;
+    }
+
+    /* Table structure - collapse borders for proper lines */
+    .billing-table {
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+        width: 100% !important;
+    }
+
+    /* Table header cells - with solid borders */
+    .billing-table th {
+        background: #E65C00 !important;
+        color: white !important;
+        border: 1px solid #333 !important;
+        padding: 8px 10px !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Table body cells - with solid borders */
+    .billing-table td {
+        border: 1px solid #333 !important;
+        padding: 8px 10px !important;
+        color: #000 !important;
+        background: white !important;
+    }
+
+    /* Alternate row colors for readability */
+    .billing-table tbody tr:nth-child(even) td {
+        background: #f9f9f9 !important;
+    }
+
+    /* Status badges print colors */
+    .status-badge.status-paid {
+        background: #d4edda !important;
+        color: #155724 !important;
+        border: 1px solid #155724 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .status-badge.status-due {
+        background: #f8d7da !important;
+        color: #721c24 !important;
+        border: 1px solid #721c24 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Hide interactive elements when printing */
+    .admin-actions,
+    .back-btn,
+    .billing-btn,
+    .login-toggle-btn,
+    .icon-btn,
+    .header-nav .back-btn {
+        display: none !important;
+    }
+
+    /* Table wrapper - remove scroll constraints */
+    .billing-table-wrapper {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    /* Remove row radius for clean borders */
+    .billing-table td:first-child,
+    .billing-table td:last-child {
+        border-radius: 0 !important;
+    }
+
+    /* Page title print style */
+    .page-title {
+        background: #E65C00 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+}
+
+/* ================================================== */
+/* CREATE ACCOUNT BUTTON                              */
+/* ================================================== */
+.create-account-btn {
+    width: 100%;
+    padding: 10px 20px;
+    margin-top: 4px;
+    background: transparent;
+    border: 2px solid rgba(255, 165, 0, 0.5);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.create-account-btn:hover {
+    border-color: #FFA500;
+    color: #FFA500;
+    background: rgba(255, 165, 0, 0.1);
+}
+
+.create-account-btn:active {
+    transform: scale(0.98);
+}
+
+/* Info Toast Variant */
+.toast.info {
+    border-left: 4px solid #FFA500;
+}
+
+/* ================================================== */
+/* PAYMENT SYSTEM STYLES                              */
+/* ================================================== */
+
+/* Payment Settings Panel (Admin) */
+.payment-settings-panel {
+    margin-top: 20px;
+}
+
+.payment-settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.payment-settings-form label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    margin: 8px 0 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.payment-settings-form textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* QR Upload Container */
+.qr-upload-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.qr-upload-container input[type="file"] {
+    display: none;
+}
+
+.qr-upload-container img {
+    max-width: 100px;
+    max-height: 100px;
+    border-radius: 8px;
+    background: white;
+    padding: 4px;
+}
+
+.upload-qr-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+}
+
+.upload-qr-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+/* Payment Info Display (Public/Tenant) */
+.payment-info-section {
+    margin-top: 20px;
+}
+
+.payment-info-display {
+    padding: 15px 0;
+}
+
+.payment-detail {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.payment-detail .label {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 110px;
+}
+
+.payment-detail .value {
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* Copy Button */
+.copy-btn {
+    background: var(--accent-solid);
+    border: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.8rem;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.copy-btn:hover {
+    transform: scale(1.05);
+    background: #0069d9;
+}
+
+.copy-btn:active {
+    transform: scale(0.95);
+}
+
+/* QR Code Display */
+.qr-display {
+    text-align: center;
+    padding: 8px;
+    background: linear-gradient(145deg, #f8f8f8, #e8e8e8);
+    border-radius: 8px;
+    margin: 10px auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 70px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.qr-display:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.qr-display img {
+    width: 54px;
+    height: 54px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.qr-tap-hint {
+    font-size: 0.65rem;
+    color: #666;
+    margin-top: 4px;
+}
+
+/* Fullscreen QR Modal */
+.qr-fullscreen-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.qr-fullscreen-modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.qr-fullscreen-modal img {
+    max-width: 90vw;
+    max-height: 80vh;
+    border-radius: 12px;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+}
+
+.qr-fullscreen-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+/* Payment Instructions Display */
+.payment-instructions-display {
+    background: rgba(255, 165, 0, 0.1);
+    border: 1px solid rgba(255, 165, 0, 0.3);
+    border-radius: 10px;
+    padding: 12px 15px;
+    margin-top: 15px;
+}
+
+.payment-instructions-display h4 {
+    color: #FFA500;
+    font-size: 0.75rem;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.payment-instructions-display p {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Payment Submission Form */
+.payment-submit-section {
+    margin-top: 20px;
+}
+
+.payment-submit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.payment-submit-form label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    margin: 8px 0 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+/* Custom Select Dropdown */
+.custom-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.custom-select-trigger:hover {
+    border-color: var(--primary);
+}
+
+.custom-select-arrow {
+    font-size: 0.7rem;
+    color: #888;
+    transition: transform 0.2s;
+}
+
+.custom-select-wrapper.open .custom-select-arrow {
+    transform: rotate(180deg);
+}
+
+.custom-select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #1a1a2e;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    margin-top: 4px;
+    max-height: 175px;
+    /* Shows ~5 items */
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.custom-select-wrapper.open .custom-select-options {
+    display: block;
+}
+
+.custom-select-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s;
+}
+
+.custom-select-option:hover {
+    background: rgba(255, 140, 0, 0.2);
+}
+
+.custom-select-option.selected {
+    background: rgba(255, 140, 0, 0.3);
+    color: var(--primary);
+}
+
+.payment-submit-form input[type="file"] {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 15px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.payment-submit-form input[type="file"]::file-selector-button {
+    background: var(--accent-solid);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin-right: 10px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.submit-payment-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.submit-payment-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(40, 167, 69, 0.4);
+}
+
+.submit-payment-btn:disabled {
+    background: #4a4a5e;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Amount Display */
+.amount-display {
+    background: rgba(0, 210, 255, 0.1);
+    border: 1px solid rgba(0, 210, 255, 0.3);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+
+.amount-display .amount-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #00d2ff;
+}
+
+.amount-display .amount-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .qr-upload-container {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .payment-detail {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .payment-detail .label {
+        min-width: auto;
+    }
+
+
+}
