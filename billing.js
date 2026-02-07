@@ -7,6 +7,15 @@
 let currentUser = null;
 let userProfile = null;
 let billingRecords = [];
+const CURRENCY_SYMBOL = '\u20B1';
+
+function formatCurrency(amount) {
+    const numericAmount = Number(amount) || 0;
+    return `${CURRENCY_SYMBOL}${numericAmount.toLocaleString('en-PH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`;
+}
 
 // Initialize Supabase
 const SUPABASE_URL = 'https://jlbvoiqexugdobzgpvyb.supabase.co';
@@ -220,10 +229,10 @@ async function fetchPublicBills() {
             <td style='font-weight:bold;'>${record.room_no}</td>
             <td>${formatPeriod(record.period_start, record.period_end, record.month)}</td>
             <td>${kwhUsed} kWh</td>
-            <td style='font-weight:bold; color: ${record.status === 'PAID' ? '#9ACD32' : '#FFA500'};'>₱${amount}</td>
+            <td style='font-weight:bold; color: ${record.status === 'PAID' ? '#9ACD32' : '#FFA500'};'>${CURRENCY_SYMBOL}${amount}</td>
             <td><span class='status-badge ${record.status === 'PAID' ? 'status-paid' : 'status-due'}'>${record.status}</span></td>
             <td>
-                <small>Prev: ${record.previous_reading} | Curr: ${record.current_reading} | Rate: ₱${record.rate}</small>
+                <small>Prev: ${record.previous_reading} | Curr: ${record.current_reading} | Rate: ${CURRENCY_SYMBOL}${record.rate}</small>
             </td>
         </tr>
     `}).join('');
@@ -267,10 +276,10 @@ async function fetchTenantBills() {
             <td style='font-weight:bold;'>${record.room_no}${isMyRoom ? ' <span style="color:#FFA500;font-size:0.65rem;">(You)</span>' : ''}</td>
             <td>${formatPeriod(record.period_start, record.period_end, record.month)}</td>
             <td>${record.kwh_used} kWh</td>
-            <td style='font-weight:bold; color: ${record.status === 'PAID' ? '#9ACD32' : '#FFA500'};'>₱${record.amount.toFixed(2)}</td>
+            <td style='font-weight:bold; color: ${record.status === 'PAID' ? '#9ACD32' : '#FFA500'};'>${CURRENCY_SYMBOL}${record.amount.toFixed(2)}</td>
             <td><span class='status-badge ${record.status === 'PAID' ? 'status-paid' : 'status-due'}'>${record.status}</span></td>
             <td>
-                <small>Prev: ${record.previous_reading} | Curr: ${record.current_reading} | Rate: ₱${record.rate}</small>
+                <small>Prev: ${record.previous_reading} | Curr: ${record.current_reading} | Rate: ${CURRENCY_SYMBOL}${record.rate}</small>
             </td>
         </tr>
     `}).join('');
@@ -307,8 +316,8 @@ async function fetchAdminBills() {
             <td>${formatPeriod(record.period_start, record.period_end, record.month)}</td>
             <td>${record.previous_reading}/${record.current_reading}</td>
             <td>${record.kwh_used}</td>
-            <td>₱${record.rate}</td>
-            <td style='font-weight:bold; color: ${record.status === 'PAID' ? '#9ACD32' : '#FFA500'};'>₱${record.amount.toFixed(2)}</td>
+            <td>${CURRENCY_SYMBOL}${record.rate}</td>
+            <td style='font-weight:bold; color: ${record.status === 'PAID' ? '#9ACD32' : '#FFA500'};'>${CURRENCY_SYMBOL}${record.amount.toFixed(2)}</td>
             <td><span class='status-badge ${record.status === 'PAID' ? 'status-paid' : 'status-due'}'>${record.status}</span></td>
             <td style="display:flex; gap:4px;">
                 <button onclick='editRecord("${record.id}")' class='icon-btn edit-icon' title="Edit">
@@ -576,60 +585,141 @@ function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    const normalizedType = ['success', 'error', 'info', 'warning'].includes(type) ? type : 'info';
+    const icons = {
+        success: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+        error: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+        info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
+        warning: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
+    };
+    const titles = {
+        success: 'Success',
+        error: 'Error',
+        info: 'Notice',
+        warning: 'Warning'
+    };
 
-    // Choose icon based on type
-    let icon = '✅';
-    if (type === 'error') icon = '⚠️';
-    if (type === 'info') icon = 'ℹ️';
+    const toast = document.createElement('article');
+    toast.className = `toast toast-${normalizedType}`;
+    toast.setAttribute('role', normalizedType === 'error' ? 'alert' : 'status');
+    toast.setAttribute('aria-live', normalizedType === 'error' ? 'assertive' : 'polite');
 
-    toast.innerHTML = `
-        <span style="font-size: 0.85rem;">${icon}</span>
-        <span>${message}</span>
-    `;
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.innerHTML = icons[normalizedType] || icons.info;
 
-    container.appendChild(toast);
+    const body = document.createElement('div');
+    body.className = 'toast-body';
 
-    // Remove after 4.5s (animation ends at 4.3s)
-    setTimeout(() => {
-        toast.remove();
-    }, 4500);
+    const title = document.createElement('span');
+    title.className = 'toast-title';
+    title.textContent = titles[normalizedType] || titles.info;
+
+    const text = document.createElement('span');
+    text.className = 'toast-message';
+    text.textContent = message;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'toast-close';
+    closeBtn.setAttribute('aria-label', 'Dismiss notification');
+    closeBtn.innerHTML = '<span aria-hidden="true">&times;</span>';
+
+    const progress = document.createElement('div');
+    progress.className = 'toast-progress';
+
+    body.append(title, text);
+    toast.append(icon, body, closeBtn, progress);
+    container.prepend(toast);
+
+    requestAnimationFrame(() => toast.classList.add('is-visible'));
+
+    while (container.children.length > 4) {
+        container.lastElementChild.remove();
+    }
+
+    const dismissToast = () => {
+        if (!toast.isConnected || toast.classList.contains('is-leaving')) return;
+        toast.classList.add('is-leaving');
+        setTimeout(() => {
+            if (toast.isConnected) toast.remove();
+        }, 220);
+    };
+
+    closeBtn.addEventListener('click', dismissToast);
+    setTimeout(dismissToast, 4600);
 }
 
 // Show Coming Soon Toast for Create Account
 window.showComingSoonToast = function () {
-    showToast('🚀 Create Account is under development. Coming soon!', 'info');
+    showToast('Create Account is under development. Coming soon.', 'info');
 };
 
 // --- Custom Confirmation Modal ---
 function showConfirm(message, onConfirm) {
-    // Create modal on the fly
     const modalId = 'custom-confirm-modal';
-    let modal = document.getElementById(modalId);
+    const existing = document.getElementById(modalId);
+    if (existing) existing.remove();
 
-    if (modal) modal.remove(); // Cleanup old one
+    const overlay = document.createElement('div');
+    overlay.id = modalId;
+    overlay.className = 'notify-dialog-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'notify-dialog-title');
 
-    const modalHtml = `
-        <div id="${modalId}" class="modal-overlay">
-            <div class="modal-content glass-panel" style="max-width: 260px; text-align: center; padding: 16px;">
-                <h4 style="margin: 0 0 8px; font-size: 0.9rem; color: #fff;">Confirm Delete</h4>
-                <p style="margin: 0 0 14px; color: var(--text-secondary); font-size: 0.75rem;">${message}</p>
-                <div style="display: flex; gap: 8px;">
-                    <button id="confirm-cancel" class="billing-btn secondary-btn" style="flex:1; padding: 6px 10px; font-size: 0.75rem;">Cancel</button>
-                    <button id="confirm-ok" class="billing-btn primary-btn" style="flex:1; padding: 6px 10px; font-size: 0.75rem; background: #dc3545;">Delete</button>
+    overlay.innerHTML = `
+        <div class="notify-dialog notify-dialog-danger">
+            <div class="notify-dialog-header">
+                <div class="notify-dialog-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
                 </div>
+                <div>
+                    <h4 id="notify-dialog-title">Delete record?</h4>
+                    <p class="notify-dialog-subtitle">This action cannot be undone.</p>
+                </div>
+            </div>
+            <div class="notify-dialog-body"></div>
+            <div class="notify-dialog-footer">
+                <button type="button" id="confirm-cancel" class="confirm-btn cancel">Cancel</button>
+                <button type="button" id="confirm-ok" class="confirm-btn danger">Delete</button>
             </div>
         </div>
     `;
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-    // Handlers
-    document.getElementById('confirm-cancel').onclick = () => document.getElementById(modalId).remove();
+    document.body.appendChild(overlay);
+    const body = overlay.querySelector('.notify-dialog-body');
+    if (body) body.textContent = message;
+
+    const closeDialog = () => {
+        overlay.classList.remove('is-visible');
+        setTimeout(() => {
+            if (overlay.isConnected) overlay.remove();
+        }, 180);
+        document.removeEventListener('keydown', onKeyDown);
+    };
+
+    const onKeyDown = (event) => {
+        if (event.key === 'Escape') closeDialog();
+    };
+
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) closeDialog();
+    });
+
+    document.getElementById('confirm-cancel').onclick = closeDialog;
     document.getElementById('confirm-ok').onclick = () => {
-        document.getElementById(modalId).remove();
+        closeDialog();
         onConfirm();
     };
+
+    document.addEventListener('keydown', onKeyDown);
+    requestAnimationFrame(() => overlay.classList.add('is-visible'));
+    document.getElementById('confirm-cancel').focus();
 }
 
 window.deleteRecord = function (id) {
@@ -684,8 +774,8 @@ window.printBillingReport = function () {
                 <td>${formatPeriod(record.period_start, record.period_end, record.month)}</td>
                 <td>${record.previous_reading} - ${record.current_reading}</td>
                 <td>${record.kwh_used} kWh</td>
-                <td>₱${record.rate}</td>
-                <td style="font-weight: bold;">₱${record.amount.toFixed(2)}</td>
+                <td>${CURRENCY_SYMBOL}${record.rate}</td>
+                <td style="font-weight: bold;">${CURRENCY_SYMBOL}${record.amount.toFixed(2)}</td>
                 <td style="text-align: center;"><span class="badge ${record.status === 'PAID' ? 'paid' : 'due'}">${record.status}</span></td>
                 <td></td>
             </tr>
@@ -858,6 +948,8 @@ async function loadPaymentSettings() {
             if (qrPreview && settings.gcash_qr_url) {
                 qrPreview.src = settings.gcash_qr_url;
                 qrPreview.style.display = 'block';
+                const placeholder = document.getElementById('qr-placeholder');
+                if (placeholder) placeholder.style.display = 'none';
             }
 
             // Populate public display fields
@@ -874,6 +966,9 @@ async function loadPaymentSettings() {
             if (displayQR && settings.gcash_qr_url) {
                 displayQR.src = settings.gcash_qr_url;
                 if (qrContainer) qrContainer.style.display = 'inline-block';
+                // Show the QR banner when QR code is displayed
+                const qrBanner = document.getElementById('qr-banner-section');
+                if (qrBanner) qrBanner.style.display = 'flex';
             }
         }
     } catch (err) {
@@ -896,9 +991,11 @@ window.previewQRCode = function (input) {
     const reader = new FileReader();
     reader.onload = function (e) {
         const preview = document.getElementById('qr-preview');
+        const placeholder = document.getElementById('qr-placeholder');
         if (preview) {
             preview.src = e.target.result;
             preview.style.display = 'block';
+            if (placeholder) placeholder.style.display = 'none';
         }
     };
     reader.readAsDataURL(file);
@@ -1010,7 +1107,7 @@ window.copyGcashNumber = function () {
     }
 
     navigator.clipboard.writeText(number).then(() => {
-        showToast('📋 GCash number copied to clipboard!', 'success');
+        showToast('GCash number copied to clipboard.', 'success');
     }).catch(() => {
         // Fallback for older browsers
         const textarea = document.createElement('textarea');
@@ -1019,7 +1116,7 @@ window.copyGcashNumber = function () {
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
-        showToast('📋 GCash number copied!', 'success');
+        showToast('GCash number copied.', 'success');
     });
 };
 
@@ -1045,29 +1142,94 @@ async function populatePaymentRoomDropdown() {
         return;
     }
 
-    // Filter to only show rooms with DUE status
-    const dueRooms = data.filter(r => r.status === 'DUE');
-
     // Sort by room number
-    dueRooms.sort((a, b) => a.room_no.localeCompare(b.room_no, undefined, { numeric: true }));
+    data.sort((a, b) => a.room_no.localeCompare(b.room_no, undefined, { numeric: true }));
 
     // Store room data for amount lookup
     window.paymentRoomData = {};
 
-    optionsContainer.innerHTML = '<div class="custom-select-option" data-value="" onclick="selectRoom(\'\', \'-- Select Room --\', \'0.00\')">-- Select Room --</div>';
-    dueRooms.forEach(room => {
+    optionsContainer.innerHTML = '<div class="custom-select-option room-option-reset" data-value="" onclick="selectRoom(\'\', \'-- Select Room --\', \'0.00\')">Clear selection</div>';
+    data.forEach(room => {
         const amount = ((room.current_reading - room.previous_reading) * room.rate).toFixed(2);
-        window.paymentRoomData[room.room_no] = amount;
-        optionsContainer.innerHTML += `<div class="custom-select-option" data-value="${room.room_no}" data-amount="${amount}" onclick="selectRoom('${room.room_no}', '${room.room_no} - ₱${amount}', '${amount}')">${room.room_no} - ₱${amount}</div>`;
+        window.paymentRoomData[room.room_no] = { amount, status: room.status };
+        const statusClass = room.status === 'PAID' ? 'status-paid' : 'status-due';
+        const statusLabel = room.status === 'PAID' ? 'PAID' : 'DUE';
+        optionsContainer.innerHTML += `<div class="custom-select-option room-option-card ${statusClass}" data-value="${room.room_no}" data-amount="${amount}" data-status="${room.status}" onclick="selectRoom('${room.room_no}', '${room.room_no}', '${amount}')">
+            <span class="room-option-left">
+                <span class="room-status-dot"></span>
+                <span class="room-option-name">${room.room_no}</span>
+            </span>
+            <span class="room-option-right">
+                <span class="room-option-amount">${formatCurrency(amount)}</span>
+                <span class="room-option-status">${statusLabel}</span>
+            </span>
+        </div>`;
     });
+}
+
+function closeRoomDropdown() {
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    const roomField = document.querySelector('.payfield-room');
+    if (!wrapper) return;
+
+    wrapper.classList.remove('open', 'open-up', 'open-down');
+    if (!roomField) return;
+    roomField.classList.remove('dropdown-open', 'dropdown-open-up', 'dropdown-open-down');
+    roomField.style.removeProperty('--room-dropdown-space');
+}
+
+function updateRoomDropdownPlacement() {
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    const roomField = document.querySelector('.payfield-room');
+    const options = document.getElementById('room-select-options');
+    if (!wrapper || !roomField || !options) return;
+
+    wrapper.classList.remove('open-up', 'open-down');
+    roomField.classList.remove('dropdown-open-up', 'dropdown-open-down');
+    roomField.style.removeProperty('--room-dropdown-space');
+
+    const isMobile = window.matchMedia('(max-width: 600px)').matches;
+    const maxDropdownHeight = isMobile ? 150 : 176;
+    const renderedHeight = Math.min(options.scrollHeight || 0, maxDropdownHeight);
+
+    if (isMobile) {
+        wrapper.classList.add('open-up');
+        roomField.classList.add('dropdown-open-up');
+        return;
+    }
+
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const spaceBelow = viewportHeight - wrapperRect.bottom - 12;
+    const spaceAbove = wrapperRect.top - 12;
+    const shouldOpenUp = spaceBelow < renderedHeight && spaceAbove > spaceBelow;
+
+    if (shouldOpenUp) {
+        wrapper.classList.add('open-up');
+        roomField.classList.add('dropdown-open-up');
+        return;
+    }
+
+    wrapper.classList.add('open-down');
+    roomField.classList.add('dropdown-open-down');
+    roomField.style.setProperty('--room-dropdown-space', `${renderedHeight + 10}px`);
 }
 
 // Toggle room dropdown
 window.toggleRoomDropdown = function () {
     const wrapper = document.querySelector('.custom-select-wrapper');
-    if (wrapper) {
-        wrapper.classList.toggle('open');
+    const roomField = document.querySelector('.payfield-room');
+    if (!wrapper) return;
+
+    const willOpen = !wrapper.classList.contains('open');
+    if (!willOpen) {
+        closeRoomDropdown();
+        return;
     }
+
+    wrapper.classList.add('open');
+    if (roomField) roomField.classList.add('dropdown-open');
+    updateRoomDropdownPlacement();
 };
 
 // Select room from custom dropdown
@@ -1078,12 +1240,12 @@ window.selectRoom = function (value, text, amount) {
 
     if (trigger) trigger.textContent = text;
     if (hiddenInput) hiddenInput.value = value;
-    if (wrapper) wrapper.classList.remove('open');
+    closeRoomDropdown();
 
     // Update amount display
     const amountDisplay = document.getElementById('payment-amount');
     if (amountDisplay) {
-        amountDisplay.textContent = value ? `₱${amount || '0.00'}` : '₱0.00';
+        amountDisplay.textContent = value ? formatCurrency(amount || 0) : formatCurrency(0);
     }
 
     // Mark selected
@@ -1096,9 +1258,69 @@ window.selectRoom = function (value, text, amount) {
 document.addEventListener('click', function (e) {
     const wrapper = document.querySelector('.custom-select-wrapper');
     if (wrapper && !wrapper.contains(e.target)) {
-        wrapper.classList.remove('open');
+        closeRoomDropdown();
     }
 });
+
+window.addEventListener('resize', () => {
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    if (wrapper && wrapper.classList.contains('open')) {
+        updateRoomDropdownPlacement();
+    }
+});
+
+function setupReceiptUploadZone() {
+    const receiptInput = document.getElementById('receipt-upload');
+    const uploadZone = document.getElementById('receipt-upload-zone');
+    const fileNameLabel = document.getElementById('uploaded-file-name');
+
+    if (!receiptInput || !uploadZone) return;
+
+    const renderSelectedFile = () => {
+        const selectedFile = receiptInput.files && receiptInput.files[0] ? receiptInput.files[0] : null;
+        if (!selectedFile) {
+            uploadZone.classList.remove('has-file');
+            if (fileNameLabel) fileNameLabel.textContent = '';
+            return;
+        }
+
+        uploadZone.classList.add('has-file');
+        if (fileNameLabel) fileNameLabel.textContent = selectedFile.name;
+    };
+
+    receiptInput.addEventListener('change', renderSelectedFile);
+
+    uploadZone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        uploadZone.classList.add('is-dragging');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('is-dragging');
+    });
+
+    uploadZone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        uploadZone.classList.remove('is-dragging');
+
+        const droppedFile = event.dataTransfer?.files?.[0];
+        if (!droppedFile) return;
+
+        if (typeof DataTransfer === 'undefined') {
+            showToast('Drag and drop is not supported in this browser.', 'info');
+            return;
+        }
+
+        const transfer = new DataTransfer();
+        transfer.items.add(droppedFile);
+        receiptInput.files = transfer.files;
+        renderSelectedFile();
+    });
+
+    renderSelectedFile();
+}
+
+setupReceiptUploadZone();
 
 // Payment submission form handler
 const paymentForm = document.getElementById('payment-submission-form');
@@ -1111,7 +1333,7 @@ if (paymentForm) {
         const senderContact = document.getElementById('sender-contact').value.trim();
         const roomNo = document.getElementById('payment-room-select').value;
         const amountText = document.getElementById('payment-amount').textContent;
-        const amount = parseFloat(amountText.replace('₱', '').replace(',', '')) || 0;
+        const amount = parseFloat(amountText.replace(/[^0-9.]/g, '')) || 0;
         const receiptFile = document.getElementById('receipt-upload').files[0];
 
         // Validation
@@ -1132,9 +1354,11 @@ if (paymentForm) {
 
         // Disable submit button
         const submitBtn = paymentForm.querySelector('button[type="submit"]');
+        const defaultSubmitHTML = submitBtn ? submitBtn.innerHTML : '';
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '⏳ Submitting...';
+            submitBtn.classList.add('is-loading');
+            submitBtn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>Submitting...</span>';
         }
 
         try {
@@ -1221,11 +1445,18 @@ if (paymentForm) {
             }
 
             // Success!
-            showToast('✅ Payment submitted successfully! Please wait 5-30 minutes for review. You can check your payment status anytime. Thank you!', 'success');
+            showToast('Payment submitted successfully. Please wait 5-30 minutes for review.', 'success');
 
             // Reset form
             paymentForm.reset();
-            document.getElementById('payment-amount').textContent = '₱0.00';
+            document.getElementById('payment-amount').textContent = formatCurrency(0);
+            const fileNameEl = document.getElementById('uploaded-file-name');
+            if (fileNameEl) fileNameEl.textContent = '';
+            const uploadZone = document.getElementById('receipt-upload-zone');
+            if (uploadZone) uploadZone.classList.remove('has-file');
+            const roomText = document.getElementById('room-select-text');
+            if (roomText) roomText.textContent = '-- Select Room --';
+            document.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
 
         } catch (err) {
             console.error('Payment submission error:', err);
@@ -1234,7 +1465,8 @@ if (paymentForm) {
             // Re-enable submit button
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '✅ Submit Payment';
+                submitBtn.classList.remove('is-loading');
+                submitBtn.innerHTML = defaultSubmitHTML || 'Submit Payment';
             }
         }
     });
@@ -1260,4 +1492,6 @@ window.fetchPublicBills = async function () {
         populatePaymentRoomDropdown();
     }
 };
+
+
 

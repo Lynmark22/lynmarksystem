@@ -1,4 +1,4 @@
-<!DOCTYPE HTML>
+﻿<!DOCTYPE HTML>
 <html lang="en">
 <!-- ================================================== -->
 <!-- LYNMARK BOARDING HOUSE - BILLING PAGE             -->
@@ -12,14 +12,25 @@
     <meta name="color-scheme" content="dark" />
     <meta name="description" content="Lynmark Billing Tracker" />
 
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Preconnect to External Domains (Performance Optimization) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://jlbvoiqexugdobzgpvyb.supabase.co" crossorigin />
+
+    <!-- DNS Prefetch for External Resources -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+
+    <!-- Fonts (optimized with fewer weights) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="normalize.css" />
     <link rel="stylesheet" href="billing.css" /> <!-- New Theme -->
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Supabase JS (deferred to prevent render blocking) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 </head>
 
 <body>
@@ -34,7 +45,7 @@
 
         <!-- Fullscreen QR Modal -->
         <div id="qr-fullscreen-modal" class="qr-fullscreen-modal" onclick="closeQRFullscreen()">
-            <button class="qr-fullscreen-close" onclick="closeQRFullscreen()">✕</button>
+            <button class="qr-fullscreen-close" onclick="closeQRFullscreen()">&times;</button>
             <img id="qr-fullscreen-img" src="" alt="GCash QR Code">
         </div>
 
@@ -97,11 +108,11 @@
             <!-- Auth Container (Hidden by default) -->
             <div id="billing-auth-container" class="login-panel" style="display: none;">
                 <!-- Close button -->
-                <button onclick="closeLoginModal()" class="login-close-btn">✕</button>
+                <button onclick="closeLoginModal()" class="login-close-btn">&times;</button>
 
                 <!-- Header with gradient -->
                 <div class="login-header">
-                    <img src="lynmark-logo.png" alt="Lynmark" class="login-logo-img" />
+                    <img src="lynmark-logo.png" alt="Lynmark" class="login-logo-img" loading="lazy" decoding="async" />
                     <p class="login-subtitle">Electric Bill Tracker</p>
                 </div>
 
@@ -199,9 +210,7 @@
                             + New
                         </button>
                         <button onclick="printBillingReport()" class="billing-btn action-btn"
-                            style="border-radius: 8px; padding: 6px 10px; font-size: 0.7rem; flex: 1;">
-                            🖨️ Print
-                        </button>
+                            style="border-radius: 8px; padding: 6px 10px; font-size: 0.7rem; flex: 1;">Print</button>
                     </div>
 
                     <div class="billing-table-wrapper">
@@ -225,140 +234,304 @@
                     </div>
                 </div>
 
-                <!-- Payment Settings Panel (Admin Only) -->
-                <div id="payment-settings-panel" class="glass-panel payment-settings-panel">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 class="billing-header" style="border: none; margin: 0;">
-                            💳 Payment Settings
-                        </h3>
-                        <button onclick="savePaymentSettings()" class="billing-btn primary-btn small-btn">
-                            Save
-                        </button>
+                <!-- Admin Payment Settings Section -->
+                <div class="glass-panel admin-payment-panel">
+                    <div class="admin-payment-heading">
+                        <h3 class="billing-header admin-payment-title">Payment Settings</h3>
+                        <p class="admin-payment-subtitle">Manage GCash account and payment instructions</p>
                     </div>
 
-                    <div class="payment-settings-form">
-                        <div>
-                            <label>GCASH NUMBER</label>
-                            <input type="tel" id="gcash-number" class="billing-input" placeholder="09XXXXXXXXX"
-                                maxlength="11">
-                        </div>
+                    <div class="admin-payment-stack">
+                        <div id="payment-settings-panel" class="payment-settings-panel gcash-card-admin">
+                            <div class="gcash-card-header">
+                                <div class="admin-gcash-brand">
+                                    <img src="PaymentLOGO.png" alt="GCash" class="gcash-logo-img">
+                                    <span class="gcash-brand">GCash</span>
+                                </div>
+                                <button onclick="savePaymentSettings()" class="save-settings-icon-btn"
+                                    title="Save Changes" aria-label="Save payment settings">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2.5">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                    <span class="save-label">Save</span>
+                                </button>
+                            </div>
 
-                        <div>
-                            <label>GCASH ACCOUNT NAME</label>
-                            <input type="text" id="gcash-account-name" class="billing-input" placeholder="Account Name">
-                        </div>
+                            <div class="gcash-card-body">
+                                <!-- Account Name Input -->
+                                <div class="admin-card-input-group small">
+                                    <label for="gcash-account-name">Account Name</label>
+                                    <div class="admin-input-row">
+                                        <input type="text" id="gcash-account-name" class="admin-card-input"
+                                            placeholder="Enter account name">
+                                        <svg class="edit-pen-icon" width="12" height="12" viewBox="0 0 24 24"
+                                            fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 20h9"></path>
+                                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
 
-                        <div>
-                            <label>GCASH QR CODE</label>
-                            <div class="qr-upload-container">
-                                <img id="qr-preview" src="" alt="QR Preview" style="display: none;">
-                                <input type="file" id="qr-upload" accept="image/png,image/jpeg,image/webp"
-                                    onchange="previewQRCode(this)">
-                                <div style="flex: 1;">
-                                    <button type="button" onclick="document.getElementById('qr-upload').click()"
-                                        class="upload-qr-btn">
-                                        📷 Upload QR
-                                    </button>
-                                    <p style="margin: 8px 0 0; font-size: 0.7rem; color: var(--text-secondary);">
-                                        Upload a clear QR code image. PNG or JPG, max 2MB.
-                                    </p>
+                                <!-- GCash Number Input -->
+                                <div class="admin-card-input-group large">
+                                    <label for="gcash-number">GCash Number</label>
+                                    <div class="admin-input-row">
+                                        <input type="tel" id="gcash-number" class="admin-card-input large-number"
+                                            placeholder="09XXXXXXXXX" maxlength="11" inputmode="numeric">
+                                        <svg class="edit-pen-icon" width="14" height="14" viewBox="0 0 24 24"
+                                            fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M12 20h9"></path>
+                                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <div class="admin-card-divider"></div>
+
+                                <!-- QR Code Section -->
+                                <div class="admin-qr-footer">
+                                    <div class="admin-qr-display admin-upload-trigger"
+                                        onclick="document.getElementById('qr-upload').click()"
+                                        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('qr-upload').click();}"
+                                        role="button" tabindex="0" aria-label="Upload GCash QR code">
+                                        <img id="qr-preview" src="" alt="QR" style="display: none;">
+                                        <div class="qr-placeholder" id="qr-placeholder">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="1.5">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                <path d="M12 9v6m-3-3h6"></path>
+                                            </svg>
+                                        </div>
+                                        <div class="upload-overlay">
+                                            <span>UPLOAD</span>
+                                        </div>
+                                    </div>
+                                    <div class="admin-qr-copy">
+                                        <span class="admin-qr-title">Upload QR Code</span>
+                                        <span class="admin-qr-hint">PNG, JPG, or WEBP. Use a clear square image.</span>
+                                    </div>
+                                    <button type="button" class="admin-upload-btn"
+                                        onclick="document.getElementById('qr-upload').click()">Choose File</button>
+                                    <input type="file" id="qr-upload" accept="image/png,image/jpeg,image/webp"
+                                        onchange="previewQRCode(this)" style="display:none;">
                                 </div>
                             </div>
                         </div>
 
-                        <div>
-                            <label>PAYMENT INSTRUCTIONS</label>
-                            <textarea id="payment-instructions" class="billing-input" rows="3"
-                                placeholder="Send exact amount and upload screenshot as proof of payment."></textarea>
+                        <!-- Admin Instructions Panel - Moved Outside & Styled like Public View -->
+                        <div class="admin-payment-instructions-section">
+                            <div class="instructions-header">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                </svg>
+                                PAYMENT INSTRUCTIONS
+                            </div>
+                            <p class="admin-instruction-help">Visible to tenants and public payers after saving.</p>
+                            <div class="admin-instructions-editor">
+                                <textarea id="payment-instructions" class="admin-instructions-input" rows="3"
+                                    placeholder="Enter payment instructions here..."></textarea>
+                                <p class="admin-instructions-footnote">This appears exactly as written to tenants and
+                                    public payers.</p>
+                            </div>
                         </div>
+
                     </div>
                 </div>
             </div>
 
-            <!-- Shared Payment Container (Visible for Public & Tenants) -->
-            <div id="shared-payment-container" style="display: none;">
-                <!-- Mode of Payment Section -->
-                <div id="payment-info-section" class="glass-panel payment-info-section">
-                    <h3 class="billing-header" style="border: none;">💳 Mode of Payment</h3>
+                <!-- Shared Payment Container (Visible for Public & Tenants) -->
+                <div id="shared-payment-container" style="display: none;">
+                    <!-- Mode of Payment Section - Premium GCash Card -->
+                    <div id="payment-info-section" class="glass-panel payment-info-section">
+                    <h3 class="billing-header section-heading" style="border: none;">
+                        <span class="section-heading-left">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                                <line x1="2" y1="10" x2="22" y2="10"></line>
+                            </svg>
+                            Mode of Payment
+                        </span>
+                    </h3>
 
-                    <div class="payment-info-display">
-                        <div class="payment-detail">
-                            <span class="label">GCash Account:</span>
-                            <span id="display-gcash-name" class="value">Loading...</span>
+                    <!-- GCash Digital Card -->
+                    <div class="gcash-card">
+                        <div class="gcash-card-header">
+                            <img src="PaymentLOGO.png" alt="GCash" class="gcash-logo-img">
+                            <span class="gcash-brand">GCash</span>
                         </div>
-                        <div class="payment-detail">
-                            <span class="label">GCash Number:</span>
-                            <span id="display-gcash-number" class="value">Loading...</span>
-                            <button onclick="copyGcashNumber()" class="copy-btn" title="Copy Number">
-                                📋 Copy
-                            </button>
-                        </div>
-
-                        <div style="text-align: center; margin: 10px 0;">
-                            <div class="qr-display" id="qr-display-container" style="display: none;"
-                                onclick="openQRFullscreen()">
-                                <img id="display-qr-code" src="" alt="GCash QR Code">
-                                <div class="qr-tap-hint">👆 Tap to enlarge</div>
+                        <div class="gcash-card-body">
+                            <div class="gcash-account-name" id="display-gcash-name">Loading...</div>
+                            <div class="gcash-number-row">
+                                <span class="gcash-number" id="display-gcash-number">Loading...</span>
+                                <button onclick="copyGcashNumber()" class="copy-icon-btn" title="Copy Number">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
-
-                        <div class="payment-instructions-display">
-                            <h4>📝 Payment Instructions</h4>
-                            <p id="display-instructions">Loading instructions...</p>
+                        <div class="gcash-card-footer" id="qr-banner-section" style="display: none;">
+                            <div class="qr-mini-display" id="qr-display-container" onclick="openQRFullscreen()">
+                                <img id="display-qr-code" src="" alt="GCash QR Code">
+                            </div>
+                            <span class="qr-scan-text">Tap to<br>Scan QR</span>
                         </div>
+                    </div>
+
+                    <!-- Payment Instructions -->
+                    <div class="payment-instructions-display">
+                        <div class="payment-instructions-title-row">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                            </svg>
+                            <h4>Payment Instructions</h4>
+                        </div>
+                        <p id="display-instructions">Loading instructions...</p>
                     </div>
                 </div>
 
-                <!-- Payment Submission Form -->
+                <!-- Payment Submission Form - Premium Design -->
                 <div id="payment-submit-section" class="glass-panel payment-submit-section">
-                    <h3 class="billing-header" style="border: none;">📤 Submit Payment</h3>
+                    <h3 class="billing-header section-heading" style="border: none;">
+                        <span class="section-heading-left">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Submit Payment
+                        </span>
+                    </h3>
 
-                    <form id="payment-submission-form" class="payment-submit-form">
-                        <div>
-                            <label>YOUR GCASH NUMBER</label>
-                            <input type="tel" id="sender-gcash" class="billing-input" placeholder="09XXXXXXXXX"
-                                maxlength="11" required>
+                    <form id="payment-submission-form" class="payflow-form">
+                        <div class="payflow-intro">
+                            <p>Fill in your details, select your room, then upload your receipt.</p>
                         </div>
 
-                        <div>
-                            <label>YOUR FULL NAME</label>
-                            <input type="text" id="sender-name" class="billing-input" placeholder="Juan Dela Cruz"
-                                required>
-                        </div>
-
-                        <div>
-                            <label>CONTACT NUMBER</label>
-                            <input type="tel" id="sender-contact" class="billing-input" placeholder="09XXXXXXXXX"
-                                maxlength="11" required>
-                        </div>
-
-                        <div>
-                            <label>SELECT ROOM TO PAY</label>
-                            <div class="custom-select-wrapper">
-                                <div class="custom-select-trigger" id="room-select-trigger"
-                                    onclick="toggleRoomDropdown()">
-                                    <span id="room-select-text">-- Select Room --</span>
-                                    <span class="custom-select-arrow">▼</span>
+                        <div class="payflow-layout">
+                            <div class="payflow-details">
+                                <div class="payfield">
+                                    <label class="payfield-label" for="sender-gcash">GCash Number</label>
+                                    <div class="payfield-control">
+                                        <span class="payfield-icon">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                                            </svg>
+                                        </span>
+                                        <input type="tel" id="sender-gcash" class="payfield-input"
+                                            placeholder="09XXXXXXXXX" maxlength="11" required>
+                                    </div>
                                 </div>
-                                <div class="custom-select-options" id="room-select-options">
-                                    <!-- Options populated by JS -->
+
+                                <div class="payfield">
+                                    <label class="payfield-label" for="sender-name">Full Name</label>
+                                    <div class="payfield-control">
+                                        <span class="payfield-icon">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                                <circle cx="12" cy="7" r="4"></circle>
+                                            </svg>
+                                        </span>
+                                        <input type="text" id="sender-name" class="payfield-input"
+                                            placeholder="Enter your full name" required>
+                                    </div>
                                 </div>
-                                <input type="hidden" id="payment-room-select" name="room" required>
+
+                                <div class="payfield">
+                                    <label class="payfield-label" for="sender-contact">Contact Number</label>
+                                    <div class="payfield-control">
+                                        <span class="payfield-icon">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <path
+                                                    d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
+                                                </path>
+                                            </svg>
+                                        </span>
+                                        <input type="tel" id="sender-contact" class="payfield-input"
+                                            placeholder="09XXXXXXXXX" maxlength="11" required>
+                                    </div>
+                                </div>
+
+                                <div class="payfield payfield-room">
+                                    <label class="payfield-label" for="payment-room-select">Select Room</label>
+                                    <div class="payfield-control payfield-select-wrap">
+                                        <span class="payfield-icon">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                                            </svg>
+                                        </span>
+                                        <div class="custom-select-wrapper payfield-select-wrapper">
+                                            <div class="custom-select-trigger payfield-select-trigger"
+                                                id="room-select-trigger" onclick="toggleRoomDropdown()">
+                                                <span id="room-select-text">-- Select Room --</span>
+                                                <span class="custom-select-arrow">&#9662;</span>
+                                            </div>
+                                            <div class="custom-select-options" id="room-select-options">
+                                                <!-- Options populated by JS -->
+                                            </div>
+                                            <input type="hidden" id="payment-room-select" name="room" required>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="payflow-side">
+                                <div class="pay-amount-panel">
+                                    <span class="pay-amount-label">Amount to Pay</span>
+                                    <span class="pay-amount-value" id="payment-amount">&#8369;0.00</span>
+                                    <span class="pay-amount-note">Auto-calculated from selected room</span>
+                                </div>
+
+                                <div id="receipt-upload-zone" class="pay-upload-row"
+                                    onclick="document.getElementById('receipt-upload').click()"
+                                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('receipt-upload').click();}"
+                                    role="button" tabindex="0" aria-label="Upload GCash payment receipt">
+                                    <input type="file" id="receipt-upload" accept="image/png,image/jpeg,image/webp"
+                                        required style="display:none;">
+                                    <span class="pay-upload-icon">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="1.7">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="17 8 12 3 7 8"></polyline>
+                                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                                        </svg>
+                                    </span>
+                                    <div class="pay-upload-copy">
+                                        <span class="pay-upload-title">Upload GCash receipt</span>
+                                        <span class="pay-upload-hint">PNG/JPG up to 5MB</span>
+                                    </div>
+                                    <span class="pay-upload-action">Choose</span>
+                                    <span class="file-name pay-upload-file" id="uploaded-file-name"
+                                        aria-live="polite"></span>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="amount-display">
-                            <div class="amount-label">Amount to Pay</div>
-                            <div class="amount-value" id="payment-amount">₱0.00</div>
-                        </div>
-
-                        <div>
-                            <label>UPLOAD GCASH RECEIPT</label>
-                            <input type="file" id="receipt-upload" accept="image/png,image/jpeg,image/webp" required>
-                        </div>
-
-                        <button type="submit" class="submit-payment-btn">
-                            ✅ Submit Payment
+                        <button type="submit" class="pay-submit-btn premium-submit-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            Submit Payment
                         </button>
                     </form>
                 </div>
@@ -459,3 +632,4 @@
 </body>
 
 </html>
+

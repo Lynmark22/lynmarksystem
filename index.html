@@ -14,21 +14,33 @@
 	<meta name="description" content="Tennant Captive Portal Landing Page" />
 	<link rel="shortcut icon" href="#">
 
+	<!-- Preconnect to External Domains (Performance Optimization) -->
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+	<link rel="preconnect" href="https://jlbvoiqexugdobzgpvyb.supabase.co" crossorigin />
+
+	<!-- DNS Prefetch for External Resources -->
+	<link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+	<link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+
 	<!-- Social Media Meta Tags (Open Graph) -->
 	<meta property="og:site_name" content="Lynmark Boarding House (CEBU)" />
 	<meta property="og:title" content="Lynmark Boarding House (CEBU)" />
 	<meta property="og:type" content="website" />
 	<meta property="og:description" content="Tennant Captive Portal Landing Page" />
 
-	<!-- External Font Imports (Google Fonts) -->
+	<!-- External Font Imports (Google Fonts with font-display:swap for faster rendering) -->
 	<link
-		href="https://fonts.googleapis.com/css2?display=swap&family=Lato:ital,wght@0,700;0,900;1,700;1,900&family=Inconsolata:ital,wght@0,400;0,700;1,400;1,700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400;1,500;1,600;1,700;1,900"
+		href="https://fonts.googleapis.com/css2?display=swap&family=Lato:wght@700;900&family=Inter:wght@400;500;600;700"
 		rel="stylesheet" type="text/css" />
 
 	<!-- Stylesheet Links -->
 	<link rel="stylesheet" href="normalize.css" />
 	<link rel="stylesheet" href="styles.css" />
-	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+	<!-- Supabase JS (deferred to prevent render blocking) -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 </head>
 
 <body class="is-loading">
@@ -74,7 +86,8 @@
 							<div class="inner">
 								<!-- Logo/Header Image -->
 								<div id="image02" class="image-component instance-2 style-1">
-									<span class="frame"><img src="lynmark-logo.png" alt="" /></span>
+									<span class="frame"><img src="lynmark-logo.png" alt="Lynmark Logo" loading="lazy"
+											decoding="async" /></span>
 								</div>
 
 								<!-- Dynamic Greeting Header -->
