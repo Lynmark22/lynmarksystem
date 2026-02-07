@@ -1170,9 +1170,11 @@ async function populatePaymentRoomDropdown() {
 function closeRoomDropdown() {
     const wrapper = document.querySelector('.custom-select-wrapper');
     const roomField = document.querySelector('.payfield-room');
+    const trigger = document.getElementById('room-select-trigger');
     if (!wrapper) return;
 
     wrapper.classList.remove('open', 'open-up', 'open-down');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
     if (!roomField) return;
     roomField.classList.remove('dropdown-open', 'dropdown-open-up', 'dropdown-open-down');
     roomField.style.removeProperty('--room-dropdown-space');
@@ -1219,6 +1221,7 @@ function updateRoomDropdownPlacement() {
 window.toggleRoomDropdown = function () {
     const wrapper = document.querySelector('.custom-select-wrapper');
     const roomField = document.querySelector('.payfield-room');
+    const trigger = document.getElementById('room-select-trigger');
     if (!wrapper) return;
 
     const willOpen = !wrapper.classList.contains('open');
@@ -1228,6 +1231,7 @@ window.toggleRoomDropdown = function () {
     }
 
     wrapper.classList.add('open');
+    if (trigger) trigger.setAttribute('aria-expanded', 'true');
     if (roomField) roomField.classList.add('dropdown-open');
     updateRoomDropdownPlacement();
 };

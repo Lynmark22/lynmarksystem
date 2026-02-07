@@ -723,7 +723,7 @@ unloaded-script {
 	/* Top/bottom padding */
 	--spacing: 1.5rem;
 	/* Space between elements */
-	--width: 34rem;
+	--width: min(44rem, calc(100vw - 1rem));
 	/* Maximum content width */
 
 	/* Layout properties - perfect centering */
@@ -3795,5 +3795,32 @@ body.is-instant::after {
 		font-size: 24pt;
 		text-align: center;
 		margin-bottom: 1cm;
+	}
+}
+
+/* Reduce expensive animation/blur work on mobile for smoother scrolling */
+@media (max-width: 980px),
+(prefers-reduced-motion: reduce) {
+	.speedtest-modal-btn::before,
+	.speedtest-modal-btn-inline::before,
+	.speedtest-modal-url::before,
+	.speedtest-modal-url-inline::before {
+		animation: none !important;
+		display: none !important;
+	}
+
+	.speedtest-modal-content,
+	.speedtest-modal-content-inline,
+	.speedtest-modal,
+	.speedtest-modal-inline,
+	.speedtest-modal-backdrop,
+	.speedtest-modal-url,
+	.speedtest-modal-url-inline,
+	.speedtest-modal-btn,
+	.speedtest-modal-btn-inline,
+	.speedtest-compact-bar,
+	.speedtest-compact-btn {
+		backdrop-filter: none !important;
+		-webkit-backdrop-filter: none !important;
 	}
 }

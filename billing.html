@@ -11,6 +11,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="description" content="Lynmark Billing Tracker" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="lynmark-logo.png" />
 
     <!-- Preconnect to External Domains (Performance Optimization) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -29,8 +31,8 @@
     <link rel="stylesheet" href="normalize.css" />
     <link rel="stylesheet" href="billing.css" /> <!-- New Theme -->
 
-    <!-- Supabase JS (deferred to prevent render blocking) -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <!-- Supabase JS (local fallback to avoid CDN connection failures) -->
+    <script src="vendor/supabase-js.umd.js" defer></script>
 </head>
 
 <body>
@@ -463,7 +465,7 @@
                                 </div>
 
                                 <div class="payfield payfield-room">
-                                    <label class="payfield-label" for="payment-room-select">Select Room</label>
+                                    <label class="payfield-label" for="room-select-trigger">Select Room</label>
                                     <div class="payfield-control payfield-select-wrap">
                                         <span class="payfield-icon">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -473,11 +475,12 @@
                                             </svg>
                                         </span>
                                         <div class="custom-select-wrapper payfield-select-wrapper">
-                                            <div class="custom-select-trigger payfield-select-trigger"
-                                                id="room-select-trigger" onclick="toggleRoomDropdown()">
+                                            <button type="button" class="custom-select-trigger payfield-select-trigger"
+                                                id="room-select-trigger" onclick="toggleRoomDropdown()"
+                                                aria-haspopup="listbox" aria-expanded="false">
                                                 <span id="room-select-text">-- Select Room --</span>
                                                 <span class="custom-select-arrow">&#9662;</span>
-                                            </div>
+                                            </button>
                                             <div class="custom-select-options" id="room-select-options">
                                                 <!-- Options populated by JS -->
                                             </div>

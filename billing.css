@@ -3811,6 +3811,7 @@ h3.billing-header {
 }
 
 .payfield-select-trigger {
+    width: 100%;
     min-height: 36px;
     padding: 0 4px;
     border: none;
@@ -3818,6 +3819,7 @@ h3.billing-header {
     color: rgba(255, 255, 255, 0.93);
     font-size: 0.92rem;
     border-radius: 8px;
+    text-align: left;
 }
 
 .payfield-select-wrapper .custom-select-arrow {

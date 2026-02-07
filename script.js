@@ -3501,6 +3501,614 @@
 		}
 	});
 
+	// =============================================
+	// DYNAMIC NETWORK WIDGET + ADMIN CONTROLS
+	// Loads speed/upgrades from Supabase and enables
+	// edit tools when billing admin is logged in.
+	// =============================================
+	(function () {
+		const SUPABASE_URL = 'https://jlbvoiqexugdobzgpvyb.supabase.co';
+		const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsYnZvaXFleHVnZG9iemdwdnliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NTU1MzAsImV4cCI6MjA4MDMzMTUzMH0.2RVENuR1AVPbjM5vBG7c2_fppn3D4zAZCuBFVCI08SA';
+
+		const state = {
+			client: null,
+			adminUser: null,
+			isAdmin: false,
+			upgrades: [],
+			dbAdminAllowed: null
+		};
+
+		function getBillingUser() {
+			try {
+				const raw = localStorage.getItem('billing_user');
+				return raw ? JSON.parse(raw) : null;
+			} catch (err) {
+				return null;
+			}
+		}
+
+		function isBillingAdmin(user) {
+			if (!user || !user.role) return false;
+			return String(user.role).toLowerCase() === 'admin';
+		}
+
+		function notify(message, type) {
+			const hostId = 'network-admin-toast-host';
+			let host = document.getElementById(hostId);
+			if (!host) {
+				host = document.createElement('div');
+				host.id = hostId;
+				host.style.position = 'fixed';
+				host.style.bottom = '18px';
+				host.style.right = '18px';
+				host.style.zIndex = '99999';
+				host.style.display = 'flex';
+				host.style.flexDirection = 'column';
+				host.style.gap = '8px';
+				document.body.appendChild(host);
+			}
+
+			const toast = document.createElement('div');
+			const isError = type === 'error';
+			toast.textContent = message;
+			toast.style.maxWidth = '320px';
+			toast.style.padding = '10px 12px';
+			toast.style.borderRadius = '10px';
+			toast.style.color = '#f5f8ff';
+			toast.style.fontSize = '13px';
+			toast.style.fontWeight = '600';
+			toast.style.background = isError
+				? 'rgba(147, 45, 45, 0.92)'
+				: 'rgba(13, 38, 71, 0.92)';
+			toast.style.border = isError
+				? '1px solid rgba(255, 144, 144, 0.6)'
+				: '1px solid rgba(117, 201, 255, 0.45)';
+			toast.style.boxShadow = '0 12px 24px rgba(0, 0, 0, 0.25)';
+			toast.style.opacity = '0';
+			toast.style.transform = 'translateY(6px)';
+			toast.style.transition = 'all .22s ease';
+
+			host.appendChild(toast);
+
+			requestAnimationFrame(() => {
+				toast.style.opacity = '1';
+				toast.style.transform = 'translateY(0)';
+			});
+
+			setTimeout(() => {
+				toast.style.opacity = '0';
+				toast.style.transform = 'translateY(6px)';
+				setTimeout(() => toast.remove(), 220);
+			}, 3000);
+		}
+
+		function getAdminStatusNode() {
+			return document.getElementById('network-admin-status');
+		}
+
+		function setAdminStatus(message, type) {
+			const node = getAdminStatusNode();
+			if (!node) return;
+			if (!message) {
+				node.textContent = '';
+				node.classList.remove('show', 'error');
+				return;
+			}
+
+			node.textContent = message;
+			node.classList.add('show');
+			node.classList.toggle('error', type === 'error');
+		}
+
+		function getGrantSqlHint() {
+			const id = state.adminUser?.id;
+			if (!id) return '';
+			return `insert into public.app_admins (user_id) values ('${id}'::uuid) on conflict do nothing;`;
+		}
+
+		function setUpgradeSubmitMode(isEdit) {
+			const submitBtn = document.getElementById('admin-upgrade-submit');
+			if (!submitBtn) return;
+			submitBtn.textContent = isEdit ? 'Update Tier' : 'Create Tier';
+		}
+
+		function normalizeSpeedNumber(value) {
+			const n = Number(value);
+			if (!Number.isFinite(n)) return '0';
+			if (Math.abs(n % 1) < 0.000001) return String(Math.trunc(n));
+			return n.toFixed(2).replace(/\.?0+$/, '');
+		}
+
+		function getUpgradeClass(accent) {
+			const v = String(accent || '').toLowerCase();
+			if (v === 'premium') return 'premium-btn';
+			if (v === 'custom') return 'custom-btn';
+			return 'standard-btn';
+		}
+
+		function renderSpeed(speed) {
+			const downloadValue = document.getElementById('download-speed-value');
+			const downloadUnit = document.getElementById('download-speed-unit');
+			const uploadValue = document.getElementById('upload-speed-value');
+			const uploadUnit = document.getElementById('upload-speed-unit');
+			if (!downloadValue || !downloadUnit || !uploadValue || !uploadUnit) return;
+
+			downloadValue.textContent = normalizeSpeedNumber(speed.download_value);
+			downloadUnit.textContent = speed.download_unit || 'Mbps';
+			uploadValue.textContent = normalizeSpeedNumber(speed.upload_value);
+			uploadUnit.textContent = speed.upload_unit || 'Kbps';
+		}
+
+		function renderUpgrades(upgrades) {
+			const container = document.getElementById('upgrade-buttons-list');
+			if (!container) return;
+
+			if (!Array.isArray(upgrades) || upgrades.length === 0) {
+				container.innerHTML = '<div class="network-empty-state">No upgrades available.</div>';
+				return;
+			}
+
+			container.innerHTML = upgrades.map((item) => {
+				const label = escapeHtml(item.label || 'UPGRADE');
+				const url = escapeHtml(item.cta_url || 'https://lmvouchersystem.vercel.app/');
+				const cls = getUpgradeClass(item.accent);
+				const status = String(item.status || 'AVAILABLE').toUpperCase();
+				const paused = status !== 'AVAILABLE';
+				return `
+					<a href="${paused ? 'javascript:void(0);' : url}" target="${paused ? '' : '_blank'}"
+						class="upgrade-btn ${cls} ${paused ? 'is-paused' : ''}" ${paused ? 'aria-disabled="true"' : ''}>
+						${label}
+						${paused ? `<span class="upgrade-status-chip">${escapeHtml(status)}</span>` : ''}
+					</a>
+				`;
+			}).join('');
+		}
+
+		function renderAdminList(upgrades) {
+			const list = document.getElementById('upgrade-admin-list');
+			if (!list) return;
+			if (!Array.isArray(upgrades) || upgrades.length === 0) {
+				list.innerHTML = '<div class="network-empty-state">No upgrades in database.</div>';
+				return;
+			}
+
+			list.innerHTML = upgrades.map((item) => {
+				const label = escapeHtml(item.label || 'UPGRADE');
+				const slug = escapeHtml(item.slug || '-');
+				const amountText = escapeHtml(String(item.status || 'AVAILABLE').toUpperCase());
+				return `
+					<div class="upgrade-admin-item">
+						<div class="upgrade-admin-meta">${label} <span style="opacity:.65">(${slug})</span></div>
+						<span class="upgrade-admin-chip">${amountText}</span>
+						<div class="upgrade-admin-actions">
+							<button type="button" class="upgrade-admin-action" data-action="edit" data-id="${item.id}">Edit</button>
+							<button type="button" class="upgrade-admin-action danger" data-action="delete" data-id="${item.id}">Delete</button>
+						</div>
+					</div>
+				`;
+			}).join('');
+		}
+
+		function normalizeWidgetData(raw) {
+			const fallback = {
+				speed: {
+					download_value: 1,
+					download_unit: 'Mbps',
+					upload_value: 800,
+					upload_unit: 'Kbps'
+				},
+				upgrades: []
+			};
+
+			if (!raw || typeof raw !== 'object') return fallback;
+
+			const speed = raw.speed && typeof raw.speed === 'object'
+				? raw.speed
+				: fallback.speed;
+
+			const upgrades = Array.isArray(raw.upgrades) ? raw.upgrades : [];
+			return { speed, upgrades };
+		}
+
+		async function loadWidgetData() {
+			if (!state.client) return null;
+
+			try {
+				const rpcResult = await state.client.rpc('get_network_widget_data');
+				if (!rpcResult.error && rpcResult.data) {
+					return normalizeWidgetData(rpcResult.data);
+				}
+			} catch (err) {
+				// Ignore and fallback to table query
+			}
+
+			const [speedResult, upgradeResult] = await Promise.all([
+				state.client.from('speed_widget_settings').select('*').eq('id', 1).maybeSingle(),
+				state.client.from('upgrade_offers').select('*').order('sort_order', { ascending: true })
+			]);
+
+			const speed = speedResult.data || {
+				download_value: 1,
+				download_unit: 'Mbps',
+				upload_value: 800,
+				upload_unit: 'Kbps'
+			};
+
+			const upgrades = Array.isArray(upgradeResult.data)
+				? upgradeResult.data.filter((item) => item.is_visible !== false && String(item.status || '').toUpperCase() !== 'HIDDEN')
+				: [];
+
+			return { speed, upgrades };
+		}
+
+		async function loadAllUpgradesForAdmin() {
+			if (!state.client) return [];
+			let result = await state.client.rpc('admin_get_upgrade_offers', {
+				p_admin_user_id: state.adminUser?.id || null
+			});
+
+			if (result.error && String(result.error.message || '').includes('does not exist')) {
+				result = await state.client.from('upgrade_offers').select('*').order('sort_order', { ascending: true });
+			}
+
+			if (result.error || !Array.isArray(result.data)) {
+				const message = String(result.error?.message || '');
+				if (/not_authorized|not authorized/i.test(message)) {
+					const hint = getGrantSqlHint();
+					setAdminStatus(`Admin DB access is missing. Run this SQL once:\n${hint}`, 'error');
+				}
+				return [];
+			}
+			return result.data;
+		}
+
+		async function checkDbAdminAccess() {
+			state.dbAdminAllowed = null;
+			if (!state.client || !state.adminUser?.id) return;
+
+			try {
+				const result = await state.client.rpc('network_widget_is_admin', {
+					p_user_id: state.adminUser.id
+				});
+				if (result.error) {
+					state.dbAdminAllowed = null;
+					return;
+				}
+
+				state.dbAdminAllowed = result.data === true;
+				if (!state.dbAdminAllowed) {
+					const hint = getGrantSqlHint();
+					setAdminStatus(`Admin DB access is missing. Run this SQL once:\n${hint}`, 'error');
+				}
+			} catch (err) {
+				state.dbAdminAllowed = null;
+			}
+		}
+
+		function fillAdminSpeedForm(speed) {
+			const dVal = document.getElementById('admin-download-value');
+			const dUnit = document.getElementById('admin-download-unit');
+			const uVal = document.getElementById('admin-upload-value');
+			const uUnit = document.getElementById('admin-upload-unit');
+			if (!dVal || !dUnit || !uVal || !uUnit) return;
+			dVal.value = normalizeSpeedNumber(speed.download_value);
+			dUnit.value = speed.download_unit || 'Mbps';
+			uVal.value = normalizeSpeedNumber(speed.upload_value);
+			uUnit.value = speed.upload_unit || 'Kbps';
+		}
+
+		function resetUpgradeForm() {
+			const idEl = document.getElementById('admin-upgrade-id');
+			const labelEl = document.getElementById('admin-upgrade-label');
+			const slugEl = document.getElementById('admin-upgrade-slug');
+			const urlEl = document.getElementById('admin-upgrade-url');
+			const statusEl = document.getElementById('admin-upgrade-status');
+			const accentEl = document.getElementById('admin-upgrade-accent');
+			const visibleEl = document.getElementById('admin-upgrade-visible');
+			const sortEl = document.getElementById('admin-upgrade-sort');
+
+			if (idEl) idEl.value = '';
+			if (labelEl) labelEl.value = '';
+			if (slugEl) slugEl.value = '';
+			if (urlEl) urlEl.value = 'https://lmvouchersystem.vercel.app/';
+			if (statusEl) statusEl.value = 'AVAILABLE';
+			if (accentEl) accentEl.value = 'standard';
+			if (visibleEl) visibleEl.checked = true;
+			if (sortEl) sortEl.value = '10';
+			setUpgradeSubmitMode(false);
+		}
+
+		function fillUpgradeForm(item) {
+			const idEl = document.getElementById('admin-upgrade-id');
+			const labelEl = document.getElementById('admin-upgrade-label');
+			const slugEl = document.getElementById('admin-upgrade-slug');
+			const urlEl = document.getElementById('admin-upgrade-url');
+			const statusEl = document.getElementById('admin-upgrade-status');
+			const accentEl = document.getElementById('admin-upgrade-accent');
+			const visibleEl = document.getElementById('admin-upgrade-visible');
+			const sortEl = document.getElementById('admin-upgrade-sort');
+
+			if (idEl) idEl.value = item.id || '';
+			if (labelEl) labelEl.value = item.label || '';
+			if (slugEl) slugEl.value = item.slug || '';
+			if (urlEl) urlEl.value = item.cta_url || '';
+			if (statusEl) statusEl.value = String(item.status || 'AVAILABLE').toUpperCase();
+			if (accentEl) accentEl.value = String(item.accent || 'standard').toLowerCase();
+			if (visibleEl) visibleEl.checked = item.is_visible !== false;
+			if (sortEl) sortEl.value = Number(item.sort_order || 0);
+			setUpgradeSubmitMode(true);
+		}
+
+		async function saveSpeedFromForm() {
+			const dVal = Number(document.getElementById('admin-download-value').value);
+			const dUnit = document.getElementById('admin-download-unit').value;
+			const uVal = Number(document.getElementById('admin-upload-value').value);
+			const uUnit = document.getElementById('admin-upload-unit').value;
+
+			if (!Number.isFinite(dVal) || !Number.isFinite(uVal) || dVal < 0 || uVal < 0) {
+				notify('Speed values must be valid numbers.', 'error');
+				return;
+			}
+
+			let result = await state.client.rpc('admin_update_speed_widget', {
+				p_download_value: dVal,
+				p_download_unit: dUnit,
+				p_upload_value: uVal,
+				p_upload_unit: uUnit,
+				p_admin_user_id: state.adminUser?.id || null
+			});
+
+			if (result.error && String(result.error.message || '').includes('does not exist')) {
+				result = await state.client.rpc('admin_update_speed_widget', {
+					p_download_value: dVal,
+					p_download_unit: dUnit,
+					p_upload_value: uVal,
+					p_upload_unit: uUnit
+				});
+			}
+
+			if (result.error) {
+				const message = String(result.error.message || 'Unknown error');
+				if (/not_authorized|not authorized/i.test(message)) {
+					const hint = getGrantSqlHint();
+					setAdminStatus(`Admin DB access is missing. Run this SQL once:\n${hint}`, 'error');
+					notify('Admin DB access missing for speed update.', 'error');
+				} else {
+					setAdminStatus('Speed update failed: ' + message, 'error');
+					notify('Failed to save speed: ' + message, 'error');
+				}
+				return;
+			}
+
+			setAdminStatus('Current speed updated.');
+			notify('Current speed updated.');
+			await refreshWidgetData();
+		}
+
+		async function saveUpgradeFromForm() {
+			const id = document.getElementById('admin-upgrade-id').value || null;
+			const label = document.getElementById('admin-upgrade-label').value.trim();
+			const slug = document.getElementById('admin-upgrade-slug').value.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+			const ctaUrl = document.getElementById('admin-upgrade-url').value.trim();
+			const status = document.getElementById('admin-upgrade-status').value;
+			const accent = document.getElementById('admin-upgrade-accent').value;
+			const isVisible = !!document.getElementById('admin-upgrade-visible').checked;
+			const sortOrder = Number(document.getElementById('admin-upgrade-sort').value || 0);
+
+			if (!label || !slug || !ctaUrl) {
+				notify('Label, slug, and URL are required.', 'error');
+				return;
+			}
+
+			let result = await state.client.rpc('admin_upsert_upgrade_offer', {
+				p_label: label,
+				p_slug: slug,
+				p_cta_url: ctaUrl,
+				p_status: status,
+				p_accent: accent,
+				p_is_visible: isVisible,
+				p_sort_order: sortOrder,
+				p_id: id,
+				p_admin_user_id: state.adminUser?.id || null
+			});
+
+			if (result.error && String(result.error.message || '').includes('does not exist')) {
+				result = await state.client.rpc('admin_upsert_upgrade_offer', {
+					p_label: label,
+					p_slug: slug,
+					p_cta_url: ctaUrl,
+					p_status: status,
+					p_accent: accent,
+					p_is_visible: isVisible,
+					p_sort_order: sortOrder,
+					p_id: id
+				});
+			}
+
+			if (result.error) {
+				const message = String(result.error.message || 'Unknown error');
+				if (/not_authorized|not authorized/i.test(message)) {
+					const hint = getGrantSqlHint();
+					setAdminStatus(`Admin DB access is missing. Run this SQL once:\n${hint}`, 'error');
+					notify('Admin DB access missing for tier changes.', 'error');
+				} else if (/duplicate key|unique/i.test(message)) {
+					setAdminStatus('Slug already exists. Use a unique slug (example: vip-plus).', 'error');
+					notify('Slug already exists.', 'error');
+				} else {
+					setAdminStatus('Upgrade save failed: ' + message, 'error');
+					notify('Failed to save upgrade: ' + message, 'error');
+				}
+				return;
+			}
+
+			resetUpgradeForm();
+			setAdminStatus('Upgrade tier saved.');
+			notify('Upgrade saved.');
+			await refreshWidgetData();
+		}
+
+		async function deleteUpgradeById(upgradeId) {
+			let result = await state.client.rpc('admin_delete_upgrade_offer', {
+				p_id: upgradeId,
+				p_hard_delete: false,
+				p_admin_user_id: state.adminUser?.id || null
+			});
+
+			if (result.error && String(result.error.message || '').includes('does not exist')) {
+				result = await state.client.rpc('admin_delete_upgrade_offer', {
+					p_id: upgradeId,
+					p_hard_delete: false
+				});
+			}
+
+			if (result.error) {
+				const message = String(result.error.message || 'Unknown error');
+				if (/not_authorized|not authorized/i.test(message)) {
+					const hint = getGrantSqlHint();
+					setAdminStatus(`Admin DB access is missing. Run this SQL once:\n${hint}`, 'error');
+					notify('Admin DB access missing for tier delete.', 'error');
+				} else {
+					setAdminStatus('Delete failed: ' + message, 'error');
+					notify('Failed to delete upgrade: ' + message, 'error');
+				}
+				return;
+			}
+
+			setAdminStatus('Upgrade tier removed.');
+			notify('Upgrade deleted.');
+			await refreshWidgetData();
+		}
+
+		async function refreshWidgetData() {
+			const data = await loadWidgetData();
+			if (!data) return;
+
+			renderSpeed(data.speed);
+			renderUpgrades(data.upgrades);
+			fillAdminSpeedForm(data.speed);
+
+			if (state.isAdmin) {
+				state.upgrades = await loadAllUpgradesForAdmin();
+				renderAdminList(state.upgrades);
+			}
+		}
+
+		function wireAdminEvents() {
+			const speedForm = document.getElementById('speed-admin-form');
+			const upgradeForm = document.getElementById('upgrade-admin-form');
+			const resetBtn = document.getElementById('admin-upgrade-reset');
+			const newBtn = document.getElementById('admin-upgrade-new');
+			const list = document.getElementById('upgrade-admin-list');
+			const labelEl = document.getElementById('admin-upgrade-label');
+			const slugEl = document.getElementById('admin-upgrade-slug');
+
+			if (speedForm) {
+				speedForm.addEventListener('submit', async function (e) {
+					e.preventDefault();
+					await saveSpeedFromForm();
+				});
+			}
+
+			if (upgradeForm) {
+				upgradeForm.addEventListener('submit', async function (e) {
+					e.preventDefault();
+					await saveUpgradeFromForm();
+				});
+			}
+
+			if (resetBtn) {
+				resetBtn.addEventListener('click', function () {
+					resetUpgradeForm();
+					setAdminStatus('');
+				});
+			}
+
+			if (newBtn) {
+				newBtn.addEventListener('click', function () {
+					resetUpgradeForm();
+					setAdminStatus('Create mode: enter a new label/slug then click Create Tier.');
+				});
+			}
+
+			if (labelEl && slugEl) {
+				labelEl.addEventListener('input', function () {
+					if (slugEl.value.trim() !== '') return;
+					slugEl.value = String(labelEl.value || '')
+						.trim()
+						.toLowerCase()
+						.replace(/[^a-z0-9]+/g, '-')
+						.replace(/^-+|-+$/g, '');
+				});
+			}
+
+			if (list) {
+				list.addEventListener('click', async function (e) {
+					const btn = e.target.closest('button[data-action][data-id]');
+					if (!btn) return;
+					const action = btn.getAttribute('data-action');
+					const id = btn.getAttribute('data-id');
+					if (!id) return;
+
+					if (action === 'edit') {
+						const item = state.upgrades.find((u) => String(u.id) === String(id));
+						if (item) {
+							fillUpgradeForm(item);
+							setAdminStatus('Edit mode: update fields then click Update Tier.');
+						}
+						return;
+					}
+
+					if (action === 'delete') {
+						const ok = window.confirm('Hide this upgrade from users?');
+						if (!ok) return;
+						await deleteUpgradeById(id);
+					}
+				});
+			}
+		}
+
+		async function initDynamicNetworkWidget() {
+			const widget = document.getElementById('network-widget');
+			const adminPanel = document.getElementById('network-admin-panel');
+			if (!widget) return;
+
+			state.adminUser = getBillingUser();
+			state.isAdmin = isBillingAdmin(state.adminUser);
+
+			if (adminPanel) {
+				adminPanel.hidden = !state.isAdmin;
+			}
+			document.body.classList.toggle('network-admin-active', state.isAdmin);
+			if (!state.isAdmin) {
+				setAdminStatus('');
+			}
+
+			if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+				notify('Supabase library is not loaded. Check vendor/supabase-js.umd.js.', 'error');
+				return;
+			}
+
+			state.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+				auth: { persistSession: false, autoRefreshToken: false }
+			});
+
+			if (state.isAdmin) {
+				wireAdminEvents();
+				resetUpgradeForm();
+				setAdminStatus('');
+				await checkDbAdminAccess();
+			}
+
+			await refreshWidgetData();
+		}
+
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initDynamicNetworkWidget);
+		} else {
+			initDynamicNetworkWidget();
+		}
+	})();
+
 	// ============================================= 
 	// ERROR SUPPRESSION FOR EXTERNAL CONTENT
 	// Prevents errors from external sources (iframes, frameworks) from cluttering console
