@@ -191,6 +191,35 @@ $$;
 
 grant execute on function public.network_widget_is_admin(uuid) to anon, authenticated;
 
+create or replace function public.network_widget_resolve_auth_user(p_user_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+    v_auth_user_id uuid;
+begin
+    if p_user_id is null then
+        return null;
+    end if;
+
+    begin
+        select u.id
+        into v_auth_user_id
+        from auth.users u
+        where u.id = p_user_id
+        limit 1;
+    exception when undefined_table then
+        v_auth_user_id := null;
+    end;
+
+    return v_auth_user_id;
+end;
+$$;
+
+grant execute on function public.network_widget_resolve_auth_user(uuid) to anon, authenticated;
+
 create table if not exists public.speed_widget_settings (
     id int primary key default 1 check (id = 1),
     download_value numeric(10,2) not null default 1,
@@ -317,10 +346,14 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+    v_updated_by uuid;
 begin
     if not public.network_widget_is_admin(p_admin_user_id) then
         raise exception 'not_authorized';
     end if;
+
+    v_updated_by := public.network_widget_resolve_auth_user(p_admin_user_id);
 
     update public.speed_widget_settings
     set download_value = p_download_value,
@@ -328,7 +361,7 @@ begin
         upload_value = p_upload_value,
         upload_unit = p_upload_unit,
         updated_at = now(),
-        updated_by = p_admin_user_id
+        updated_by = v_updated_by
     where id = 1;
 end;
 $$;
@@ -356,16 +389,19 @@ set search_path = public
 as $$
 declare
     v_id uuid;
+    v_updated_by uuid;
 begin
     if not public.network_widget_is_admin(p_admin_user_id) then
         raise exception 'not_authorized';
     end if;
 
+    v_updated_by := public.network_widget_resolve_auth_user(p_admin_user_id);
+
     if p_id is null then
         insert into public.upgrade_offers (
             label, slug, cta_url, status, accent, is_visible, sort_order, updated_by
         ) values (
-            p_label, p_slug, p_cta_url, p_status, p_accent, p_is_visible, p_sort_order, p_admin_user_id
+            p_label, p_slug, p_cta_url, p_status, p_accent, p_is_visible, p_sort_order, v_updated_by
         )
         returning id into v_id;
     else
@@ -378,7 +414,7 @@ begin
             is_visible = p_is_visible,
             sort_order = p_sort_order,
             updated_at = now(),
-            updated_by = p_admin_user_id
+            updated_by = v_updated_by
         where id = p_id
         returning id into v_id;
     end if;
@@ -402,10 +438,14 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+    v_updated_by uuid;
 begin
     if not public.network_widget_is_admin(p_admin_user_id) then
         raise exception 'not_authorized';
     end if;
+
+    v_updated_by := public.network_widget_resolve_auth_user(p_admin_user_id);
 
     if p_hard_delete then
         delete from public.upgrade_offers where id = p_id;
@@ -414,7 +454,7 @@ begin
         set is_visible = false,
             status = 'HIDDEN',
             updated_at = now(),
-            updated_by = p_admin_user_id
+            updated_by = v_updated_by
         where id = p_id;
     end if;
 end;

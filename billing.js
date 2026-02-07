@@ -1137,33 +1137,153 @@ async function populatePaymentRoomDropdown() {
         }
     }
 
+    // Store room data for amount lookup
+    window.paymentRoomData = {};
+    window.paymentRoomOptions = [];
+
     if (!data || data.length === 0) {
-        optionsContainer.innerHTML = '<div class="custom-select-option">No rooms available</div>';
+        optionsContainer.innerHTML = '<div class="custom-select-option room-option-empty">No rooms available</div>';
         return;
     }
 
     // Sort by room number
     data.sort((a, b) => a.room_no.localeCompare(b.room_no, undefined, { numeric: true }));
 
-    // Store room data for amount lookup
-    window.paymentRoomData = {};
-
-    optionsContainer.innerHTML = '<div class="custom-select-option room-option-reset" data-value="" onclick="selectRoom(\'\', \'-- Select Room --\', \'0.00\')">Clear selection</div>';
     data.forEach(room => {
         const amount = ((room.current_reading - room.previous_reading) * room.rate).toFixed(2);
-        window.paymentRoomData[room.room_no] = { amount, status: room.status };
+        const normalizedStatus = String(room.status || 'DUE').toUpperCase() === 'PAID' ? 'PAID' : 'DUE';
+        window.paymentRoomData[room.room_no] = { amount, status: normalizedStatus };
+        window.paymentRoomOptions.push({
+            room_no: room.room_no,
+            amount,
+            status: normalizedStatus
+        });
+    });
+
+    renderPaymentRoomOptions();
+    bindPaymentRoomDropdownEvents();
+}
+
+function escapeHtmlText(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeAttrValue(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function renderPaymentRoomOptions() {
+    const optionsContainer = document.getElementById('room-select-options');
+    if (!optionsContainer) return;
+
+    const selectedInput = document.getElementById('payment-room-select');
+    const selectedValue = selectedInput ? String(selectedInput.value || '') : '';
+    const roomOptions = Array.isArray(window.paymentRoomOptions) ? window.paymentRoomOptions : [];
+
+    const optionsMarkup = roomOptions.map((room) => {
         const statusClass = room.status === 'PAID' ? 'status-paid' : 'status-due';
         const statusLabel = room.status === 'PAID' ? 'PAID' : 'DUE';
-        optionsContainer.innerHTML += `<div class="custom-select-option room-option-card ${statusClass}" data-value="${room.room_no}" data-amount="${amount}" data-status="${room.status}" onclick="selectRoom('${room.room_no}', '${room.room_no}', '${amount}')">
+        const encodedRoom = encodeURIComponent(String(room.room_no || ''));
+        const searchText = `${room.room_no} ${statusLabel} ${room.amount}`.toLowerCase();
+        const isSelected = String(room.room_no) === selectedValue ? ' selected' : '';
+
+        return `<div class="custom-select-option room-option-card ${statusClass}${isSelected}"
+            data-action="select"
+            data-value="${encodedRoom}"
+            data-amount="${escapeAttrValue(room.amount)}"
+            data-search="${escapeAttrValue(searchText)}">
             <span class="room-option-left">
                 <span class="room-status-dot"></span>
-                <span class="room-option-name">${room.room_no}</span>
+                <span class="room-option-name">${escapeHtmlText(room.room_no)}</span>
             </span>
             <span class="room-option-right">
-                <span class="room-option-amount">${formatCurrency(amount)}</span>
+                <span class="room-option-amount">${formatCurrency(room.amount)}</span>
                 <span class="room-option-status">${statusLabel}</span>
             </span>
         </div>`;
+    }).join('');
+
+    optionsContainer.innerHTML = `
+        <div class="room-dropdown-search">
+            <input type="text" id="room-select-search" class="room-search-input" placeholder="Search room..."
+                autocomplete="off" />
+        </div>
+        <div class="room-dropdown-list" id="room-dropdown-list">
+            <div class="custom-select-option room-option-reset${selectedValue ? '' : ' selected'}" data-action="reset">Clear selection</div>
+            ${optionsMarkup}
+            <div id="room-option-empty-filter" class="custom-select-option room-option-empty" style="display:none;">No matching rooms</div>
+        </div>
+    `;
+}
+
+function bindPaymentRoomDropdownEvents() {
+    const optionsContainer = document.getElementById('room-select-options');
+    if (!optionsContainer || optionsContainer.dataset.bound === '1') return;
+
+    optionsContainer.dataset.bound = '1';
+
+    optionsContainer.addEventListener('input', (event) => {
+        if (event.target && event.target.id === 'room-select-search') {
+            window.filterPaymentRoomDropdown(event.target.value);
+        }
+    });
+
+    optionsContainer.addEventListener('click', (event) => {
+        const option = event.target.closest('.custom-select-option[data-action]');
+        if (!option || !optionsContainer.contains(option)) return;
+
+        const action = option.getAttribute('data-action');
+        if (action === 'reset') {
+            window.selectPaymentRoom('', '-- Select Room --', '0.00');
+            return;
+        }
+
+        if (action === 'select') {
+            const encoded = option.getAttribute('data-value') || '';
+            const amount = option.getAttribute('data-amount') || '0.00';
+            const value = decodeURIComponent(encoded);
+            window.selectPaymentRoom(value, value, amount);
+        }
+    });
+}
+
+window.filterPaymentRoomDropdown = function (query = '') {
+    const normalizedQuery = String(query || '').trim().toLowerCase();
+    const cards = document.querySelectorAll('#room-select-options .room-option-card[data-search]');
+    const reset = document.querySelector('#room-select-options .room-option-reset');
+    const emptyFilter = document.getElementById('room-option-empty-filter');
+
+    let visibleCount = 0;
+    cards.forEach(card => {
+        const key = String(card.getAttribute('data-search') || '');
+        const match = key.includes(normalizedQuery);
+        card.style.display = match ? '' : 'none';
+        if (match) visibleCount += 1;
+    });
+
+    if (reset) reset.style.display = normalizedQuery ? 'none' : '';
+    if (emptyFilter) emptyFilter.style.display = visibleCount === 0 ? '' : 'none';
+
+    updateRoomDropdownPlacement();
+};
+
+function focusPaymentRoomSearch() {
+    const searchInput = document.getElementById('room-select-search');
+    if (!searchInput) return;
+
+    searchInput.value = '';
+    window.filterPaymentRoomDropdown('');
+    requestAnimationFrame(() => {
+        searchInput.focus({ preventScroll: true });
     });
 }
 
@@ -1234,11 +1354,11 @@ window.toggleRoomDropdown = function () {
     if (trigger) trigger.setAttribute('aria-expanded', 'true');
     if (roomField) roomField.classList.add('dropdown-open');
     updateRoomDropdownPlacement();
+    focusPaymentRoomSearch();
 };
 
 // Select room from custom dropdown
-window.selectRoom = function (value, text, amount) {
-    const wrapper = document.querySelector('.custom-select-wrapper');
+window.selectPaymentRoom = function (value, text, amount) {
     const trigger = document.getElementById('room-select-text');
     const hiddenInput = document.getElementById('payment-room-select');
 
@@ -1253,9 +1373,15 @@ window.selectRoom = function (value, text, amount) {
     }
 
     // Mark selected
-    document.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
-    const selectedOpt = document.querySelector(`.custom-select-option[data-value="${value}"]`);
-    if (selectedOpt) selectedOpt.classList.add('selected');
+    document.querySelectorAll('#room-select-options .custom-select-option').forEach(opt => opt.classList.remove('selected'));
+    if (!value) {
+        const resetOpt = document.querySelector('#room-select-options .room-option-reset');
+        if (resetOpt) resetOpt.classList.add('selected');
+    } else {
+        const encoded = encodeURIComponent(String(value));
+        const selectedOpt = document.querySelector(`#room-select-options .room-option-card[data-value="${encoded}"]`);
+        if (selectedOpt) selectedOpt.classList.add('selected');
+    }
 };
 
 // Close dropdown when clicking outside

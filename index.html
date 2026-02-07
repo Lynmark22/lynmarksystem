@@ -978,6 +978,84 @@
 									color: #ffb5b5;
 								}
 
+								.network-confirm-modal {
+									position: fixed;
+									inset: 0;
+									z-index: 120000;
+									display: grid;
+									place-items: center;
+									padding: 16px;
+									opacity: 0;
+									pointer-events: none;
+									transition: opacity 0.2s ease;
+								}
+
+								.network-confirm-modal.show {
+									opacity: 1;
+									pointer-events: auto;
+								}
+
+								.network-confirm-backdrop {
+									position: absolute;
+									inset: 0;
+									background: rgba(3, 10, 22, 0.56);
+									backdrop-filter: blur(4px);
+								}
+
+								.network-confirm-card {
+									position: relative;
+									width: min(100%, 360px);
+									padding: 16px;
+									border-radius: 16px;
+									border: 1px solid rgba(125, 196, 255, 0.32);
+									background: linear-gradient(145deg, rgba(10, 21, 37, 0.95), rgba(18, 35, 57, 0.92));
+									box-shadow: 0 18px 36px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+									color: #e8f4ff;
+								}
+
+								.network-confirm-title {
+									margin: 0 0 8px;
+									font-size: 17px;
+									font-weight: 700;
+									line-height: 1.25;
+								}
+
+								.network-confirm-message {
+									margin: 0 0 14px;
+									font-size: 13px;
+									line-height: 1.5;
+									color: rgba(224, 238, 255, 0.86);
+								}
+
+								.network-confirm-actions {
+									display: flex;
+									justify-content: flex-end;
+									gap: 8px;
+								}
+
+								.network-confirm-btn {
+									height: 36px;
+									padding: 0 14px;
+									border-radius: 10px;
+									border: 1px solid rgba(123, 179, 227, 0.32);
+									background: rgba(10, 26, 44, 0.9);
+									color: #dceeff;
+									font-size: 12px;
+									font-weight: 700;
+									cursor: pointer;
+								}
+
+								.network-confirm-btn.danger {
+									border-color: rgba(255, 126, 126, 0.5);
+									background: linear-gradient(135deg, rgba(140, 33, 33, 0.95), rgba(184, 58, 58, 0.92));
+									color: #fff3f3;
+								}
+
+								.network-confirm-btn:focus-visible {
+									outline: 2px solid rgba(124, 213, 255, 0.82);
+									outline-offset: 2px;
+								}
+
 								/* Hide old tier cards */
 								.card.tier-2,
 								.card.tier-3,
@@ -2242,6 +2320,29 @@
 									transform: translateY(-1px);
 								}
 
+								/* Lightweight mode: disable heavy icon/spinner keyframe effects */
+								#container06 .speedtest-compact-btn .btn-icon,
+								#container06 .speedtest-compact-btn .btn-spinner,
+								#container06 .speedtest-compact-btn.speedtest-cloudflare .btn-icon,
+								#container06 .speedtest-compact-btn.speedtest-ookla .btn-icon,
+								#container06 .speedtest-compact-btn.speedtest-ookla .btn-icon line,
+								#container06 .speedtest-compact-btn.loading .spinner-circle,
+								#container06 .speedtest-compact-btn.loading .btn-spinner {
+									animation: none !important;
+								}
+
+								#container06 .speedtest-compact-btn.loading .btn-icon {
+									opacity: 1 !important;
+									visibility: visible !important;
+									display: block !important;
+									transform: none !important;
+								}
+
+								#container06 .speedtest-compact-btn.loading .btn-spinner {
+									display: none !important;
+									opacity: 0 !important;
+								}
+
 								#container06 .speedtest-modal-inline {
 									max-width: 100%;
 									transition: max-height 0.22s ease, opacity 0.18s ease, margin 0.22s ease;
@@ -2321,6 +2422,7 @@
 
 								#container06 .speedtest-timer-progress-inline {
 									filter: none;
+									transition: stroke-dashoffset 0.96s linear;
 								}
 
 								#container06 .speedtest-timer-count-inline {
@@ -2482,6 +2584,21 @@
 									#container06 .speedtest-modal-content-inline,
 									#container06 .speedtest-compact-bar {
 										backdrop-filter: none !important;
+									}
+								}
+
+								@media screen and (max-width: 480px) {
+									.network-confirm-card {
+										width: min(100%, 320px);
+										padding: 14px;
+									}
+
+									.network-confirm-actions {
+										flex-direction: column-reverse;
+									}
+
+									.network-confirm-btn {
+										width: 100%;
 									}
 								}
 							</style><!-- mnbnbxmbzxmncbzxc -->
@@ -2757,6 +2874,24 @@
 		<!-- Billing Tracker moved to billing.html -->
 	</div>
 	</div>
+	</div>
+
+	<!-- ================================================== -->
+	<!-- NETWORK ADMIN CONFIRM MODAL                      -->
+	<!-- Custom replacement for native browser confirm()  -->
+	<!-- ================================================== -->
+	<div id="network-admin-confirm-modal" class="network-confirm-modal" hidden aria-hidden="true">
+		<div class="network-confirm-backdrop" data-confirm-action="cancel"></div>
+		<div class="network-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="networkConfirmTitle"
+			aria-describedby="networkConfirmMessage">
+			<h3 id="networkConfirmTitle" class="network-confirm-title">Delete tier permanently?</h3>
+			<p id="networkConfirmMessage" class="network-confirm-message">This will permanently remove this upgrade tier
+				from the system.</p>
+			<div class="network-confirm-actions">
+				<button type="button" class="network-confirm-btn" data-confirm-action="cancel">Cancel</button>
+				<button type="button" class="network-confirm-btn danger" data-confirm-action="confirm">Delete</button>
+			</div>
+		</div>
 	</div>
 
 	<!-- ================================================== -->

@@ -3325,32 +3325,39 @@
 		const timerCount = document.getElementById('speedtestTimerCountInline');
 		const timerText = document.getElementById('speedtestTimerTextInline');
 
-		const totalDuration = 5000; // 5 seconds
-		const interval = 100; // Update every 100ms for smooth animation
-		let elapsed = 0;
+		const totalSeconds = 5;
+		const circumference = 188.5;
+		let elapsedSeconds = 0;
 
-		speedtestTimerInline = setInterval(() => {
-			elapsed += interval;
-			const remaining = Math.ceil((totalDuration - elapsed) / 1000);
-			const progress = elapsed / totalDuration;
+		const updateCountdown = () => {
+			const remaining = Math.max(totalSeconds - elapsedSeconds, 0);
+			const progress = elapsedSeconds / totalSeconds;
 
-			// Update countdown display
 			if (timerCount) timerCount.textContent = remaining;
 			if (timerText) timerText.textContent = remaining;
 
-			// Update progress bar (188.5 is circumference for r=30)
 			if (progressBar) {
-				const offset = 188.5 * (1 - progress);
-				progressBar.style.strokeDashoffset = offset;
+				progressBar.style.transition = 'stroke-dashoffset 960ms linear';
+				progressBar.style.strokeDashoffset = String(circumference * (1 - progress));
 			}
+		};
 
-			// Auto-redirect when time is up
-			if (elapsed >= totalDuration) {
+		if (progressBar) {
+			progressBar.style.transition = 'none';
+			progressBar.style.strokeDashoffset = String(circumference);
+		}
+		updateCountdown();
+
+		speedtestTimerInline = setInterval(() => {
+			elapsedSeconds += 1;
+			updateCountdown();
+
+			if (elapsedSeconds >= totalSeconds) {
 				clearInterval(speedtestTimerInline);
 				speedtestTimerInline = null;
 				confirmSpeedTestInline();
 			}
-		}, interval);
+		}, 1000);
 	}
 
 	// Confirm and redirect to speed test for inline modal
@@ -3580,6 +3587,83 @@
 				toast.style.transform = 'translateY(6px)';
 				setTimeout(() => toast.remove(), 220);
 			}, 3000);
+		}
+
+		function showAdminConfirm(options) {
+			const modal = document.getElementById('network-admin-confirm-modal');
+			if (!modal) {
+				return Promise.resolve(false);
+			}
+
+			const titleNode = document.getElementById('networkConfirmTitle');
+			const messageNode = document.getElementById('networkConfirmMessage');
+			const confirmBtn = modal.querySelector('[data-confirm-action="confirm"]');
+			const cancelBtn = modal.querySelector('[data-confirm-action="cancel"]');
+
+			if (!confirmBtn || !cancelBtn) {
+				return Promise.resolve(false);
+			}
+
+			if (titleNode) {
+				titleNode.textContent = options?.title || 'Confirm action';
+			}
+			if (messageNode) {
+				messageNode.textContent = options?.message || 'Do you want to continue?';
+			}
+			confirmBtn.textContent = options?.confirmText || 'Confirm';
+			cancelBtn.textContent = options?.cancelText || 'Cancel';
+
+			return new Promise((resolve) => {
+				let settled = false;
+				const previousOverflow = document.body.style.overflow;
+				const previousFocus = document.activeElement instanceof HTMLElement
+					? document.activeElement
+					: null;
+
+				const close = (accepted) => {
+					if (settled) return;
+					settled = true;
+					modal.classList.remove('show');
+					modal.setAttribute('aria-hidden', 'true');
+					document.removeEventListener('keydown', onKeyDown);
+					modal.removeEventListener('click', onClick);
+					document.body.style.overflow = previousOverflow;
+					setTimeout(() => {
+						modal.hidden = true;
+						if (previousFocus && typeof previousFocus.focus === 'function') {
+							previousFocus.focus();
+						}
+					}, 180);
+					resolve(accepted);
+				};
+
+				const onClick = (event) => {
+					const actionEl = event.target.closest('[data-confirm-action]');
+					if (!actionEl || !modal.contains(actionEl)) return;
+					const action = actionEl.getAttribute('data-confirm-action');
+					if (action === 'confirm') close(true);
+					if (action === 'cancel') close(false);
+				};
+
+				const onKeyDown = (event) => {
+					if (event.key === 'Escape') {
+						event.preventDefault();
+						close(false);
+					}
+					if (event.key === 'Enter' && document.activeElement === confirmBtn) {
+						event.preventDefault();
+						close(true);
+					}
+				};
+
+				modal.hidden = false;
+				modal.setAttribute('aria-hidden', 'false');
+				requestAnimationFrame(() => modal.classList.add('show'));
+				modal.addEventListener('click', onClick);
+				document.addEventListener('keydown', onKeyDown);
+				document.body.style.overflow = 'hidden';
+				setTimeout(() => confirmBtn.focus(), 24);
+			});
 		}
 
 		function getAdminStatusNode() {
@@ -3888,7 +3972,11 @@
 		async function saveUpgradeFromForm() {
 			const id = document.getElementById('admin-upgrade-id').value || null;
 			const label = document.getElementById('admin-upgrade-label').value.trim();
-			const slug = document.getElementById('admin-upgrade-slug').value.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+			const slug = document.getElementById('admin-upgrade-slug').value
+				.trim()
+				.toLowerCase()
+				.replace(/[^a-z0-9-_]/g, '-')
+				.replace(/^-+|-+$/g, '');
 			const ctaUrl = document.getElementById('admin-upgrade-url').value.trim();
 			const status = document.getElementById('admin-upgrade-status').value;
 			const accent = document.getElementById('admin-upgrade-accent').value;
@@ -3897,6 +3985,18 @@
 
 			if (!label || !slug || !ctaUrl) {
 				notify('Label, slug, and URL are required.', 'error');
+				return;
+			}
+
+			const duplicateSlug = state.upgrades.find((item) => {
+				const sameSlug = String(item.slug || '').toLowerCase() === slug;
+				const sameRecord = id && String(item.id) === String(id);
+				return sameSlug && !sameRecord;
+			});
+
+			if (duplicateSlug) {
+				setAdminStatus('Slug already exists. Use a different slug (example: standard-2) or edit the existing tier.', 'error');
+				notify('Slug already exists.', 'error');
 				return;
 			}
 
@@ -3950,14 +4050,14 @@
 		async function deleteUpgradeById(upgradeId) {
 			let result = await state.client.rpc('admin_delete_upgrade_offer', {
 				p_id: upgradeId,
-				p_hard_delete: false,
+				p_hard_delete: true,
 				p_admin_user_id: state.adminUser?.id || null
 			});
 
 			if (result.error && String(result.error.message || '').includes('does not exist')) {
 				result = await state.client.rpc('admin_delete_upgrade_offer', {
 					p_id: upgradeId,
-					p_hard_delete: false
+					p_hard_delete: true
 				});
 			}
 
@@ -3974,8 +4074,8 @@
 				return;
 			}
 
-			setAdminStatus('Upgrade tier removed.');
-			notify('Upgrade deleted.');
+			setAdminStatus('Upgrade tier deleted permanently.');
+			notify('Tier deleted permanently.');
 			await refreshWidgetData();
 		}
 
@@ -4059,7 +4159,14 @@
 					}
 
 					if (action === 'delete') {
-						const ok = window.confirm('Hide this upgrade from users?');
+						const item = state.upgrades.find((u) => String(u.id) === String(id));
+						const label = item?.label ? ` "${item.label}"` : '';
+						const ok = await showAdminConfirm({
+							title: 'Delete tier permanently?',
+							message: `This will permanently remove${label} from your upgrade list.`,
+							confirmText: 'Delete',
+							cancelText: 'Cancel'
+						});
 						if (!ok) return;
 						await deleteUpgradeById(id);
 					}

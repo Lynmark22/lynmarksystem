@@ -3845,6 +3845,42 @@ h3.billing-header {
     overscroll-behavior: contain;
 }
 
+.payfield-select-wrapper .room-dropdown-search {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin-bottom: 4px;
+    padding: 2px 1px;
+    background: linear-gradient(180deg, #0d1220 70%, rgba(13, 18, 32, 0.82) 100%);
+}
+
+.payfield-select-wrapper .room-search-input {
+    width: 100%;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid rgba(118, 182, 230, 0.32);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(241, 248, 255, 0.96);
+    font-size: 0.78rem;
+    padding: 0 10px;
+    outline: none;
+}
+
+.payfield-select-wrapper .room-search-input::placeholder {
+    color: rgba(190, 215, 242, 0.58);
+}
+
+.payfield-select-wrapper .room-search-input:focus {
+    border-color: rgba(0, 210, 255, 0.64);
+    box-shadow: 0 0 0 2px rgba(0, 210, 255, 0.12);
+}
+
+.payfield-select-wrapper .room-dropdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
 .payfield-select-wrapper.open-down .custom-select-options {
     top: calc(100% + 8px);
     bottom: auto;
@@ -3873,6 +3909,17 @@ h3.billing-header {
 
 .payfield-select-wrapper .room-option-reset:hover {
     background: rgba(255, 255, 255, 0.1);
+}
+
+.payfield-select-wrapper .room-option-empty {
+    border-radius: 7px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.73rem;
+    color: rgba(220, 234, 250, 0.74);
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .payfield-select-wrapper .room-option-card {
@@ -4249,6 +4296,12 @@ h3.billing-header {
     .payfield-select-wrapper .custom-select-options {
         max-height: 150px;
         padding: 4px;
+    }
+
+    .payfield-select-wrapper .room-search-input {
+        height: 28px;
+        font-size: 0.74rem;
+        padding: 0 9px;
     }
 
     .payfield-select-wrapper.open-down .custom-select-options {
