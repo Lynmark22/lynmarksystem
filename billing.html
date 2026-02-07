@@ -8,7 +8,7 @@
 <head>
     <title>Lynmark - Billing Tracker</title>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="description" content="Lynmark Billing Tracker" />
 
@@ -34,13 +34,6 @@
 </head>
 
 <body>
-    <!-- Animated Background Blobs -->
-    <div class="background-blobs">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-        <div class="blob blob-3"></div>
-    </div>
-
     <div class="site-wrapper">
 
         <!-- Fullscreen QR Modal -->
@@ -416,7 +409,7 @@
                         </span>
                     </h3>
 
-                    <form id="payment-submission-form" class="payflow-form">
+                    <form id="payment-submission-form" class="payflow-form" novalidate>
                         <div class="payflow-intro">
                             <p>Fill in your details, select your room, then upload your receipt.</p>
                         </div>
@@ -506,7 +499,7 @@
                                     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('receipt-upload').click();}"
                                     role="button" tabindex="0" aria-label="Upload GCash payment receipt">
                                     <input type="file" id="receipt-upload" accept="image/png,image/jpeg,image/webp"
-                                        required style="display:none;">
+                                        style="display:none;">
                                     <span class="pay-upload-icon">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="1.7">
@@ -523,6 +516,7 @@
                                     <span class="file-name pay-upload-file" id="uploaded-file-name"
                                         aria-live="polite"></span>
                                 </div>
+                                <p id="receipt-validation-note" class="pay-upload-note" aria-live="polite"></p>
                             </div>
                         </div>
 

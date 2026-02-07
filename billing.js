@@ -1273,8 +1273,21 @@ function setupReceiptUploadZone() {
     const receiptInput = document.getElementById('receipt-upload');
     const uploadZone = document.getElementById('receipt-upload-zone');
     const fileNameLabel = document.getElementById('uploaded-file-name');
+    const noteLabel = document.getElementById('receipt-validation-note');
 
     if (!receiptInput || !uploadZone) return;
+
+    const setReceiptValidationNote = (message = '') => {
+        const hasMessage = Boolean(message);
+        uploadZone.classList.toggle('has-error', hasMessage);
+        uploadZone.setAttribute('aria-invalid', hasMessage ? 'true' : 'false');
+        if (noteLabel) {
+            noteLabel.textContent = hasMessage ? message : '';
+            noteLabel.classList.toggle('is-visible', hasMessage);
+        }
+    };
+
+    window.showReceiptValidationNote = setReceiptValidationNote;
 
     const renderSelectedFile = () => {
         const selectedFile = receiptInput.files && receiptInput.files[0] ? receiptInput.files[0] : null;
@@ -1286,6 +1299,7 @@ function setupReceiptUploadZone() {
 
         uploadZone.classList.add('has-file');
         if (fileNameLabel) fileNameLabel.textContent = selectedFile.name;
+        setReceiptValidationNote('');
     };
 
     receiptInput.addEventListener('change', renderSelectedFile);
@@ -1325,6 +1339,7 @@ setupReceiptUploadZone();
 // Payment submission form handler
 const paymentForm = document.getElementById('payment-submission-form');
 if (paymentForm) {
+    paymentForm.noValidate = true;
     paymentForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -1335,6 +1350,10 @@ if (paymentForm) {
         const amountText = document.getElementById('payment-amount').textContent;
         const amount = parseFloat(amountText.replace(/[^0-9.]/g, '')) || 0;
         const receiptFile = document.getElementById('receipt-upload').files[0];
+        const receiptUploadZone = document.getElementById('receipt-upload-zone');
+        const setReceiptNote = typeof window.showReceiptValidationNote === 'function'
+            ? window.showReceiptValidationNote
+            : () => {};
 
         // Validation
         if (!senderGcash || !senderName || !senderContact || !roomNo) {
@@ -1343,9 +1362,15 @@ if (paymentForm) {
         }
 
         if (!receiptFile) {
-            showToast('Please upload your GCash receipt.', 'error');
+            setReceiptNote('Please upload or attach your payment receipt.');
+            showToast('Please upload or attach your payment receipt.', 'error');
+            if (receiptUploadZone) {
+                receiptUploadZone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                receiptUploadZone.focus({ preventScroll: true });
+            }
             return;
         }
+        setReceiptNote('');
 
         if (amount <= 0) {
             showToast('Invalid amount. Please select a valid room.', 'error');
@@ -1454,6 +1479,10 @@ if (paymentForm) {
             if (fileNameEl) fileNameEl.textContent = '';
             const uploadZone = document.getElementById('receipt-upload-zone');
             if (uploadZone) uploadZone.classList.remove('has-file');
+            const setReceiptNote = typeof window.showReceiptValidationNote === 'function'
+                ? window.showReceiptValidationNote
+                : () => {};
+            setReceiptNote('');
             const roomText = document.getElementById('room-select-text');
             if (roomText) roomText.textContent = '-- Select Room --';
             document.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
