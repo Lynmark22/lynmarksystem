@@ -21,6 +21,13 @@ function formatCurrency(amount) {
 const SUPABASE_URL = 'https://jlbvoiqexugdobzgpvyb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsYnZvaXFleHVnZG9iemdwdnliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NTU1MzAsImV4cCI6MjA4MDMzMTUzMH0.2RVENuR1AVPbjM5vBG7c2_fppn3D4zAZCuBFVCI08SA';
 let supabaseClient;
+let billingAutoRefreshTimer = null;
+let billingRealtimeChannel = null;
+let billingRefreshBusy = false;
+let userProfileRefreshAllowed = true;
+let lastUserProfileRefreshAt = 0;
+const BILLING_AUTO_REFRESH_MS = 10000;
+const USER_PROFILE_REFRESH_MS = 30000;
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -499,6 +506,123 @@ function checkSession() {
     } else {
         showSection('public');
         fetchPublicBills();
+        startBillingAutoSync();
+    }
+}
+
+function updateTenantRoomLabel(roomText = '') {
+    const roomEl = document.getElementById('tenant-room-no');
+    if (!roomEl) return;
+    roomEl.textContent = roomText || 'Not Assigned';
+}
+
+async function refreshCurrentUserProfile(force = false) {
+    if (!supabaseClient || !currentUser || currentUser.role === 'admin' || !userProfileRefreshAllowed) return;
+
+    const now = Date.now();
+    if (!force && now - lastUserProfileRefreshAt < USER_PROFILE_REFRESH_MS) return;
+    lastUserProfileRefreshAt = now;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('users')
+            .select('role, tenant_location')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+        if (error) {
+            const message = String(error.message || '');
+            if (/permission|denied|not authorized|policy/i.test(message)) {
+                userProfileRefreshAllowed = false;
+            }
+            return;
+        }
+        if (!data) return;
+
+        const nextRole = data.role || currentUser.role || 'user';
+        const nextLocation = data.tenant_location || '';
+        const roleChanged = String(nextRole) !== String(currentUser.role);
+        const locationChanged = String(nextLocation) !== String(currentUser.tenant_location || '');
+        if (!roleChanged && !locationChanged) return;
+
+        currentUser = {
+            ...currentUser,
+            role: nextRole,
+            tenant_location: nextLocation
+        };
+        localStorage.setItem('billing_user', JSON.stringify(currentUser));
+        if (currentUser.role === 'admin') {
+            handleSession();
+            return;
+        }
+        updateTenantRoomLabel(currentUser.tenant_location || 'Not Assigned');
+    } catch (_err) {
+        // Silent fallback: live UI still refreshes from bills.
+    }
+}
+
+function getActiveBillingSection() {
+    const isVisible = (id) => {
+        const node = document.getElementById(id);
+        return !!(node && node.style.display !== 'none');
+    };
+
+    if (isVisible('billing-admin-view')) return 'admin';
+    if (isVisible('billing-tenant-view')) return 'tenant';
+    if (isVisible('billing-public-view')) return 'public';
+    return 'unknown';
+}
+
+async function refreshBillingLiveData(force = false) {
+    if (!supabaseClient) return;
+    if (document.hidden) return;
+    if (billingRefreshBusy) return;
+
+    billingRefreshBusy = true;
+    try {
+        const section = getActiveBillingSection();
+
+        if (section === 'admin') {
+            await fetchAdminBills();
+            return;
+        }
+
+        if (section === 'tenant') {
+            await refreshCurrentUserProfile(force);
+            await fetchTenantBills();
+            await fetchPublicBills();
+            await populatePaymentRoomDropdown({ sourceData: window.publicBillsData });
+            return;
+        }
+
+        if (section === 'public') {
+            await fetchPublicBills();
+            await populatePaymentRoomDropdown({ sourceData: window.publicBillsData });
+        }
+    } finally {
+        billingRefreshBusy = false;
+    }
+}
+
+function startBillingAutoSync() {
+    if (billingAutoRefreshTimer) {
+        clearInterval(billingAutoRefreshTimer);
+    }
+
+    billingAutoRefreshTimer = setInterval(() => {
+        refreshBillingLiveData(false);
+    }, BILLING_AUTO_REFRESH_MS);
+
+    if (supabaseClient && !billingRealtimeChannel && typeof supabaseClient.channel === 'function') {
+        billingRealtimeChannel = supabaseClient
+            .channel('billing-live-sync')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, () => {
+                refreshBillingLiveData(true);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tenant_locations' }, () => {
+                refreshBillingLiveData(true);
+            })
+            .subscribe();
     }
 }
 
@@ -514,10 +638,11 @@ function handleSession() {
         fetchAdminBills();
     } else {
         showSection('tenant');
-        const roomEl = document.getElementById('tenant-room-no');
-        if (roomEl) roomEl.textContent = currentUser.tenant_location || 'Not Assigned';
+        updateTenantRoomLabel(currentUser.tenant_location || 'Not Assigned');
         fetchTenantBills();
     }
+
+    startBillingAutoSync();
 }
 
 function showSection(section) {
@@ -611,20 +736,23 @@ async function fetchPublicBills() {
     }
 
     if (error) {
+        window.publicBillsData = [];
         tbody.innerHTML = '<tr><td colspan=\'6\'>Unable to load billing data. Please login to view.</td></tr>';
         console.error('Public fetch error:', error);
-        return;
+        return [];
     }
 
     if (!data || data.length === 0) {
+        window.publicBillsData = [];
         tbody.innerHTML = '<tr><td colspan=\'6\'>No records found.</td></tr>';
-        return;
+        return [];
     }
 
     // Sort records by room_no in natural alphanumeric order
     data.sort((a, b) => {
         return a.room_no.localeCompare(b.room_no, undefined, { numeric: true, sensitivity: 'base' });
     });
+    window.publicBillsData = data;
 
     tbody.innerHTML = data.map(record => {
         const kwhUsed = (record.current_reading - record.previous_reading).toFixed(1);
@@ -641,6 +769,7 @@ async function fetchPublicBills() {
             </td>
         </tr>
     `}).join('');
+    return data;
 }
 
 // Global data store for edit modal
@@ -673,6 +802,10 @@ async function fetchTenantBills() {
     // Get user's room (normalize for comparison - remove all spaces)
     const normalizeRoom = (room) => (room || '').toLowerCase().replace(/\s+/g, '');
     const userRoom = normalizeRoom(currentUser.tenant_location);
+    const matchedRoomRecord = data.find((record) => normalizeRoom(record.room_no) === userRoom);
+    if (matchedRoomRecord) {
+        updateTenantRoomLabel(matchedRoomRecord.room_no);
+    }
 
     tbody.innerHTML = data.map(record => {
         const isMyRoom = normalizeRoom(record.room_no) === userRoom;
@@ -1526,14 +1659,17 @@ window.copyGcashNumber = function () {
 };
 
 // Populate room dropdown for payment (Custom dropdown)
-async function populatePaymentRoomDropdown() {
+async function populatePaymentRoomDropdown(options = {}) {
+    const config = options && typeof options === 'object' ? options : {};
+    const sourceData = Array.isArray(config.sourceData) ? config.sourceData : null;
+    const forceRefresh = config.forceRefresh === true;
     const optionsContainer = document.getElementById('room-select-options');
     if (!optionsContainer) return;
 
     // Get bills data
-    let data = window.publicBillsData;
+    let data = sourceData || window.publicBillsData;
 
-    if (!data || data.length === 0) {
+    if (forceRefresh || !Array.isArray(data) || data.length === 0) {
         // Fetch fresh
         const result = await supabaseClient.rpc('get_public_bills');
         if (!result.error && result.data) {
@@ -1748,7 +1884,6 @@ function closeRoomDropdown() {
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
     if (!roomField) return;
     roomField.classList.remove('dropdown-open', 'dropdown-open-up', 'dropdown-open-down');
-    roomField.style.removeProperty('--room-dropdown-space');
 }
 
 function updateRoomDropdownPlacement() {
@@ -1759,7 +1894,6 @@ function updateRoomDropdownPlacement() {
 
     wrapper.classList.remove('open-up', 'open-down');
     roomField.classList.remove('dropdown-open-up', 'dropdown-open-down');
-    roomField.style.removeProperty('--room-dropdown-space');
 
     const isMobile = window.matchMedia('(max-width: 600px)').matches;
     const maxDropdownHeight = isMobile ? 150 : 176;
@@ -1779,7 +1913,6 @@ function updateRoomDropdownPlacement() {
 
         wrapper.classList.add('open-down');
         roomField.classList.add('dropdown-open-down');
-        roomField.style.setProperty('--room-dropdown-space', `${renderedHeight + 10}px`);
         return;
     }
 
@@ -1791,11 +1924,10 @@ function updateRoomDropdownPlacement() {
 
     wrapper.classList.add('open-down');
     roomField.classList.add('dropdown-open-down');
-    roomField.style.setProperty('--room-dropdown-space', `${renderedHeight + 10}px`);
 }
 
 // Toggle room dropdown
-window.toggleRoomDropdown = function () {
+window.toggleRoomDropdown = async function () {
     const wrapper = document.querySelector('.custom-select-wrapper');
     const roomField = document.querySelector('.payfield-room');
     const trigger = document.getElementById('room-select-trigger');
@@ -1806,6 +1938,8 @@ window.toggleRoomDropdown = function () {
         closeRoomDropdown();
         return;
     }
+
+    await populatePaymentRoomDropdown({ forceRefresh: true });
 
     wrapper.classList.add('open');
     if (trigger) trigger.setAttribute('aria-expanded', 'true');
@@ -2094,21 +2228,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load payment settings for display
     setTimeout(() => {
         loadPaymentSettings();
-        populatePaymentRoomDropdown();
+        populatePaymentRoomDropdown({ forceRefresh: true });
+        refreshBillingLiveData(true);
     }, 500); // Slight delay to ensure Supabase is initialized
 });
 
 // Also load when public bills are fetched
 const originalFetchPublicBills = window.fetchPublicBills || fetchPublicBills;
 window.fetchPublicBills = async function () {
-    await originalFetchPublicBills.call(this);
-    // Store bills data for room dropdown
-    const result = await supabaseClient.rpc('get_public_bills');
-    if (!result.error && result.data) {
-        window.publicBillsData = result.data;
-        populatePaymentRoomDropdown();
+    const data = await originalFetchPublicBills.call(this);
+    if (Array.isArray(data)) {
+        await populatePaymentRoomDropdown({ sourceData: data });
     }
+    return data;
 };
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        refreshBillingLiveData(true);
+    }
+});
 
 
 

@@ -2927,7 +2927,7 @@
 			'.image-component.style-1, .text-component.style-1, .text-component.style-3, ' +
 			'.buttons-component.style-1, .buttons-component.style-4, .container-component.style-3 > .wrapper > .inner, ' +
 			'.buttons-component.style-3, .text-component.style-2, .speedtest-title, .speedtest-compact-bar, .speedtest-compact-btn, ' +
-			'.tiers .card, #buttons08, #buttons04'
+			'.tiers .card, #buttons08, #buttons04, #network-widget, #upgrades-glass-card, .voucher-guide-card, #upgrade-buttons-list .upgrade-btn'
 		);
 
 		// Reset each element's animation state
@@ -2963,6 +2963,10 @@
 	// Speedtest Section Animations - Triggered when Internet Information text becomes visible
 	onvisible.add('.speedtest-title', { style: 'fade-down', speed: 800, intensity: 8, threshold: 2, delay: 1000, replay: false });
 	onvisible.add('.speedtest-compact-bar', { style: 'zoom-in', speed: 1000, intensity: 6, threshold: 2, delay: 1200, stagger: 200, staggerSelector: 'button', replay: false });
+	onvisible.add('#network-widget', { style: 'fade-up', speed: 850, intensity: 7, threshold: 2, delay: 1280, replay: false });
+	onvisible.add('#upgrades-glass-card', { style: 'fade-up', speed: 850, intensity: 7, threshold: 2, delay: 1360, replay: false });
+	onvisible.add('.voucher-guide-card', { style: 'fade-up', speed: 900, intensity: 7, threshold: 2, delay: 1460, replay: false });
+	onvisible.add('#upgrade-buttons-list .upgrade-btn', { style: 'zoom-in', speed: 650, intensity: 6, threshold: 2, delay: 1450, stagger: 100, staggerSelector: '#upgrade-buttons-list .upgrade-btn', replay: false });
 
 	// Tier Cards Animations - Triggered when Internet Information text becomes visible 
 	onvisible.add('.tiers .card', { style: 'fade-up', speed: 800, intensity: 7, threshold: 2, delay: 1500, stagger: 150, staggerSelector: '.card', replay: false });
