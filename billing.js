@@ -24,13 +24,72 @@ let supabaseClient;
 let billingAutoRefreshTimer = null;
 let billingRealtimeChannel = null;
 let billingRefreshBusy = false;
+let billingRealtimeRefreshTimer = null;
 let userProfileRefreshAllowed = true;
 let lastUserProfileRefreshAt = 0;
 const BILLING_AUTO_REFRESH_MS = 10000;
 const USER_PROFILE_REFRESH_MS = 30000;
+const BILLING_SCROLL_IDLE_MS = 4500;
+let lastBillingTableInteractionAt = 0;
+const BILLING_RENDER_SIGNATURES = {
+    public: '',
+    tenant: '',
+    admin: ''
+};
+
+function registerBillingTableInteraction() {
+    lastBillingTableInteractionAt = Date.now();
+}
+
+function initBillingTableInteractionTracking() {
+    const wrappers = document.querySelectorAll('.billing-table-wrapper');
+    wrappers.forEach((wrapper) => {
+        if (!(wrapper instanceof HTMLElement)) return;
+        wrapper.addEventListener('scroll', registerBillingTableInteraction, { passive: true });
+        wrapper.addEventListener('touchstart', registerBillingTableInteraction, { passive: true });
+        wrapper.addEventListener('wheel', registerBillingTableInteraction, { passive: true });
+    });
+}
+
+function captureTableScroll(tbody, preserveScroll = false) {
+    if (!preserveScroll || !tbody) {
+        return { wrapper: null, scrollTop: 0 };
+    }
+    const wrapper = tbody.closest('.billing-table-wrapper');
+    if (!(wrapper instanceof HTMLElement)) {
+        return { wrapper: null, scrollTop: 0 };
+    }
+    return { wrapper, scrollTop: wrapper.scrollTop };
+}
+
+function restoreTableScroll(snapshot) {
+    if (!snapshot || !(snapshot.wrapper instanceof HTMLElement)) return;
+    const wrapper = snapshot.wrapper;
+    const maxScrollTop = Math.max(0, wrapper.scrollHeight - wrapper.clientHeight);
+    wrapper.scrollTop = Math.min(snapshot.scrollTop, maxScrollTop);
+}
+
+function makeBillsSignature(rows, fields) {
+    if (!Array.isArray(rows) || rows.length === 0) return '[]';
+    return JSON.stringify(rows.map((row) => fields.map((field) => row?.[field] ?? null)));
+}
+
+function shouldSkipAutoRefreshWhileInteracting(force = false) {
+    if (force) return false;
+    return Date.now() - lastBillingTableInteractionAt < BILLING_SCROLL_IDLE_MS;
+}
+
+function queueRealtimeBillingRefresh(force = false) {
+    if (billingRealtimeRefreshTimer) return;
+    billingRealtimeRefreshTimer = setTimeout(() => {
+        billingRealtimeRefreshTimer = null;
+        refreshBillingLiveData(force);
+    }, 900);
+}
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', async () => {
+    initBillingTableInteractionTracking();
     if (typeof window.supabase !== 'undefined') {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         checkSession();
@@ -576,27 +635,34 @@ function getActiveBillingSection() {
 async function refreshBillingLiveData(force = false) {
     if (!supabaseClient) return;
     if (document.hidden) return;
+    if (shouldSkipAutoRefreshWhileInteracting(force)) return;
     if (billingRefreshBusy) return;
+
+    const renderOptions = {
+        silent: !force,
+        preserveScroll: true,
+        forceRender: force
+    };
 
     billingRefreshBusy = true;
     try {
         const section = getActiveBillingSection();
 
         if (section === 'admin') {
-            await fetchAdminBills();
+            await fetchAdminBills(renderOptions);
             return;
         }
 
         if (section === 'tenant') {
             await refreshCurrentUserProfile(force);
-            await fetchTenantBills();
-            await fetchPublicBills();
+            await fetchTenantBills(renderOptions);
+            await fetchPublicBills({ silent: true, preserveScroll: false, forceRender: false });
             await populatePaymentRoomDropdown({ sourceData: window.publicBillsData });
             return;
         }
 
         if (section === 'public') {
-            await fetchPublicBills();
+            await fetchPublicBills(renderOptions);
             await populatePaymentRoomDropdown({ sourceData: window.publicBillsData });
         }
     } finally {
@@ -617,10 +683,10 @@ function startBillingAutoSync() {
         billingRealtimeChannel = supabaseClient
             .channel('billing-live-sync')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, () => {
-                refreshBillingLiveData(true);
+                queueRealtimeBillingRefresh(false);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tenant_locations' }, () => {
-                refreshBillingLiveData(true);
+                queueRealtimeBillingRefresh(false);
             })
             .subscribe();
     }
@@ -710,10 +776,20 @@ window.togglePassword = function () {
 };
 
 // Public View Logic (No authentication required)
-async function fetchPublicBills() {
+async function fetchPublicBills(options = {}) {
+    const {
+        silent = false,
+        preserveScroll = false,
+        forceRender = false
+    } = options;
+
     const tbody = document.getElementById('public-billing-body');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan=\'6\'>Loading...</td></tr>';
+    const scrollSnapshot = captureTableScroll(tbody, preserveScroll);
+
+    if (!silent) {
+        tbody.innerHTML = '<tr><td colspan=\'6\'>Loading...</td></tr>';
+    }
 
     let data = null;
     let error = null;
@@ -737,14 +813,19 @@ async function fetchPublicBills() {
 
     if (error) {
         window.publicBillsData = [];
-        tbody.innerHTML = '<tr><td colspan=\'6\'>Unable to load billing data. Please login to view.</td></tr>';
+        BILLING_RENDER_SIGNATURES.public = '';
+        if (!silent || !tbody.children.length) {
+            tbody.innerHTML = '<tr><td colspan=\'6\'>Unable to load billing data. Please login to view.</td></tr>';
+        }
         console.error('Public fetch error:', error);
         return [];
     }
 
     if (!data || data.length === 0) {
         window.publicBillsData = [];
+        BILLING_RENDER_SIGNATURES.public = '[]';
         tbody.innerHTML = '<tr><td colspan=\'6\'>No records found.</td></tr>';
+        restoreTableScroll(scrollSnapshot);
         return [];
     }
 
@@ -753,6 +834,23 @@ async function fetchPublicBills() {
         return a.room_no.localeCompare(b.room_no, undefined, { numeric: true, sensitivity: 'base' });
     });
     window.publicBillsData = data;
+
+    const nextSignature = makeBillsSignature(data, [
+        'id',
+        'room_no',
+        'month',
+        'period_start',
+        'period_end',
+        'previous_reading',
+        'current_reading',
+        'rate',
+        'amount',
+        'status'
+    ]);
+    if (!forceRender && nextSignature === BILLING_RENDER_SIGNATURES.public && tbody.children.length) {
+        return data;
+    }
+    BILLING_RENDER_SIGNATURES.public = nextSignature;
 
     tbody.innerHTML = data.map(record => {
         const kwhUsed = (record.current_reading - record.previous_reading).toFixed(1);
@@ -769,6 +867,7 @@ async function fetchPublicBills() {
             </td>
         </tr>
     `}).join('');
+    restoreTableScroll(scrollSnapshot);
     return data;
 }
 
@@ -776,21 +875,36 @@ async function fetchPublicBills() {
 window.allBillingRecords = [];
 
 // Tenant Logic
-async function fetchTenantBills() {
+async function fetchTenantBills(options = {}) {
+    const {
+        silent = false,
+        preserveScroll = false,
+        forceRender = false
+    } = options;
+
     const tbody = document.getElementById('tenant-billing-body');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan=\'6\'>Loading...</td></tr>';
+    const scrollSnapshot = captureTableScroll(tbody, preserveScroll);
+
+    if (!silent) {
+        tbody.innerHTML = '<tr><td colspan=\'6\'>Loading...</td></tr>';
+    }
 
     // Use RPC to get bills safe for this user
     const { data, error } = await supabaseClient.rpc('get_bills', { p_user_id: currentUser.id });
 
     if (error) {
-        tbody.innerHTML = '<tr><td colspan=\'6\'>Error: ' + error.message + '</td></tr>';
+        BILLING_RENDER_SIGNATURES.tenant = '';
+        if (!silent || !tbody.children.length) {
+            tbody.innerHTML = '<tr><td colspan=\'6\'>Error: ' + error.message + '</td></tr>';
+        }
         return;
     }
 
     if (!data || data.length === 0) {
+        BILLING_RENDER_SIGNATURES.tenant = '[]';
         tbody.innerHTML = '<tr><td colspan=\'6\'>No records found.</td></tr>';
+        restoreTableScroll(scrollSnapshot);
         return;
     }
 
@@ -807,6 +921,24 @@ async function fetchTenantBills() {
         updateTenantRoomLabel(matchedRoomRecord.room_no);
     }
 
+    const nextSignature = makeBillsSignature(data, [
+        'id',
+        'room_no',
+        'month',
+        'period_start',
+        'period_end',
+        'previous_reading',
+        'current_reading',
+        'kwh_used',
+        'rate',
+        'amount',
+        'status'
+    ]);
+    if (!forceRender && nextSignature === BILLING_RENDER_SIGNATURES.tenant && tbody.children.length) {
+        return;
+    }
+    BILLING_RENDER_SIGNATURES.tenant = nextSignature;
+
     tbody.innerHTML = data.map(record => {
         const isMyRoom = normalizeRoom(record.room_no) === userRoom;
         return `
@@ -821,25 +953,41 @@ async function fetchTenantBills() {
             </td>
         </tr>
     `}).join('');
+    restoreTableScroll(scrollSnapshot);
 }
 
 // Admin Logic
-async function fetchAdminBills() {
+async function fetchAdminBills(options = {}) {
+    const {
+        silent = false,
+        preserveScroll = false,
+        forceRender = false
+    } = options;
+
     const tbody = document.getElementById('admin-billing-body');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan=\'9\'>Loading...</td></tr>';
+    const scrollSnapshot = captureTableScroll(tbody, preserveScroll);
+
+    if (!silent) {
+        tbody.innerHTML = '<tr><td colspan=\'9\'>Loading...</td></tr>';
+    }
 
     const { data, error } = await supabaseClient.rpc('get_bills', { p_user_id: currentUser.id });
 
     if (error) {
-        tbody.innerHTML = '<tr><td colspan=\'9\'>Error: ' + error.message + '</td></tr>';
+        BILLING_RENDER_SIGNATURES.admin = '';
+        if (!silent || !tbody.children.length) {
+            tbody.innerHTML = '<tr><td colspan=\'9\'>Error: ' + error.message + '</td></tr>';
+        }
         return;
     }
 
     window.allBillingRecords = data || []; // Store for edit/print
 
     if (!data || data.length === 0) {
+        BILLING_RENDER_SIGNATURES.admin = '[]';
         tbody.innerHTML = '<tr><td colspan=\'9\'>No records found.</td></tr>';
+        restoreTableScroll(scrollSnapshot);
         return;
     }
 
@@ -847,6 +995,24 @@ async function fetchAdminBills() {
     data.sort((a, b) => {
         return a.room_no.localeCompare(b.room_no, undefined, { numeric: true, sensitivity: 'base' });
     });
+
+    const nextSignature = makeBillsSignature(data, [
+        'id',
+        'room_no',
+        'month',
+        'period_start',
+        'period_end',
+        'previous_reading',
+        'current_reading',
+        'kwh_used',
+        'rate',
+        'amount',
+        'status'
+    ]);
+    if (!forceRender && nextSignature === BILLING_RENDER_SIGNATURES.admin && tbody.children.length) {
+        return;
+    }
+    BILLING_RENDER_SIGNATURES.admin = nextSignature;
 
     tbody.innerHTML = data.map(record => `
         <tr>
@@ -867,6 +1033,7 @@ async function fetchAdminBills() {
             </td>
         </tr>
     `).join('');
+    restoreTableScroll(scrollSnapshot);
 }
 
 // Helper to format period display (compact for mobile)
@@ -2235,8 +2402,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Also load when public bills are fetched
 const originalFetchPublicBills = window.fetchPublicBills || fetchPublicBills;
-window.fetchPublicBills = async function () {
-    const data = await originalFetchPublicBills.call(this);
+window.fetchPublicBills = async function (...args) {
+    const data = await originalFetchPublicBills.apply(this, args);
     if (Array.isArray(data)) {
         await populatePaymentRoomDropdown({ sourceData: data });
     }
