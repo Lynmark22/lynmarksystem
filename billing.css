@@ -302,13 +302,60 @@ h3.billing-header {
     min-height: 44px;
     width: 100%;
     max-width: 100%;
-    padding-right: 42px;
+    padding-right: 36px;
     box-sizing: border-box;
+    min-width: 0;
+    appearance: auto;
+    -webkit-appearance: auto;
+    text-align: left;
+    direction: ltr;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255, 255, 255, 0.92);
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.92);
+    background-clip: padding-box;
+}
+
+.register-form input[type="date"]::-webkit-calendar-picker-indicator,
+.forgot-form input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    margin-right: 2px;
+    padding: 0;
+    width: 18px;
+    height: 18px;
+    opacity: 0.92;
+    filter: invert(92%) sepia(8%) saturate(322%) hue-rotate(180deg) brightness(102%) contrast(94%);
+}
+
+.register-form input[type="date"]::-webkit-date-and-time-value,
+.forgot-form input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.2em;
 }
 
 .forgot-form {
     padding: 16px 20px 20px;
     gap: 10px;
+}
+
+@media (max-width: 600px) {
+    .login-panel {
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .login-form {
+        padding-bottom: 16px;
+    }
+
+    .register-form {
+        max-height: min(72vh, calc(100dvh - 170px));
+        overflow-y: auto;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+
+    #billing-register-form>.create-account-btn {
+        margin-bottom: 0;
+    }
 }
 
 .forgot-heading {
@@ -4713,36 +4760,56 @@ h3.billing-header {
     }
 
     .login-panel {
-        max-height: calc(100dvh - 12px);
+        max-height: none;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
     }
 
     .register-form {
-        flex: 1 1 auto;
-        max-height: calc(100dvh - 170px);
-        padding-bottom: calc(22px + env(safe-area-inset-bottom));
+        flex: 0 1 auto;
+        max-height: min(72vh, calc(100dvh - 170px));
+        overflow-y: auto;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
     }
 
     .register-form input[type="date"],
     .forgot-form input[type="date"] {
-        font-size: 16px;
-        line-height: 1.2;
+        font-size: 0.95rem;
+        line-height: 1.3;
         letter-spacing: 0;
+        min-height: 48px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
-    .register-form input[type="date"]::-webkit-date-and-time-value,
-    .forgot-form input[type="date"]::-webkit-date-and-time-value {
-        text-align: left;
+    .register-form input[type="date"]::-webkit-calendar-picker-indicator,
+    .forgot-form input[type="date"]::-webkit-calendar-picker-indicator {
+        width: 20px;
+        height: 20px;
+    }
+
+    .register-form input[type="date"]::-webkit-datetime-edit,
+    .forgot-form input[type="date"]::-webkit-datetime-edit {
+        padding: 0;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .register-form input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+    .forgot-form input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+        padding: 0;
+    }
+
+    .register-form input[type="date"]::-webkit-datetime-edit-text,
+    .forgot-form input[type="date"]::-webkit-datetime-edit-text {
+        padding: 0 1px;
     }
 
     #billing-register-form>.create-account-btn {
-        position: sticky;
-        bottom: env(safe-area-inset-bottom);
-        z-index: 4;
-        background: rgba(20, 31, 58, 0.96);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
+        position: static;
+        margin-bottom: 0;
     }
 
     /* Fixed blend + blur layers cause visible seams/flicker in iOS Safari */
