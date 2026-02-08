@@ -51,14 +51,143 @@ function goBack() {
 
 // Auth Handlers
 const loginForm = document.getElementById('billing-login-form');
+const registerForm = document.getElementById('billing-register-form');
+const forgotUsernameForm = document.getElementById('billing-forgot-username-form');
+const forgotBirthdateForm = document.getElementById('billing-forgot-birthdate-form');
+const forgotSecurityForm = document.getElementById('billing-forgot-security-form');
+const forgotResetForm = document.getElementById('billing-forgot-reset-form');
+
+const recoveryState = {
+    username: '',
+    birthdate: '',
+    question1: '',
+    question2: '',
+    answer1: '',
+    answer2: ''
+};
+
+function resetForgotRecoveryState() {
+    recoveryState.username = '';
+    recoveryState.birthdate = '';
+    recoveryState.question1 = '';
+    recoveryState.question2 = '';
+    recoveryState.answer1 = '';
+    recoveryState.answer2 = '';
+
+    if (forgotUsernameForm) forgotUsernameForm.reset();
+    if (forgotBirthdateForm) forgotBirthdateForm.reset();
+    if (forgotSecurityForm) forgotSecurityForm.reset();
+    if (forgotResetForm) forgotResetForm.reset();
+
+    const q1Label = document.getElementById('forgot-question-1-label');
+    const q2Label = document.getElementById('forgot-question-2-label');
+    if (q1Label) q1Label.textContent = 'Security Question 1';
+    if (q2Label) q2Label.textContent = 'Security Question 2';
+}
+
+function parseRpcJson(data) {
+    if (!data) return {};
+    if (typeof data === 'string') {
+        try {
+            return JSON.parse(data);
+        } catch (_error) {
+            return { error: data };
+        }
+    }
+    return data;
+}
+
+function setFormError(targetId, message = '') {
+    const errorNode = document.getElementById(targetId);
+    if (!errorNode) return;
+    if (!message) {
+        errorNode.textContent = '';
+        errorNode.style.display = 'none';
+        return;
+    }
+    errorNode.textContent = message;
+    errorNode.style.display = 'block';
+}
+
+function setAuthMode(mode = 'login') {
+    const formMap = {
+        login: loginForm,
+        register: registerForm,
+        forgot_username: forgotUsernameForm,
+        forgot_birthdate: forgotBirthdateForm,
+        forgot_security: forgotSecurityForm,
+        forgot_reset: forgotResetForm
+    };
+
+    Object.values(formMap).forEach((formNode) => {
+        if (formNode) formNode.style.display = 'none';
+    });
+
+    const activeForm = formMap[mode] || loginForm;
+    if (activeForm) activeForm.style.display = 'flex';
+
+    const isRegister = mode === 'register';
+    const isForgot = mode.startsWith('forgot_');
+    const authPanel = document.getElementById('billing-auth-container');
+    const subtitle = document.getElementById('auth-subtitle');
+
+    if (authPanel) authPanel.classList.toggle('account-mode-register', isRegister);
+    if (authPanel) authPanel.classList.toggle('account-mode-forgot', isForgot);
+    if (subtitle) {
+        if (isRegister) {
+            subtitle.textContent = 'Create Account';
+        } else if (isForgot) {
+            subtitle.textContent = 'Account Recovery';
+        } else {
+            subtitle.textContent = 'Electric Bill Tracker';
+        }
+    }
+
+    if (isRegister && registerForm) registerForm.scrollTop = 0;
+    if (isForgot && activeForm) activeForm.scrollTop = 0;
+
+    setFormError('auth-error-msg', '');
+    setFormError('auth-register-error-msg', '');
+    setFormError('auth-forgot-error-msg', '');
+}
+
+window.showRegisterForm = function () {
+    setAuthMode('register');
+};
+
+window.showLoginForm = function () {
+    resetForgotRecoveryState();
+    setAuthMode('login');
+};
+
+window.showForgotPasswordForm = function () {
+    resetForgotRecoveryState();
+    const loginUsername = (document.getElementById('auth-username')?.value || '').trim();
+    const forgotUsername = document.getElementById('forgot-username');
+    if (forgotUsername && loginUsername) forgotUsername.value = loginUsername;
+    setAuthMode('forgot_username');
+};
+
+window.resetForgotPasswordFlow = function () {
+    resetForgotRecoveryState();
+    setAuthMode('forgot_username');
+};
+
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = document.getElementById('auth-username').value;
-        const password = document.getElementById('auth-password').value;
-        const errorMsg = document.getElementById('auth-error-msg');
+        const username = (document.getElementById('auth-username')?.value || '').trim();
+        const password = document.getElementById('auth-password')?.value || '';
 
-        errorMsg.style.display = 'none';
+        setFormError('auth-error-msg', '');
+
+        if (!username || !password) {
+            setFormError('auth-error-msg', 'Username and password are required.');
+            return;
+        }
+
+        const submitBtn = loginForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
 
         try {
             // Call Custom Login RPC
@@ -69,21 +198,288 @@ if (loginForm) {
 
             if (error) throw error;
 
-            if (data.error) {
-                throw new Error(data.error);
+            const loginResult = parseRpcJson(data);
+            if (loginResult.error) {
+                throw new Error(loginResult.error);
             }
 
-            if (data.success) {
+            if (loginResult.success) {
                 // Save Session
-                currentUser = data.user;
+                currentUser = loginResult.user;
                 localStorage.setItem('billing_user', JSON.stringify(currentUser));
                 showToast('Logged in successfully!', 'success');
                 handleSession();
+                return;
             }
+
+            throw new Error('Login failed.');
         } catch (err) {
             // Show clean error message instead of debug info
-            errorMsg.textContent = 'Incorrect username or password.';
-            errorMsg.style.display = 'block';
+            setFormError('auth-error-msg', 'Incorrect username or password.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    });
+}
+
+if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setFormError('auth-register-error-msg', '');
+
+        const username = (document.getElementById('reg-username')?.value || '').trim();
+        const firstName = (document.getElementById('reg-first-name')?.value || '').trim();
+        const lastName = (document.getElementById('reg-last-name')?.value || '').trim();
+        const contactInfo = (document.getElementById('reg-contact-info')?.value || '').trim();
+        const password = document.getElementById('reg-password')?.value || '';
+        const passwordConfirm = document.getElementById('reg-password-confirm')?.value || '';
+        const question1 = (document.getElementById('reg-security-question-1')?.value || '').trim();
+        const answer1 = (document.getElementById('reg-security-answer-1')?.value || '').trim();
+        const question2 = (document.getElementById('reg-security-question-2')?.value || '').trim();
+        const answer2 = (document.getElementById('reg-security-answer-2')?.value || '').trim();
+        const birthdate = document.getElementById('reg-birthdate')?.value || null;
+        const tenantLocation = (document.getElementById('reg-tenant-location')?.value || '').trim();
+
+        const usernamePattern = /^[A-Za-z0-9_.-]{3,50}$/;
+        if (!usernamePattern.test(username)) {
+            setFormError('auth-register-error-msg', 'Username must be 3-50 chars (letters, numbers, _, ., -).');
+            return;
+        }
+
+        if (password.length < 6) {
+            setFormError('auth-register-error-msg', 'Password must be at least 6 characters.');
+            return;
+        }
+
+        if (password !== passwordConfirm) {
+            setFormError('auth-register-error-msg', 'Password confirmation does not match.');
+            return;
+        }
+
+        if (!birthdate) {
+            setFormError('auth-register-error-msg', 'Birthdate is required.');
+            return;
+        }
+
+        if (!firstName || !lastName || !contactInfo || !question1 || !answer1 || !question2 || !answer2) {
+            setFormError('auth-register-error-msg', 'Please complete all required fields.');
+            return;
+        }
+
+        const normalizedQuestions = [question1, question2].map(value => value.toLowerCase());
+        if (new Set(normalizedQuestions).size !== 2) {
+            setFormError('auth-register-error-msg', 'Please choose 2 different security questions.');
+            return;
+        }
+
+        const submitBtn = registerForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const { data, error } = await supabaseClient.rpc('custom_register_user', {
+                p_username: username,
+                p_password: password,
+                p_first_name: firstName,
+                p_last_name: lastName,
+                p_contact_info: contactInfo,
+                p_birthdate: birthdate || null,
+                p_tenant_location: tenantLocation || null,
+                p_security_question_1: question1,
+                p_security_answer_1: answer1,
+                p_security_question_2: question2,
+                p_security_answer_2: answer2
+            });
+
+            if (error) throw error;
+
+            const registerResult = parseRpcJson(data);
+            if (!registerResult.success) {
+                throw new Error(registerResult.error || 'Unable to create account.');
+            }
+
+            registerForm.reset();
+            showToast('Account created. You can now sign in.', 'success');
+            setAuthMode('login');
+
+            const usernameInput = document.getElementById('auth-username');
+            if (usernameInput) usernameInput.value = username;
+            const passwordInput = document.getElementById('auth-password');
+            if (passwordInput) passwordInput.focus();
+        } catch (err) {
+            const message = err && err.message ? err.message : 'Unable to create account. Please try again.';
+            setFormError('auth-register-error-msg', message);
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    });
+}
+
+if (forgotUsernameForm) {
+    forgotUsernameForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setFormError('auth-forgot-error-msg', '');
+
+        const username = (document.getElementById('forgot-username')?.value || '').trim();
+        if (!username) {
+            setFormError('auth-forgot-error-msg', 'Username is required.');
+            return;
+        }
+
+        const submitBtn = forgotUsernameForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const { data, error } = await supabaseClient.rpc('custom_recovery_lookup_user', {
+                p_username: username
+            });
+            if (error) throw error;
+
+            const lookupResult = parseRpcJson(data);
+            if (!lookupResult.success) {
+                throw new Error(lookupResult.error || 'Unable to continue recovery.');
+            }
+
+            recoveryState.username = lookupResult.username || username;
+            const birthdateField = document.getElementById('forgot-birthdate');
+            if (birthdateField) birthdateField.value = '';
+            setAuthMode('forgot_birthdate');
+        } catch (err) {
+            setFormError('auth-forgot-error-msg', err?.message || 'Unable to continue recovery.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    });
+}
+
+if (forgotBirthdateForm) {
+    forgotBirthdateForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setFormError('auth-forgot-error-msg', '');
+
+        const birthdate = document.getElementById('forgot-birthdate')?.value || '';
+        if (!birthdate) {
+            setFormError('auth-forgot-error-msg', 'Birthdate is required.');
+            return;
+        }
+
+        const submitBtn = forgotBirthdateForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const { data, error } = await supabaseClient.rpc('custom_recovery_verify_birthdate', {
+                p_username: recoveryState.username,
+                p_birthdate: birthdate
+            });
+            if (error) throw error;
+
+            const verifyResult = parseRpcJson(data);
+            if (!verifyResult.success) {
+                throw new Error(verifyResult.error || 'Birthdate verification failed.');
+            }
+
+            recoveryState.birthdate = birthdate;
+            recoveryState.question1 = String(verifyResult.question_1 || 'Security Question 1');
+            recoveryState.question2 = String(verifyResult.question_2 || 'Security Question 2');
+
+            const q1Label = document.getElementById('forgot-question-1-label');
+            const q2Label = document.getElementById('forgot-question-2-label');
+            if (q1Label) q1Label.textContent = recoveryState.question1.toUpperCase();
+            if (q2Label) q2Label.textContent = recoveryState.question2.toUpperCase();
+
+            setAuthMode('forgot_security');
+        } catch (err) {
+            setFormError('auth-forgot-error-msg', err?.message || 'Birthdate verification failed.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    });
+}
+
+if (forgotSecurityForm) {
+    forgotSecurityForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setFormError('auth-forgot-error-msg', '');
+
+        const answer1 = (document.getElementById('forgot-answer-1')?.value || '').trim();
+        const answer2 = (document.getElementById('forgot-answer-2')?.value || '').trim();
+        if (!answer1 || !answer2) {
+            setFormError('auth-forgot-error-msg', 'Please answer both security questions.');
+            return;
+        }
+
+        const submitBtn = forgotSecurityForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const { data, error } = await supabaseClient.rpc('custom_recovery_verify_answers', {
+                p_username: recoveryState.username,
+                p_birthdate: recoveryState.birthdate || null,
+                p_answer_1: answer1,
+                p_answer_2: answer2
+            });
+            if (error) throw error;
+
+            const verifyResult = parseRpcJson(data);
+            if (!verifyResult.success) {
+                throw new Error(verifyResult.error || 'Security answer verification failed.');
+            }
+
+            recoveryState.answer1 = answer1;
+            recoveryState.answer2 = answer2;
+            setAuthMode('forgot_reset');
+        } catch (err) {
+            setFormError('auth-forgot-error-msg', err?.message || 'Security answer verification failed.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    });
+}
+
+if (forgotResetForm) {
+    forgotResetForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setFormError('auth-forgot-error-msg', '');
+
+        const newPassword = document.getElementById('forgot-new-password')?.value || '';
+        const confirmPassword = document.getElementById('forgot-confirm-password')?.value || '';
+
+        if (newPassword.length < 6) {
+            setFormError('auth-forgot-error-msg', 'Password must be at least 6 characters.');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setFormError('auth-forgot-error-msg', 'Password confirmation does not match.');
+            return;
+        }
+
+        const submitBtn = forgotResetForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+            const { data, error } = await supabaseClient.rpc('custom_recovery_reset_password', {
+                p_username: recoveryState.username,
+                p_birthdate: recoveryState.birthdate || null,
+                p_answer_1: recoveryState.answer1,
+                p_answer_2: recoveryState.answer2,
+                p_new_password: newPassword
+            });
+            if (error) throw error;
+
+            const resetResult = parseRpcJson(data);
+            if (!resetResult.success) {
+                throw new Error(resetResult.error || 'Unable to reset password.');
+            }
+
+            showToast('Password reset successful. You can now sign in.', 'success');
+            const usernameInput = document.getElementById('auth-username');
+            if (usernameInput) usernameInput.value = recoveryState.username;
+            resetForgotRecoveryState();
+            setAuthMode('login');
+        } catch (err) {
+            setFormError('auth-forgot-error-msg', err?.message || 'Unable to reset password.');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
         }
     });
 }
@@ -149,34 +545,43 @@ function showSection(section) {
 // Show login modal (from public view)
 window.showLoginModal = function () {
     showSection('login');
+    setAuthMode('login');
 };
 
 // Close login modal (return to public view)
 window.closeLoginModal = function () {
+    resetForgotRecoveryState();
+    setAuthMode('login');
     showSection('public');
     fetchPublicBills();
 };
 
 // Toggle password visibility
-window.togglePassword = function () {
-    const passwordInput = document.getElementById('auth-password');
-    const eyeIcon = document.getElementById('eye-icon');
+window.togglePasswordField = function (inputId, iconId) {
+    const passwordInput = document.getElementById(inputId);
+    const eyeIcon = document.getElementById(iconId);
+    if (!passwordInput || !eyeIcon) return;
 
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
-        // Change to eye-off icon
+        // Eye-off icon
         eyeIcon.innerHTML = `
             <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
             <line x1="1" y1="1" x2="23" y2="23"></line>
         `;
-    } else {
-        passwordInput.type = 'password';
-        // Change to eye icon
-        eyeIcon.innerHTML = `
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-        `;
+        return;
     }
+
+    passwordInput.type = 'password';
+    // Eye icon
+    eyeIcon.innerHTML = `
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+    `;
+};
+
+window.togglePassword = function () {
+    window.togglePasswordField('auth-password', 'eye-icon');
 };
 
 // Public View Logic (No authentication required)
@@ -650,9 +1055,9 @@ function showToast(message, type = 'success') {
     setTimeout(dismissToast, 4600);
 }
 
-// Show Coming Soon Toast for Create Account
+// Backward compatibility alias for old button wiring
 window.showComingSoonToast = function () {
-    showToast('Create Account is under development. Coming soon.', 'info');
+    window.showRegisterForm();
 };
 
 // --- Custom Confirmation Modal ---
@@ -1181,6 +1586,29 @@ function escapeAttrValue(value) {
         .replace(/>/g, '&gt;');
 }
 
+function normalizePaymentRoomDropdownLayout() {
+    const optionsContainer = document.getElementById('room-select-options');
+    if (!optionsContainer) return null;
+
+    const searchBlock = optionsContainer.querySelector('.room-dropdown-search');
+    const listBlock = optionsContainer.querySelector('.room-dropdown-list');
+    if (!searchBlock || !listBlock) return null;
+
+    // Ensure strict DOM order: search block first, list block second.
+    if (optionsContainer.firstElementChild !== searchBlock) {
+        optionsContainer.insertBefore(searchBlock, optionsContainer.firstElementChild);
+    }
+    if (searchBlock.nextElementSibling !== listBlock) {
+        optionsContainer.insertBefore(listBlock, searchBlock.nextElementSibling);
+    }
+
+    // Reset visual offsets that can linger after mobile viewport changes.
+    optionsContainer.scrollTop = 0;
+    listBlock.scrollTop = 0;
+
+    return { optionsContainer, searchBlock, listBlock };
+}
+
 function renderPaymentRoomOptions() {
     const optionsContainer = document.getElementById('room-select-options');
     if (!optionsContainer) return;
@@ -1223,6 +1651,8 @@ function renderPaymentRoomOptions() {
             <div id="room-option-empty-filter" class="custom-select-option room-option-empty" style="display:none;">No matching rooms</div>
         </div>
     `;
+
+    normalizePaymentRoomDropdownLayout();
 }
 
 function bindPaymentRoomDropdownEvents() {
@@ -1273,6 +1703,7 @@ window.filterPaymentRoomDropdown = function (query = '') {
     if (reset) reset.style.display = normalizedQuery ? 'none' : '';
     if (emptyFilter) emptyFilter.style.display = visibleCount === 0 ? '' : 'none';
 
+    normalizePaymentRoomDropdownLayout();
     updateRoomDropdownPlacement();
 };
 
@@ -1280,11 +1711,17 @@ function focusPaymentRoomSearch() {
     const searchInput = document.getElementById('room-select-search');
     if (!searchInput) return;
 
+    normalizePaymentRoomDropdownLayout();
+
     searchInput.value = '';
     window.filterPaymentRoomDropdown('');
-    requestAnimationFrame(() => {
-        searchInput.focus({ preventScroll: true });
-    });
+
+    const isMobile = window.matchMedia('(max-width: 600px)').matches;
+    if (!isMobile) {
+        requestAnimationFrame(() => {
+            searchInput.focus({ preventScroll: true });
+        });
+    }
 }
 
 function closeRoomDropdown() {
@@ -1313,18 +1750,24 @@ function updateRoomDropdownPlacement() {
     const isMobile = window.matchMedia('(max-width: 600px)').matches;
     const maxDropdownHeight = isMobile ? 150 : 176;
     const renderedHeight = Math.min(options.scrollHeight || 0, maxDropdownHeight);
-
-    if (isMobile) {
-        wrapper.classList.add('open-up');
-        roomField.classList.add('dropdown-open-up');
-        return;
-    }
-
     const wrapperRect = wrapper.getBoundingClientRect();
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
     const spaceBelow = viewportHeight - wrapperRect.bottom - 12;
     const spaceAbove = wrapperRect.top - 12;
     const shouldOpenUp = spaceBelow < renderedHeight && spaceAbove > spaceBelow;
+
+    if (isMobile) {
+        if (shouldOpenUp) {
+            wrapper.classList.add('open-up');
+            roomField.classList.add('dropdown-open-up');
+            return;
+        }
+
+        wrapper.classList.add('open-down');
+        roomField.classList.add('dropdown-open-down');
+        roomField.style.setProperty('--room-dropdown-space', `${renderedHeight + 10}px`);
+        return;
+    }
 
     if (shouldOpenUp) {
         wrapper.classList.add('open-up');
@@ -1353,6 +1796,7 @@ window.toggleRoomDropdown = function () {
     wrapper.classList.add('open');
     if (trigger) trigger.setAttribute('aria-expanded', 'true');
     if (roomField) roomField.classList.add('dropdown-open');
+    normalizePaymentRoomDropdownLayout();
     updateRoomDropdownPlacement();
     focusPaymentRoomSearch();
 };

@@ -266,6 +266,167 @@ h3.billing-header {
     gap: 14px;
 }
 
+.login-panel.account-mode-register {
+    max-width: 380px;
+}
+
+.login-panel.account-mode-forgot {
+    max-width: 340px;
+}
+
+.login-panel.account-mode-forgot .login-header {
+    padding: 18px 18px 14px;
+}
+
+.login-panel.account-mode-forgot .login-logo-img {
+    max-width: 72px;
+    padding: 6px;
+}
+
+.login-panel.account-mode-forgot .login-subtitle {
+    margin-top: 8px;
+    font-size: 0.66rem;
+}
+
+.register-form {
+    max-height: 72vh;
+    overflow-y: auto;
+    padding-top: 18px;
+}
+
+.forgot-form {
+    padding: 16px 20px 20px;
+    gap: 10px;
+}
+
+.forgot-heading {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.forgot-subheading {
+    margin: 0 0 2px;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.82rem;
+    text-align: center;
+    line-height: 1.35;
+}
+
+.register-form::-webkit-scrollbar {
+    width: 6px;
+}
+
+.register-form::-webkit-scrollbar-thumb {
+    background: rgba(255, 165, 0, 0.35);
+    border-radius: 999px;
+}
+
+.register-heading {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1.65rem;
+    font-weight: 700;
+    text-align: left;
+}
+
+.register-subheading {
+    margin: -6px 0 2px;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.85rem;
+    text-align: left;
+}
+
+.register-name-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+@media (max-width: 360px) {
+    .register-name-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.register-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.register-field-label {
+    color: rgba(255, 255, 255, 0.74);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+.register-field-label.required::after {
+    content: " *";
+    color: #ff9f7e;
+}
+
+.register-security-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.register-divider {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+.register-divider-accent {
+    color: #ff9f7e;
+}
+
+.register-lock {
+    margin-right: 4px;
+}
+
+.register-form .login-input {
+    font-size: 0.82rem;
+}
+
+.register-form .create-account-btn {
+    margin-top: 0;
+}
+
+.forgot-form .register-field-label {
+    margin-top: 1px;
+    font-size: 0.63rem;
+}
+
+.forgot-form .login-input {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    font-size: 0.82rem;
+}
+
+.forgot-form .input-group.no-icon .login-input.has-toggle {
+    padding-right: 34px;
+}
+
+.forgot-form .password-toggle {
+    right: 8px;
+}
+
 .input-group {
     position: relative;
 }
@@ -282,6 +443,23 @@ h3.billing-header {
 
 .input-group:focus-within .input-icon {
     color: #FFA500;
+}
+
+.input-group.no-icon .login-input {
+    padding-left: 14px;
+}
+
+.input-group.no-icon .login-input.has-toggle {
+    padding-right: 38px;
+}
+
+.register-select {
+    appearance: auto;
+    cursor: pointer;
+}
+
+.register-select option {
+    color: #111;
 }
 
 .login-input {
@@ -366,6 +544,56 @@ h3.billing-header {
 
 .login-btn:hover svg {
     transform: translateX(3px);
+}
+
+.login-btn:disabled,
+.create-account-btn:disabled,
+.forgot-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.auth-link-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 2px 0;
+    cursor: pointer;
+}
+
+.auth-link-btn:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.forgot-btn {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 2px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 10px;
+    color: #2d2a27;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.forgot-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.forgot-form .auth-link-btn {
+    font-size: 0.82rem;
 }
 
 /* Error Message */
@@ -3828,41 +4056,69 @@ h3.billing-header {
 }
 
 .payfield-select-wrapper .custom-select-options {
+    --room-dropdown-max-height: 176px;
     position: absolute;
     top: calc(100% + 8px);
     bottom: auto;
     left: 0;
     right: 0;
     margin-top: 0;
-    max-height: 176px;
-    overflow-y: auto;
+    max-height: var(--room-dropdown-max-height);
+    overflow: hidden;
     background: #0d1220;
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 9px;
     z-index: 340;
     box-shadow: 0 14px 32px rgba(2, 6, 15, 0.65);
     padding: 4px;
-    overscroll-behavior: contain;
+}
+
+.payfield-select-wrapper.open .custom-select-options {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Hard isolation for payment room dropdown layout: search row first, list row second. */
+#room-select-options.custom-select-options {
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch;
+}
+
+.payfield-select-wrapper.open #room-select-options.custom-select-options {
+    display: grid !important;
+}
+
+#room-select-options.custom-select-options > .room-dropdown-search {
+    grid-row: 1;
+}
+
+#room-select-options.custom-select-options > .room-dropdown-list {
+    grid-row: 2;
+}
+
+/* Safety: if any card is accidentally rendered as a direct child, hide it. */
+#room-select-options.custom-select-options > .room-option-card {
+    display: none !important;
 }
 
 .payfield-select-wrapper .room-dropdown-search {
-    position: sticky;
-    top: 0;
-    z-index: 2;
+    position: relative;
+    flex-shrink: 0;
     margin-bottom: 4px;
-    padding: 2px 1px;
-    background: linear-gradient(180deg, #0d1220 70%, rgba(13, 18, 32, 0.82) 100%);
+    padding: 1px;
+    background: #0d1220;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .payfield-select-wrapper .room-search-input {
     width: 100%;
-    height: 30px;
+    height: 29px;
     border-radius: 8px;
     border: 1px solid rgba(118, 182, 230, 0.32);
     background: rgba(255, 255, 255, 0.04);
     color: rgba(241, 248, 255, 0.96);
-    font-size: 0.78rem;
-    padding: 0 10px;
+    font-size: 0.76rem;
+    padding: 0 9px;
     outline: none;
 }
 
@@ -3876,9 +4132,14 @@ h3.billing-header {
 }
 
 .payfield-select-wrapper .room-dropdown-list {
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 1px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 1px;
 }
 
 .payfield-select-wrapper.open-down .custom-select-options {
@@ -3897,14 +4158,14 @@ h3.billing-header {
 
 .payfield-select-wrapper .room-option-reset {
     border-radius: 7px;
-    min-height: 30px;
+    min-height: 29px;
     display: flex;
     align-items: center;
-    font-size: 0.73rem;
+    font-size: 0.71rem;
     color: rgba(255, 255, 255, 0.72);
     background: rgba(255, 255, 255, 0.04);
-    margin-bottom: 3px;
-    padding: 0 9px;
+    margin-bottom: 2px;
+    padding: 0 8px;
 }
 
 .payfield-select-wrapper .room-option-reset:hover {
@@ -3913,11 +4174,11 @@ h3.billing-header {
 
 .payfield-select-wrapper .room-option-empty {
     border-radius: 7px;
-    min-height: 32px;
+    min-height: 31px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.73rem;
+    font-size: 0.71rem;
     color: rgba(220, 234, 250, 0.74);
     background: rgba(255, 255, 255, 0.04);
 }
@@ -3926,10 +4187,10 @@ h3.billing-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    min-height: 34px;
-    padding: 6px 9px;
-    border-radius: 7px;
+    gap: 7px;
+    min-height: 32px;
+    padding: 5px 8px;
+    border-radius: 6px;
     margin-bottom: 1px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid transparent;
@@ -3953,8 +4214,8 @@ h3.billing-header {
 }
 
 .payfield-select-wrapper .room-status-dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 999px;
     flex-shrink: 0;
     background: #ffbf4d;
@@ -3962,7 +4223,7 @@ h3.billing-header {
 }
 
 .payfield-select-wrapper .room-option-name {
-    font-size: 0.86rem;
+    font-size: 0.84rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.95);
     white-space: nowrap;
@@ -3978,7 +4239,7 @@ h3.billing-header {
 }
 
 .payfield-select-wrapper .room-option-amount {
-    font-size: 0.77rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.82);
     white-space: nowrap;
@@ -3988,11 +4249,11 @@ h3.billing-header {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 34px;
-    height: 16px;
+    min-width: 32px;
+    height: 15px;
     border-radius: 999px;
-    padding: 0 6px;
-    font-size: 0.58rem;
+    padding: 0 5px;
+    font-size: 0.56rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -4294,14 +4555,15 @@ h3.billing-header {
     }
 
     .payfield-select-wrapper .custom-select-options {
-        max-height: 150px;
+        --room-dropdown-max-height: 150px;
+        max-height: var(--room-dropdown-max-height);
         padding: 4px;
     }
 
     .payfield-select-wrapper .room-search-input {
-        height: 28px;
-        font-size: 0.74rem;
-        padding: 0 9px;
+        height: 26px;
+        font-size: 0.73rem;
+        padding: 0 8px;
     }
 
     .payfield-select-wrapper.open-down .custom-select-options {
@@ -4315,23 +4577,23 @@ h3.billing-header {
     }
 
     .payfield-select-wrapper .room-option-card {
-        min-height: 33px;
-        padding: 6px 8px;
+        min-height: 30px;
+        padding: 4px 7px;
     }
 
     .payfield-select-wrapper .room-option-name {
-        font-size: 0.82rem;
+        font-size: 0.8rem;
     }
 
     .payfield-select-wrapper .room-option-amount {
-        font-size: 0.73rem;
+        font-size: 0.72rem;
     }
 
     .payfield-select-wrapper .room-option-status {
-        min-width: 31px;
-        height: 15px;
-        padding: 0 5px;
-        font-size: 0.55rem;
+        min-width: 30px;
+        height: 14px;
+        padding: 0 4px;
+        font-size: 0.54rem;
     }
 
     .payfield-room.dropdown-open {
@@ -4389,11 +4651,12 @@ h3.billing-header {
     }
 
     .payfield-select-wrapper .custom-select-options {
-        max-height: 132px;
+        --room-dropdown-max-height: 132px;
+        max-height: var(--room-dropdown-max-height);
     }
 
     .payfield-select-wrapper .room-option-card {
-        min-height: 31px;
+        min-height: 29px;
     }
 }
 

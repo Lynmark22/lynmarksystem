@@ -29,7 +29,7 @@
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="normalize.css" />
-    <link rel="stylesheet" href="billing.css" /> <!-- New Theme -->
+    <link rel="stylesheet" href="billing.css?v=20260208.10" /> <!-- New Theme -->
 
     <!-- Supabase JS (local fallback to avoid CDN connection failures) -->
     <script src="vendor/supabase-js.umd.js" defer></script>
@@ -108,7 +108,7 @@
                 <!-- Header with gradient -->
                 <div class="login-header">
                     <img src="lynmark-logo.png" alt="Lynmark" class="login-logo-img" loading="lazy" decoding="async" />
-                    <p class="login-subtitle">Electric Bill Tracker</p>
+                    <p id="auth-subtitle" class="login-subtitle">Electric Bill Tracker</p>
                 </div>
 
                 <!-- Login Form -->
@@ -143,11 +143,271 @@
                             <path d="M5 12h14M12 5l7 7-7 7" />
                         </svg>
                     </button>
-                    <button type="button" class="create-account-btn" onclick="showComingSoonToast()">
+                    <button type="button" class="create-account-btn" onclick="showRegisterForm()">
                         <span>Create Account</span>
+                    </button>
+                    <button type="button" class="auth-link-btn" onclick="showForgotPasswordForm()">
+                        <span>Forgot Password?</span>
+                    </button>
+                </form>
+
+                <!-- Forgot Password: Step 1 -->
+                <form id="billing-forgot-username-form" class="login-form forgot-form" style="display: none;">
+                    <p class="forgot-heading">Forgot Password</p>
+                    <p class="forgot-subheading">Enter your username to begin recovery</p>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="forgot-username">Username</label>
+                        <div class="input-group no-icon">
+                            <input type="text" id="forgot-username" class="login-input" placeholder="Enter your username"
+                                maxlength="50" autocomplete="username" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="forgot-btn">
+                        <span>Continue</span>
+                    </button>
+                    <button type="button" class="auth-link-btn" onclick="showLoginForm()">
+                        <span>Back to Login</span>
+                    </button>
+                </form>
+
+                <!-- Forgot Password: Step 2 -->
+                <form id="billing-forgot-birthdate-form" class="login-form forgot-form" style="display: none;">
+                    <p class="forgot-heading">Verify Your Identity</p>
+                    <p class="forgot-subheading">Please enter your birthdate to continue</p>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="forgot-birthdate">Your Birthdate</label>
+                        <div class="input-group no-icon">
+                            <input type="date" id="forgot-birthdate" class="login-input" autocomplete="bday" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="forgot-btn">
+                        <span>Verify Birthdate</span>
+                    </button>
+                    <button type="button" class="auth-link-btn" onclick="resetForgotPasswordFlow()">
+                        <span>Start Over</span>
+                    </button>
+                </form>
+
+                <!-- Forgot Password: Step 3 -->
+                <form id="billing-forgot-security-form" class="login-form forgot-form" style="display: none;">
+                    <p class="forgot-heading">Security Questions</p>
+                    <p class="forgot-subheading">Answer your security questions to verify your identity</p>
+
+                    <div class="register-field">
+                        <label id="forgot-question-1-label" class="register-field-label required" for="forgot-answer-1">Security Question 1</label>
+                        <div class="input-group no-icon">
+                            <input type="text" id="forgot-answer-1" class="login-input" placeholder="Enter your answer"
+                                maxlength="255" required>
+                        </div>
+                    </div>
+
+                    <div class="register-field">
+                        <label id="forgot-question-2-label" class="register-field-label required" for="forgot-answer-2">Security Question 2</label>
+                        <div class="input-group no-icon">
+                            <input type="text" id="forgot-answer-2" class="login-input" placeholder="Enter your answer"
+                                maxlength="255" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="forgot-btn">
+                        <span>Verify Answers</span>
+                    </button>
+                    <button type="button" class="auth-link-btn" onclick="resetForgotPasswordFlow()">
+                        <span>Start Over</span>
+                    </button>
+                </form>
+
+                <!-- Forgot Password: Step 4 -->
+                <form id="billing-forgot-reset-form" class="login-form forgot-form" style="display: none;">
+                    <p class="forgot-heading">Reset Password</p>
+                    <p class="forgot-subheading">Create a new secure password</p>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="forgot-new-password">New Password</label>
+                        <div class="input-group no-icon">
+                            <input type="password" id="forgot-new-password" class="login-input has-toggle"
+                                placeholder="Enter new password" minlength="6" maxlength="128" autocomplete="new-password"
+                                required>
+                            <button type="button" class="password-toggle"
+                                onclick="togglePasswordField('forgot-new-password', 'forgot-new-eye-icon')">
+                                <svg id="forgot-new-eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="forgot-confirm-password">Confirm New Password</label>
+                        <div class="input-group no-icon">
+                            <input type="password" id="forgot-confirm-password" class="login-input has-toggle"
+                                placeholder="Re-enter new password" minlength="6" maxlength="128" autocomplete="new-password"
+                                required>
+                            <button type="button" class="password-toggle"
+                                onclick="togglePasswordField('forgot-confirm-password', 'forgot-confirm-eye-icon')">
+                                <svg id="forgot-confirm-eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="forgot-btn">
+                        <span>Reset Password</span>
+                    </button>
+                    <button type="button" class="auth-link-btn" onclick="resetForgotPasswordFlow()">
+                        <span>Start Over</span>
+                    </button>
+                </form>
+
+                <!-- Create Account Form -->
+                <form id="billing-register-form" class="login-form register-form" style="display: none;">
+                    <p class="register-heading">Create Account</p>
+                    <p class="register-subheading">Fill in your details to get started</p>
+
+                    <div class="register-name-grid">
+                        <div class="register-field">
+                            <label class="register-field-label required" for="reg-first-name">First Name</label>
+                            <div class="input-group no-icon">
+                                <input type="text" id="reg-first-name" class="login-input" placeholder="First"
+                                    maxlength="100" autocomplete="given-name" required>
+                            </div>
+                        </div>
+                        <div class="register-field">
+                            <label class="register-field-label required" for="reg-last-name">Last Name</label>
+                            <div class="input-group no-icon">
+                                <input type="text" id="reg-last-name" class="login-input" placeholder="Last"
+                                    maxlength="100" autocomplete="family-name" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="reg-username">Username</label>
+                        <div class="input-group no-icon">
+                            <input type="text" id="reg-username" class="login-input" placeholder="Choose a username"
+                                minlength="3" maxlength="50" autocomplete="username" required>
+                        </div>
+                    </div>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="reg-contact-info">Mobile/Phone Number</label>
+                        <div class="input-group no-icon">
+                            <input type="text" id="reg-contact-info" class="login-input" placeholder="e.g. +639123456789"
+                                maxlength="255" autocomplete="tel" required>
+                        </div>
+                    </div>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="reg-password">Password</label>
+                        <div class="input-group no-icon">
+                            <input type="password" id="reg-password" class="login-input has-toggle" placeholder="Min 6 characters"
+                                minlength="6" maxlength="128" autocomplete="new-password" required>
+                            <button type="button" class="password-toggle"
+                                onclick="togglePasswordField('reg-password', 'reg-eye-icon')">
+                                <svg id="reg-eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="reg-password-confirm">Confirm Password</label>
+                        <div class="input-group no-icon">
+                            <input type="password" id="reg-password-confirm" class="login-input has-toggle"
+                                placeholder="Re-enter password" minlength="6" maxlength="128" autocomplete="new-password"
+                                required>
+                            <button type="button" class="password-toggle"
+                                onclick="togglePasswordField('reg-password-confirm', 'reg-confirm-eye-icon')">
+                                <svg id="reg-confirm-eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="reg-birthdate">Birthdate</label>
+                        <div class="input-group no-icon">
+                            <input type="date" id="reg-birthdate" class="login-input" autocomplete="bday" required>
+                        </div>
+                    </div>
+
+                    <div class="register-security-card">
+                        <div class="register-divider">
+                            <span class="register-lock" aria-hidden="true">&#128274;</span>
+                            Security Questions
+                            <span class="register-divider-accent">(2 required for password recovery)</span>
+                        </div>
+
+                        <div class="register-field">
+                            <label class="register-field-label required" for="reg-security-question-1">Secret Question 1</label>
+                            <div class="input-group no-icon">
+                                <select id="reg-security-question-1" class="login-input register-select" required>
+                                    <option value="">Select a question...</option>
+                                    <option value="What is your pet's name?">What is your pet's name?</option>
+                                    <option value="What elementary school did you attend?">What elementary school did you attend?</option>
+                                    <option value="In what city were you born?">In what city were you born?</option>
+                                    <option value="What is your favorite food?">What is your favorite food?</option>
+                                </select>
+                            </div>
+                            <div class="input-group no-icon">
+                                <input type="text" id="reg-security-answer-1" class="login-input" placeholder="Your answer"
+                                    maxlength="255" required>
+                            </div>
+                        </div>
+
+                        <div class="register-field">
+                            <label class="register-field-label required" for="reg-security-question-2">Secret Question 2</label>
+                            <div class="input-group no-icon">
+                                <select id="reg-security-question-2" class="login-input register-select" required>
+                                    <option value="">Select a question...</option>
+                                    <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+                                    <option value="What is your childhood best friend's name?">What is your childhood best friend's name?</option>
+                                    <option value="What is your favorite movie?">What is your favorite movie?</option>
+                                    <option value="What was your childhood nickname?">What was your childhood nickname?</option>
+                                </select>
+                            </div>
+                            <div class="input-group no-icon">
+                                <input type="text" id="reg-security-answer-2" class="login-input" placeholder="Your answer"
+                                    maxlength="255" required>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="register-field">
+                        <label class="register-field-label" for="reg-tenant-location">Tenant Location (Optional)</label>
+                        <div class="input-group no-icon">
+                            <input type="text" id="reg-tenant-location" class="login-input"
+                                placeholder="Room or location" maxlength="255">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="login-btn">
+                        <span>Create Account</span>
+                    </button>
+
+                    <button type="button" class="create-account-btn" onclick="showLoginForm()">
+                        <span>Back to Sign In</span>
                     </button>
                 </form>
                 <p id="auth-error-msg" class="login-error"></p>
+                <p id="auth-register-error-msg" class="login-error"></p>
+                <p id="auth-forgot-error-msg" class="login-error"></p>
             </div>
 
             <!-- Tenant View -->
@@ -625,7 +885,7 @@
     <div id="toast-container"></div>
 
     <!-- Logic -->
-    <script src="billing.js"></script>
+    <script src="billing.js?v=20260208.10"></script>
 </body>
 
 </html>
