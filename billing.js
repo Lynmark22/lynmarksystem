@@ -554,19 +554,28 @@ function logoutBilling() {
     localStorage.removeItem('billing_user');
     currentUser = null;
     showSection('public');
-    fetchPublicBills();
+    fetchPublicBills({ forceRender: true });
 }
 
 function checkSession() {
     const storedUser = localStorage.getItem('billing_user');
     if (storedUser) {
-        currentUser = JSON.parse(storedUser);
-        handleSession();
-    } else {
-        showSection('public');
-        fetchPublicBills();
-        startBillingAutoSync();
+        try {
+            currentUser = JSON.parse(storedUser);
+            handleSession();
+        } catch (_err) {
+            localStorage.removeItem('billing_user');
+            currentUser = null;
+            showSection('public');
+            fetchPublicBills({ forceRender: true });
+            startBillingAutoSync();
+        }
+        return;
     }
+
+    showSection('public');
+    fetchPublicBills({ forceRender: true });
+    startBillingAutoSync();
 }
 
 function updateTenantRoomLabel(roomText = '') {
@@ -744,7 +753,7 @@ window.closeLoginModal = function () {
     resetForgotRecoveryState();
     setAuthMode('login');
     showSection('public');
-    fetchPublicBills();
+    fetchPublicBills({ forceRender: true });
 };
 
 // Toggle password visibility
@@ -847,7 +856,7 @@ async function fetchPublicBills(options = {}) {
         'amount',
         'status'
     ]);
-    if (!forceRender && nextSignature === BILLING_RENDER_SIGNATURES.public && tbody.children.length) {
+    if (silent && !forceRender && nextSignature === BILLING_RENDER_SIGNATURES.public && tbody.children.length) {
         return data;
     }
     BILLING_RENDER_SIGNATURES.public = nextSignature;
@@ -934,7 +943,7 @@ async function fetchTenantBills(options = {}) {
         'amount',
         'status'
     ]);
-    if (!forceRender && nextSignature === BILLING_RENDER_SIGNATURES.tenant && tbody.children.length) {
+    if (silent && !forceRender && nextSignature === BILLING_RENDER_SIGNATURES.tenant && tbody.children.length) {
         return;
     }
     BILLING_RENDER_SIGNATURES.tenant = nextSignature;
@@ -1009,7 +1018,7 @@ async function fetchAdminBills(options = {}) {
         'amount',
         'status'
     ]);
-    if (!forceRender && nextSignature === BILLING_RENDER_SIGNATURES.admin && tbody.children.length) {
+    if (silent && !forceRender && nextSignature === BILLING_RENDER_SIGNATURES.admin && tbody.children.length) {
         return;
     }
     BILLING_RENDER_SIGNATURES.admin = nextSignature;

@@ -3480,39 +3480,89 @@
 		}
 	});
 
-	// ============================================= 
-	// BACK BUTTON FUNCTIONALITY
-	// Direct navigation to home - ONE CLICK ONLY
-	// ============================================= 
+		// ============================================= 
+		// BACK BUTTON FUNCTIONALITY
+		// Direct navigation to home - ONE CLICK ONLY
+		// ============================================= 
 
-	window.goBack = function () {
-		// Hide any active modals first
-		hideSpeedTestModalInline();
-		if (typeof hideSpeedTestModal !== 'undefined') {
-			hideSpeedTestModal();
+		function normalizeSectionHash(hashValue) {
+			const raw = String(hashValue || '').toLowerCase().replace(/^#/, '');
+			if (!raw) return 'home';
+			return raw.endsWith('-section') ? raw.replace(/-section$/, '') : raw;
 		}
 
-		// DIRECT NAVIGATION - No history.back() complications
-		// Simply navigate to the home section
-		window.location.hash = '#home-section';
-	};
+		function forceSectionTop(sectionName) {
+			const targetName = normalizeSectionHash(sectionName);
+			const targetSection = document.getElementById(targetName + '-section');
 
-	// ============================================= 
-	// HASH CHANGE HANDLER
-	// Ensure proper cleanup when sections change
-	// ============================================= 
+			const applyTop = function () {
+				window.scrollTo(0, 0);
+				document.body.scrollTop = 0;
+				document.documentElement.scrollTop = 0;
 
-	window.addEventListener('hashchange', function () {
-		// Clean up modals when navigating away from internet info page
-		const currentHash = window.location.hash;
-		if (currentHash !== '#one-section') {
-			// Hide any active speed test modals
+				if (!targetSection) return;
+				targetSection.scrollTop = 0;
+
+				const scrollers = targetSection.querySelectorAll('.wrapper, .inner, .container-component');
+				for (let i = 0; i < scrollers.length; i++) {
+					scrollers[i].scrollTop = 0;
+				}
+			};
+
+			applyTop();
+			requestAnimationFrame(applyTop);
+			setTimeout(applyTop, 220);
+		}
+
+		window.goBack = function () {
+			// Hide any active modals first
 			hideSpeedTestModalInline();
 			if (typeof hideSpeedTestModal !== 'undefined') {
 				hideSpeedTestModal();
 			}
-		}
-	});
+
+			// DIRECT NAVIGATION - No history.back() complications
+			// Simply navigate to the home section
+			forceSectionTop('home');
+			if (window.location.hash !== '#home') {
+				window.location.hash = '#home';
+				return;
+			}
+			forceSectionTop('home');
+		};
+
+		// ============================================= 
+		// HASH CHANGE HANDLER
+		// Ensure proper cleanup when sections change
+		// ============================================= 
+
+		window.addEventListener('hashchange', function () {
+			const currentSection = normalizeSectionHash(window.location.hash);
+
+			// Clean up modals when navigating away from internet info page
+			if (currentSection !== 'one') {
+				// Hide any active speed test modals
+				hideSpeedTestModalInline();
+				if (typeof hideSpeedTestModal !== 'undefined') {
+					hideSpeedTestModal();
+				}
+			}
+
+			if (currentSection === 'one' || currentSection === 'home') {
+				forceSectionTop(currentSection);
+			}
+		});
+
+		document.addEventListener('DOMContentLoaded', function () {
+			const internetInfoLinks = document.querySelectorAll('a[href="#one"], a[href="#one-section"]');
+			for (let i = 0; i < internetInfoLinks.length; i++) {
+				internetInfoLinks[i].addEventListener('click', function () {
+					setTimeout(function () {
+						forceSectionTop('one');
+					}, 20);
+				});
+			}
+		});
 
 	// =============================================
 	// DYNAMIC NETWORK WIDGET + ADMIN CONTROLS

@@ -289,9 +289,21 @@ h3.billing-header {
 }
 
 .register-form {
-    max-height: 72vh;
+    max-height: min(72vh, calc(100dvh - 170px));
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding-top: 18px;
+    padding-bottom: 24px;
+}
+
+.register-form input[type="date"],
+.forgot-form input[type="date"] {
+    min-height: 44px;
+    width: 100%;
+    max-width: 100%;
+    padding-right: 42px;
+    box-sizing: border-box;
 }
 
 .forgot-form {
@@ -4698,6 +4710,39 @@ h3.billing-header {
         overflow-x: hidden;
         padding-left: max(8px, env(safe-area-inset-left));
         padding-right: max(8px, env(safe-area-inset-right));
+    }
+
+    .login-panel {
+        max-height: calc(100dvh - 12px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .register-form {
+        flex: 1 1 auto;
+        max-height: calc(100dvh - 170px);
+        padding-bottom: calc(22px + env(safe-area-inset-bottom));
+    }
+
+    .register-form input[type="date"],
+    .forgot-form input[type="date"] {
+        font-size: 16px;
+        line-height: 1.2;
+        letter-spacing: 0;
+    }
+
+    .register-form input[type="date"]::-webkit-date-and-time-value,
+    .forgot-form input[type="date"]::-webkit-date-and-time-value {
+        text-align: left;
+    }
+
+    #billing-register-form>.create-account-btn {
+        position: sticky;
+        bottom: env(safe-area-inset-bottom);
+        z-index: 4;
+        background: rgba(20, 31, 58, 0.96);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
     }
 
     /* Fixed blend + blur layers cause visible seams/flicker in iOS Safari */
