@@ -1586,6 +1586,14 @@ function escapeAttrValue(value) {
         .replace(/>/g, '&gt;');
 }
 
+function normalizeRoomSearchValue(value) {
+    return String(value ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
+}
+
 function normalizePaymentRoomDropdownLayout() {
     const optionsContainer = document.getElementById('room-select-options');
     if (!optionsContainer) return null;
@@ -1622,13 +1630,15 @@ function renderPaymentRoomOptions() {
         const statusLabel = room.status === 'PAID' ? 'PAID' : 'DUE';
         const encodedRoom = encodeURIComponent(String(room.room_no || ''));
         const searchText = `${room.room_no} ${statusLabel} ${room.amount}`.toLowerCase();
+        const compactSearchText = normalizeRoomSearchValue(searchText);
         const isSelected = String(room.room_no) === selectedValue ? ' selected' : '';
 
         return `<div class="custom-select-option room-option-card ${statusClass}${isSelected}"
             data-action="select"
             data-value="${encodedRoom}"
             data-amount="${escapeAttrValue(room.amount)}"
-            data-search="${escapeAttrValue(searchText)}">
+            data-search="${escapeAttrValue(searchText)}"
+            data-search-compact="${escapeAttrValue(compactSearchText)}">
             <span class="room-option-left">
                 <span class="room-status-dot"></span>
                 <span class="room-option-name">${escapeHtmlText(room.room_no)}</span>
@@ -1688,6 +1698,7 @@ function bindPaymentRoomDropdownEvents() {
 
 window.filterPaymentRoomDropdown = function (query = '') {
     const normalizedQuery = String(query || '').trim().toLowerCase();
+    const compactQuery = normalizeRoomSearchValue(normalizedQuery);
     const cards = document.querySelectorAll('#room-select-options .room-option-card[data-search]');
     const reset = document.querySelector('#room-select-options .room-option-reset');
     const emptyFilter = document.getElementById('room-option-empty-filter');
@@ -1695,7 +1706,10 @@ window.filterPaymentRoomDropdown = function (query = '') {
     let visibleCount = 0;
     cards.forEach(card => {
         const key = String(card.getAttribute('data-search') || '');
-        const match = key.includes(normalizedQuery);
+        const compactKey = String(card.getAttribute('data-search-compact') || normalizeRoomSearchValue(key));
+        const match = !normalizedQuery
+            || key.includes(normalizedQuery)
+            || (compactQuery && compactKey.includes(compactQuery));
         card.style.display = match ? '' : 'none';
         if (match) visibleCount += 1;
     });

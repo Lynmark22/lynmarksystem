@@ -3310,7 +3310,7 @@
 			currentSpeedtestServiceInline = null;
 			isModalActiveInline = false;
 			speedtestModalInline = null;
-		}, 400);
+		}, 220);
 	};
 
 	// Start countdown timer with visual progress for inline modal
@@ -3337,7 +3337,6 @@
 			if (timerText) timerText.textContent = remaining;
 
 			if (progressBar) {
-				progressBar.style.transition = 'stroke-dashoffset 960ms linear';
 				progressBar.style.strokeDashoffset = String(circumference * (1 - progress));
 			}
 		};
@@ -3345,6 +3344,9 @@
 		if (progressBar) {
 			progressBar.style.transition = 'none';
 			progressBar.style.strokeDashoffset = String(circumference);
+			requestAnimationFrame(() => {
+				progressBar.style.transition = 'stroke-dashoffset 960ms linear';
+			});
 		}
 		updateCountdown();
 
@@ -3516,13 +3518,17 @@
 	(function () {
 		const SUPABASE_URL = 'https://jlbvoiqexugdobzgpvyb.supabase.co';
 		const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsYnZvaXFleHVnZG9iemdwdnliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NTU1MzAsImV4cCI6MjA4MDMzMTUzMH0.2RVENuR1AVPbjM5vBG7c2_fppn3D4zAZCuBFVCI08SA';
+		const CUSTOM_ACCENT_STORAGE_KEY = 'network_widget_custom_accents_v1';
 
 		const state = {
 			client: null,
 			adminUser: null,
 			isAdmin: false,
 			upgrades: [],
-			dbAdminAllowed: null
+			dbAdminAllowed: null,
+			customAccentMap: {},
+			customAccentRpcSupported: null,
+			customAccentSyncHintShown: false
 		};
 
 		function getBillingUser() {
@@ -3703,6 +3709,203 @@
 			return n.toFixed(2).replace(/\.?0+$/, '');
 		}
 
+		function getUpgradeSlugKey(value) {
+			return String(value || '').trim().toLowerCase();
+		}
+
+		function sanitizeHexColor(value, fallback) {
+			const fb = String(fallback || '#4f8cff').toLowerCase();
+			const raw = String(value || '').trim().toLowerCase();
+			if (/^#[0-9a-f]{6}$/.test(raw)) return raw;
+			if (/^#[0-9a-f]{3}$/.test(raw)) {
+				return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`;
+			}
+			return /^#[0-9a-f]{6}$/.test(fb) ? fb : '#4f8cff';
+		}
+
+		function getDefaultCustomAccentConfig() {
+			return {
+				mode: 'gradient',
+				solidColor: '#4f8cff',
+				gradientStart: '#4f8cff',
+				gradientEnd: '#3768d9'
+			};
+		}
+
+		function normalizeCustomAccentConfig(raw) {
+			if (!raw) return null;
+			let value = raw;
+			if (typeof value === 'string') {
+				try {
+					value = JSON.parse(value);
+				} catch (err) {
+					return null;
+				}
+			}
+			if (!value || typeof value !== 'object') return null;
+
+			const defaults = getDefaultCustomAccentConfig();
+			const mode = String(value.mode || '').toLowerCase() === 'solid' ? 'solid' : 'gradient';
+
+			return {
+				mode,
+				solidColor: sanitizeHexColor(value.solidColor, defaults.solidColor),
+				gradientStart: sanitizeHexColor(value.gradientStart, defaults.gradientStart),
+				gradientEnd: sanitizeHexColor(value.gradientEnd, defaults.gradientEnd)
+			};
+		}
+
+		function loadCustomAccentMap() {
+			try {
+				const raw = localStorage.getItem(CUSTOM_ACCENT_STORAGE_KEY);
+				if (!raw) return {};
+				const parsed = JSON.parse(raw);
+				if (!parsed || typeof parsed !== 'object') return {};
+
+				const map = {};
+				Object.keys(parsed).forEach((key) => {
+					const slug = getUpgradeSlugKey(key);
+					if (!slug) return;
+					const normalized = normalizeCustomAccentConfig(parsed[key]);
+					if (normalized) map[slug] = normalized;
+				});
+				return map;
+			} catch (err) {
+				return {};
+			}
+		}
+
+		function saveCustomAccentMap() {
+			try {
+				localStorage.setItem(CUSTOM_ACCENT_STORAGE_KEY, JSON.stringify(state.customAccentMap || {}));
+			} catch (err) {
+				// ignore storage errors
+			}
+		}
+
+		function mergeCustomAccentMapFromUpgrades(upgrades) {
+			if (!Array.isArray(upgrades)) return;
+			let hasChanges = false;
+
+			upgrades.forEach((item) => {
+				const slug = getUpgradeSlugKey(item?.slug);
+				if (!slug) return;
+				const config = normalizeCustomAccentConfig(
+					item?.accent_config
+					|| item?.accentConfig
+					|| item?.custom_accent
+					|| item?.customAccent
+				);
+				if (!config) return;
+
+				state.customAccentMap[slug] = config;
+				hasChanges = true;
+			});
+
+			if (hasChanges) saveCustomAccentMap();
+		}
+
+		function getCustomAccentConfigForUpgrade(item) {
+			if (!item || String(item.accent || '').toLowerCase() !== 'custom') return null;
+
+			const fromRow = normalizeCustomAccentConfig(
+				item.accent_config
+				|| item.accentConfig
+				|| item.custom_accent
+				|| item.customAccent
+			);
+			if (fromRow) return fromRow;
+
+			const slug = getUpgradeSlugKey(item.slug);
+			if (!slug) return null;
+			return normalizeCustomAccentConfig(state.customAccentMap[slug]);
+		}
+
+		function getContrastTextColor(hexColor) {
+			const hex = sanitizeHexColor(hexColor, '#4f8cff');
+			const r = parseInt(hex.slice(1, 3), 16);
+			const g = parseInt(hex.slice(3, 5), 16);
+			const b = parseInt(hex.slice(5, 7), 16);
+			const luma = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+			return luma > 0.68 ? '#0f1728' : '#ffffff';
+		}
+
+		function getUpgradeCustomAccentStyle(item) {
+			const config = getCustomAccentConfigForUpgrade(item);
+			if (!config) return '';
+
+			const background = config.mode === 'solid'
+				? config.solidColor
+				: `linear-gradient(145deg, ${config.gradientStart}, ${config.gradientEnd})`;
+
+			const textColor = config.mode === 'solid'
+				? getContrastTextColor(config.solidColor)
+				: '#ffffff';
+
+			return `style="background:${background};color:${textColor};"`;
+		}
+
+		function getCustomAccentConfigFromForm() {
+			const modeEl = document.getElementById('admin-custom-accent-mode');
+			const solidEl = document.getElementById('admin-custom-accent-solid');
+			const startEl = document.getElementById('admin-custom-accent-start');
+			const endEl = document.getElementById('admin-custom-accent-end');
+			const defaults = getDefaultCustomAccentConfig();
+
+			return normalizeCustomAccentConfig({
+				mode: modeEl && modeEl.value === 'solid' ? 'solid' : 'gradient',
+				solidColor: solidEl ? solidEl.value : defaults.solidColor,
+				gradientStart: startEl ? startEl.value : defaults.gradientStart,
+				gradientEnd: endEl ? endEl.value : defaults.gradientEnd
+			}) || defaults;
+		}
+
+		function applyCustomAccentConfigToForm(config) {
+			const modeEl = document.getElementById('admin-custom-accent-mode');
+			const solidEl = document.getElementById('admin-custom-accent-solid');
+			const startEl = document.getElementById('admin-custom-accent-start');
+			const endEl = document.getElementById('admin-custom-accent-end');
+			const normalized = normalizeCustomAccentConfig(config) || getDefaultCustomAccentConfig();
+
+			if (modeEl) modeEl.value = normalized.mode;
+			if (solidEl) solidEl.value = normalized.solidColor;
+			if (startEl) startEl.value = normalized.gradientStart;
+			if (endEl) endEl.value = normalized.gradientEnd;
+		}
+
+		function updateCustomAccentPreview() {
+			const preview = document.getElementById('admin-custom-accent-preview');
+			if (!preview) return;
+
+			const config = getCustomAccentConfigFromForm();
+			const background = config.mode === 'solid'
+				? config.solidColor
+				: `linear-gradient(145deg, ${config.gradientStart}, ${config.gradientEnd})`;
+
+			preview.style.background = background;
+		}
+
+		function updateCustomAccentControls() {
+			const accentEl = document.getElementById('admin-upgrade-accent');
+			const wrapper = document.getElementById('admin-custom-accent-controls');
+			const modeEl = document.getElementById('admin-custom-accent-mode');
+			const solidField = document.getElementById('admin-custom-solid-field');
+			const gradientStartField = document.getElementById('admin-custom-gradient-start-field');
+			const gradientEndField = document.getElementById('admin-custom-gradient-end-field');
+			if (!accentEl || !wrapper) return;
+
+			const isCustom = String(accentEl.value || '').toLowerCase() === 'custom';
+			wrapper.hidden = !isCustom;
+
+			if (!isCustom) return;
+
+			const mode = modeEl && modeEl.value === 'solid' ? 'solid' : 'gradient';
+			if (solidField) solidField.hidden = mode !== 'solid';
+			if (gradientStartField) gradientStartField.hidden = mode !== 'gradient';
+			if (gradientEndField) gradientEndField.hidden = mode !== 'gradient';
+			updateCustomAccentPreview();
+		}
+
 		function getUpgradeClass(accent) {
 			const v = String(accent || '').toLowerCase();
 			if (v === 'premium') return 'premium-btn';
@@ -3736,11 +3939,12 @@
 				const label = escapeHtml(item.label || 'UPGRADE');
 				const url = escapeHtml(item.cta_url || 'https://lmvouchersystem.vercel.app/');
 				const cls = getUpgradeClass(item.accent);
+				const customStyle = cls === 'custom-btn' ? getUpgradeCustomAccentStyle(item) : '';
 				const status = String(item.status || 'AVAILABLE').toUpperCase();
 				const paused = status !== 'AVAILABLE';
 				return `
 					<a href="${paused ? 'javascript:void(0);' : url}" target="${paused ? '' : '_blank'}"
-						class="upgrade-btn ${cls} ${paused ? 'is-paused' : ''}" ${paused ? 'aria-disabled="true"' : ''}>
+						class="upgrade-btn ${cls} ${paused ? 'is-paused' : ''}" ${customStyle} ${paused ? 'aria-disabled="true"' : ''}>
 						${label}
 						${paused ? `<span class="upgrade-status-chip">${escapeHtml(status)}</span>` : ''}
 					</a>
@@ -3762,11 +3966,27 @@
 				const amountText = escapeHtml(String(item.status || 'AVAILABLE').toUpperCase());
 				return `
 					<div class="upgrade-admin-item">
-						<div class="upgrade-admin-meta">${label} <span style="opacity:.65">(${slug})</span></div>
+						<div class="upgrade-admin-meta">
+							<span class="upgrade-admin-label">${label}</span>
+							<span class="upgrade-admin-slug">${slug}</span>
+						</div>
 						<span class="upgrade-admin-chip">${amountText}</span>
 						<div class="upgrade-admin-actions">
-							<button type="button" class="upgrade-admin-action" data-action="edit" data-id="${item.id}">Edit</button>
-							<button type="button" class="upgrade-admin-action danger" data-action="delete" data-id="${item.id}">Delete</button>
+							<button type="button" class="upgrade-admin-action icon-only" data-action="edit" data-id="${item.id}" aria-label="Edit tier" title="Edit tier">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+									<path d="M12 20h9"></path>
+									<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+								</svg>
+							</button>
+							<button type="button" class="upgrade-admin-action icon-only danger" data-action="delete" data-id="${item.id}" aria-label="Delete tier" title="Delete tier">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+									<polyline points="3 6 5 6 21 6"></polyline>
+									<path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path>
+									<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+									<line x1="10" y1="11" x2="10" y2="17"></line>
+									<line x1="14" y1="11" x2="14" y2="17"></line>
+								</svg>
+							</button>
 						</div>
 					</div>
 				`;
@@ -3899,6 +4119,8 @@
 			if (accentEl) accentEl.value = 'standard';
 			if (visibleEl) visibleEl.checked = true;
 			if (sortEl) sortEl.value = '10';
+			applyCustomAccentConfigToForm(getDefaultCustomAccentConfig());
+			updateCustomAccentControls();
 			setUpgradeSubmitMode(false);
 		}
 
@@ -3920,6 +4142,8 @@
 			if (accentEl) accentEl.value = String(item.accent || 'standard').toLowerCase();
 			if (visibleEl) visibleEl.checked = item.is_visible !== false;
 			if (sortEl) sortEl.value = Number(item.sort_order || 0);
+			applyCustomAccentConfigToForm(getCustomAccentConfigForUpgrade(item));
+			updateCustomAccentControls();
 			setUpgradeSubmitMode(true);
 		}
 
@@ -3969,6 +4193,41 @@
 			await refreshWidgetData();
 		}
 
+		async function syncCustomAccentConfigForUpgrade(upgradeId, accentConfig) {
+			if (!upgradeId || !state.client) return;
+			if (state.customAccentRpcSupported === false) return;
+
+			const payload = accentConfig ? normalizeCustomAccentConfig(accentConfig) : null;
+			let result = await state.client.rpc('admin_set_upgrade_accent_config', {
+				p_id: upgradeId,
+				p_accent_config: payload,
+				p_admin_user_id: state.adminUser?.id || null
+			});
+
+			if (result.error && String(result.error.message || '').includes('does not exist')) {
+				state.customAccentRpcSupported = false;
+				if (!state.customAccentSyncHintShown) {
+					state.customAccentSyncHintShown = true;
+					notify('Custom accent colors are local-only until SQL patch is applied.');
+				}
+				return;
+			}
+
+			if (result.error) {
+				state.customAccentRpcSupported = null;
+				const message = String(result.error.message || 'Unknown error');
+				if (/not_authorized|not authorized/i.test(message)) {
+					const hint = getGrantSqlHint();
+					setAdminStatus(`Admin DB access is missing. Run this SQL once:\n${hint}`, 'error');
+				} else {
+					notify('Tier saved, but custom color sync failed.', 'error');
+				}
+				return;
+			}
+
+			state.customAccentRpcSupported = true;
+		}
+
 		async function saveUpgradeFromForm() {
 			const id = document.getElementById('admin-upgrade-id').value || null;
 			const label = document.getElementById('admin-upgrade-label').value.trim();
@@ -3982,6 +4241,12 @@
 			const accent = document.getElementById('admin-upgrade-accent').value;
 			const isVisible = !!document.getElementById('admin-upgrade-visible').checked;
 			const sortOrder = Number(document.getElementById('admin-upgrade-sort').value || 0);
+			const customAccentConfig = accent === 'custom' ? getCustomAccentConfigFromForm() : null;
+			const previousItem = id
+				? state.upgrades.find((item) => String(item.id) === String(id))
+				: null;
+			const previousSlugKey = getUpgradeSlugKey(previousItem?.slug);
+			const slugKey = getUpgradeSlugKey(slug);
 
 			if (!label || !slug || !ctaUrl) {
 				notify('Label, slug, and URL are required.', 'error');
@@ -4041,6 +4306,28 @@
 				return;
 			}
 
+			const savedId = typeof result.data === 'string'
+				? result.data
+				: (Array.isArray(result.data) && result.data.length ? result.data[0] : id);
+
+			if (previousSlugKey && previousSlugKey !== slugKey) {
+				delete state.customAccentMap[previousSlugKey];
+			}
+			if (slugKey) {
+				if (accent === 'custom' && customAccentConfig) {
+					state.customAccentMap[slugKey] = normalizeCustomAccentConfig(customAccentConfig);
+				} else {
+					delete state.customAccentMap[slugKey];
+				}
+				saveCustomAccentMap();
+			}
+
+			const needsAccentSync = accent === 'custom'
+				|| String(previousItem?.accent || '').toLowerCase() === 'custom';
+			if (needsAccentSync) {
+				await syncCustomAccentConfigForUpgrade(savedId, accent === 'custom' ? customAccentConfig : null);
+			}
+
 			resetUpgradeForm();
 			setAdminStatus('Upgrade tier saved.');
 			notify('Upgrade saved.');
@@ -4048,6 +4335,9 @@
 		}
 
 		async function deleteUpgradeById(upgradeId) {
+			const existingItem = state.upgrades.find((item) => String(item.id) === String(upgradeId));
+			const existingSlugKey = getUpgradeSlugKey(existingItem?.slug);
+
 			let result = await state.client.rpc('admin_delete_upgrade_offer', {
 				p_id: upgradeId,
 				p_hard_delete: true,
@@ -4074,6 +4364,11 @@
 				return;
 			}
 
+			if (existingSlugKey) {
+				delete state.customAccentMap[existingSlugKey];
+				saveCustomAccentMap();
+			}
+
 			setAdminStatus('Upgrade tier deleted permanently.');
 			notify('Tier deleted permanently.');
 			await refreshWidgetData();
@@ -4083,12 +4378,14 @@
 			const data = await loadWidgetData();
 			if (!data) return;
 
+			mergeCustomAccentMapFromUpgrades(data.upgrades);
 			renderSpeed(data.speed);
 			renderUpgrades(data.upgrades);
 			fillAdminSpeedForm(data.speed);
 
 			if (state.isAdmin) {
 				state.upgrades = await loadAllUpgradesForAdmin();
+				mergeCustomAccentMapFromUpgrades(state.upgrades);
 				renderAdminList(state.upgrades);
 			}
 		}
@@ -4101,6 +4398,11 @@
 			const list = document.getElementById('upgrade-admin-list');
 			const labelEl = document.getElementById('admin-upgrade-label');
 			const slugEl = document.getElementById('admin-upgrade-slug');
+			const accentEl = document.getElementById('admin-upgrade-accent');
+			const customModeEl = document.getElementById('admin-custom-accent-mode');
+			const customSolidEl = document.getElementById('admin-custom-accent-solid');
+			const customStartEl = document.getElementById('admin-custom-accent-start');
+			const customEndEl = document.getElementById('admin-custom-accent-end');
 
 			if (speedForm) {
 				speedForm.addEventListener('submit', async function (e) {
@@ -4141,6 +4443,25 @@
 				});
 			}
 
+			if (accentEl) {
+				accentEl.addEventListener('change', function () {
+					updateCustomAccentControls();
+				});
+			}
+
+			if (customModeEl) {
+				customModeEl.addEventListener('change', function () {
+					updateCustomAccentControls();
+				});
+			}
+
+			[customSolidEl, customStartEl, customEndEl].forEach((field) => {
+				if (!field) return;
+				field.addEventListener('input', function () {
+					updateCustomAccentPreview();
+				});
+			});
+
 			if (list) {
 				list.addEventListener('click', async function (e) {
 					const btn = e.target.closest('button[data-action][data-id]');
@@ -4172,6 +4493,8 @@
 					}
 				});
 			}
+
+			updateCustomAccentControls();
 		}
 
 		async function initDynamicNetworkWidget() {
@@ -4179,6 +4502,7 @@
 			const adminPanel = document.getElementById('network-admin-panel');
 			if (!widget) return;
 
+			state.customAccentMap = loadCustomAccentMap();
 			state.adminUser = getBillingUser();
 			state.isAdmin = isBillingAdmin(state.adminUser);
 

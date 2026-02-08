@@ -2423,6 +2423,7 @@ body.is-instant::after {
 	transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
 		opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
 		margin 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+	contain: layout paint;
 }
 
 .speedtest-modal-inline.show {
@@ -2448,6 +2449,7 @@ body.is-instant::after {
 	position: relative;
 	transform: scale(0.95);
 	transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+	will-change: transform, opacity;
 }
 
 .speedtest-modal-inline.show .speedtest-modal-content-inline {
@@ -3822,5 +3824,26 @@ body.is-instant::after {
 	.speedtest-compact-btn {
 		backdrop-filter: none !important;
 		-webkit-backdrop-filter: none !important;
+	}
+
+	/* Avoid animating height/margins on mobile: transform + opacity is cheaper. */
+	.speedtest-modal-inline {
+		transition: opacity 0.16s ease !important;
+	}
+
+	.speedtest-modal-inline.show {
+		max-height: 500px !important;
+	}
+
+	.speedtest-modal-content-inline {
+		transform: translate3d(0, 10px, 0) scale(0.99) !important;
+		opacity: 0;
+		transition: transform 0.18s ease-out, opacity 0.16s linear !important;
+		box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12) !important;
+	}
+
+	.speedtest-modal-inline.show .speedtest-modal-content-inline {
+		transform: translate3d(0, 0, 0) scale(1) !important;
+		opacity: 1;
 	}
 }

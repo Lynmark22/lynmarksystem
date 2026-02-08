@@ -410,92 +410,132 @@
 													apply live.</p>
 												<div id="network-admin-status" class="network-admin-status" aria-live="polite"></div>
 
-												<form id="speed-admin-form" class="network-admin-form" autocomplete="off">
-													<div class="network-admin-grid">
-														<div class="network-admin-field">
-															<label for="admin-download-value">Download</label>
-															<input id="admin-download-value" type="number" step="0.01" min="0" />
+												<div class="network-admin-section">
+													<div class="network-admin-section-label">Current Speed Section</div>
+													<form id="speed-admin-form" class="network-admin-form" autocomplete="off">
+														<div class="network-admin-grid">
+															<div class="network-admin-field">
+																<label for="admin-download-value">Download</label>
+																<input id="admin-download-value" type="number" step="0.01" min="0" />
+															</div>
+															<div class="network-admin-field">
+																<label for="admin-download-unit">Unit</label>
+																<select id="admin-download-unit">
+																	<option value="Kbps">Kbps</option>
+																	<option value="Mbps">Mbps</option>
+																	<option value="Gbps">Gbps</option>
+																</select>
+															</div>
+															<div class="network-admin-field">
+																<label for="admin-upload-value">Upload</label>
+																<input id="admin-upload-value" type="number" step="0.01" min="0" />
+															</div>
+															<div class="network-admin-field">
+																<label for="admin-upload-unit">Unit</label>
+																<select id="admin-upload-unit">
+																	<option value="Kbps">Kbps</option>
+																	<option value="Mbps">Mbps</option>
+																	<option value="Gbps">Gbps</option>
+																</select>
+															</div>
 														</div>
-														<div class="network-admin-field">
-															<label for="admin-download-unit">Unit</label>
-															<select id="admin-download-unit">
-																<option value="Kbps">Kbps</option>
-																<option value="Mbps">Mbps</option>
-																<option value="Gbps">Gbps</option>
-															</select>
-														</div>
-														<div class="network-admin-field">
-															<label for="admin-upload-value">Upload</label>
-															<input id="admin-upload-value" type="number" step="0.01" min="0" />
-														</div>
-														<div class="network-admin-field">
-															<label for="admin-upload-unit">Unit</label>
-															<select id="admin-upload-unit">
-																<option value="Kbps">Kbps</option>
-																<option value="Mbps">Mbps</option>
-																<option value="Gbps">Gbps</option>
-															</select>
-														</div>
-													</div>
-													<button type="submit" class="network-admin-btn">Save Speed</button>
-												</form>
+														<button type="submit" class="network-admin-btn">Save Speed</button>
+													</form>
+												</div>
 
 												<div class="network-admin-divider"></div>
 
-												<form id="upgrade-admin-form" class="network-admin-form" autocomplete="off">
-													<input id="admin-upgrade-id" type="hidden" />
-													<div class="network-admin-grid">
-														<div class="network-admin-field">
-															<label for="admin-upgrade-label">Label</label>
-															<input id="admin-upgrade-label" type="text" maxlength="32"
-																placeholder="STANDARD" required />
+												<div class="network-admin-section">
+													<div class="network-admin-section-label">Available Upgrades Section</div>
+													<form id="upgrade-admin-form" class="network-admin-form" autocomplete="off">
+														<input id="admin-upgrade-id" type="hidden" />
+														<div class="network-admin-grid">
+															<div class="network-admin-field">
+																<label for="admin-upgrade-label">Label</label>
+																<input id="admin-upgrade-label" type="text" maxlength="32"
+																	placeholder="STANDARD" required />
+															</div>
+															<div class="network-admin-field">
+																<label for="admin-upgrade-slug">Slug</label>
+																<input id="admin-upgrade-slug" type="text" maxlength="32"
+																	placeholder="standard" required />
+															</div>
+															<div class="network-admin-field">
+																<label for="admin-upgrade-url">Target URL</label>
+																<input id="admin-upgrade-url" type="url"
+																	placeholder="https://lmvouchersystem.vercel.app/" required />
+															</div>
+															<div class="network-admin-field">
+																<label for="admin-upgrade-status">Status</label>
+																<select id="admin-upgrade-status">
+																	<option value="AVAILABLE">AVAILABLE</option>
+																	<option value="PAUSED">PAUSED</option>
+																	<option value="HIDDEN">HIDDEN</option>
+																</select>
+															</div>
+															<div class="network-admin-field">
+																<label for="admin-upgrade-accent">Accent</label>
+																<select id="admin-upgrade-accent">
+																	<option value="standard">standard</option>
+																	<option value="premium">premium</option>
+																	<option value="custom">custom</option>
+																</select>
+															</div>
+															<div class="network-admin-field">
+																<label for="admin-upgrade-sort">Sort</label>
+																<input id="admin-upgrade-sort" type="number" value="10" />
+															</div>
 														</div>
-														<div class="network-admin-field">
-															<label for="admin-upgrade-slug">Slug</label>
-															<input id="admin-upgrade-slug" type="text" maxlength="32"
-																placeholder="standard" required />
+														<div id="admin-custom-accent-controls" class="network-admin-custom-accent" hidden>
+															<div class="network-admin-grid network-admin-custom-grid">
+																<div class="network-admin-field">
+																	<label for="admin-custom-accent-mode">Custom Type</label>
+																	<select id="admin-custom-accent-mode">
+																		<option value="solid">solid</option>
+																		<option value="gradient">gradient</option>
+																	</select>
+																</div>
+																<div id="admin-custom-solid-field"
+																	class="network-admin-field network-admin-color-field">
+																	<label for="admin-custom-accent-solid">Solid Color</label>
+																	<input id="admin-custom-accent-solid" type="color"
+																		value="#4f8cff" />
+																</div>
+																<div id="admin-custom-gradient-start-field"
+																	class="network-admin-field network-admin-color-field">
+																	<label for="admin-custom-accent-start">Gradient Start</label>
+																	<input id="admin-custom-accent-start" type="color"
+																		value="#4f8cff" />
+																</div>
+																<div id="admin-custom-gradient-end-field"
+																	class="network-admin-field network-admin-color-field">
+																	<label for="admin-custom-accent-end">Gradient End</label>
+																	<input id="admin-custom-accent-end" type="color"
+																		value="#3768d9" />
+																</div>
+															</div>
+															<div class="network-admin-accent-preview-row">
+																<span class="network-admin-accent-preview-label">Preview</span>
+																<span id="admin-custom-accent-preview"
+																	class="network-admin-accent-preview-swatch"></span>
+															</div>
 														</div>
-														<div class="network-admin-field">
-															<label for="admin-upgrade-url">Target URL</label>
-															<input id="admin-upgrade-url" type="url"
-																placeholder="https://lmvouchersystem.vercel.app/" required />
+														<div class="network-admin-inline">
+															<label class="network-admin-check">
+																<input id="admin-upgrade-visible" type="checkbox" checked />
+																<span>Visible</span>
+															</label>
+															<button type="submit" id="admin-upgrade-submit"
+																class="network-admin-btn">Create Tier</button>
+															<button type="button" id="admin-upgrade-new"
+																class="network-admin-btn secondary">New Tier</button>
+															<button type="button" id="admin-upgrade-reset"
+																class="network-admin-btn secondary">Reset</button>
 														</div>
-														<div class="network-admin-field">
-															<label for="admin-upgrade-status">Status</label>
-															<select id="admin-upgrade-status">
-																<option value="AVAILABLE">AVAILABLE</option>
-																<option value="PAUSED">PAUSED</option>
-																<option value="HIDDEN">HIDDEN</option>
-															</select>
-														</div>
-														<div class="network-admin-field">
-															<label for="admin-upgrade-accent">Accent</label>
-															<select id="admin-upgrade-accent">
-																<option value="standard">standard</option>
-																<option value="premium">premium</option>
-																<option value="custom">custom</option>
-															</select>
-														</div>
-														<div class="network-admin-field">
-															<label for="admin-upgrade-sort">Sort</label>
-															<input id="admin-upgrade-sort" type="number" value="10" />
-														</div>
-													</div>
-													<div class="network-admin-inline">
-														<label class="network-admin-check">
-															<input id="admin-upgrade-visible" type="checkbox" checked />
-															<span>Visible</span>
-														</label>
-														<button type="submit" id="admin-upgrade-submit"
-															class="network-admin-btn">Create Tier</button>
-														<button type="button" id="admin-upgrade-new"
-															class="network-admin-btn secondary">New Tier</button>
-														<button type="button" id="admin-upgrade-reset"
-															class="network-admin-btn secondary">Reset</button>
-													</div>
-												</form>
+													</form>
 
-												<div id="upgrade-admin-list" class="upgrade-admin-list"></div>
+													<div id="upgrade-admin-list" class="upgrade-admin-list"></div>
+												</div>
 											</div>
 										</div>
 
@@ -832,6 +872,31 @@
 									color: #ffd6d6;
 								}
 
+								.network-admin-section {
+									display: flex;
+									flex-direction: column;
+									gap: 8px;
+								}
+
+								.network-admin-section-label {
+									display: inline-flex;
+									align-items: center;
+									gap: 8px;
+									font-size: 10px;
+									font-weight: 800;
+									color: #8ed9ff;
+									letter-spacing: 0.1em;
+									text-transform: uppercase;
+									margin: 2px 0 0;
+								}
+
+								.network-admin-section-label::after {
+									content: '';
+									height: 1px;
+									flex: 1;
+									background: linear-gradient(90deg, rgba(114, 199, 255, 0.5), rgba(114, 199, 255, 0.05));
+								}
+
 								.network-admin-form {
 									display: flex;
 									flex-direction: column;
@@ -842,6 +907,58 @@
 									display: grid;
 									grid-template-columns: repeat(2, minmax(0, 1fr));
 									gap: 8px;
+								}
+
+								.network-admin-custom-accent {
+									padding: 10px;
+									border-radius: 12px;
+									border: 1px solid rgba(124, 176, 220, 0.28);
+									background: rgba(11, 23, 40, 0.72);
+								}
+
+								.network-admin-custom-grid {
+									margin-bottom: 8px;
+								}
+
+								.network-admin-color-field input[type="color"] {
+									padding: 3px !important;
+									cursor: pointer;
+									border-radius: 10px;
+									background: rgba(16, 25, 39, 0.9) !important;
+								}
+
+								.network-admin-color-field input[type="color"]::-webkit-color-swatch-wrapper {
+									padding: 0;
+									border-radius: 7px;
+								}
+
+								.network-admin-color-field input[type="color"]::-webkit-color-swatch {
+									border: none;
+									border-radius: 7px;
+								}
+
+								.network-admin-accent-preview-row {
+									display: flex;
+									align-items: center;
+									justify-content: space-between;
+									gap: 8px;
+								}
+
+								.network-admin-accent-preview-label {
+									font-size: 10px;
+									font-weight: 700;
+									color: rgba(224, 238, 255, 0.82);
+									letter-spacing: 0.08em;
+									text-transform: uppercase;
+								}
+
+								.network-admin-accent-preview-swatch {
+									flex: 1;
+									height: 24px;
+									border-radius: 999px;
+									border: 1px solid rgba(255, 255, 255, 0.24);
+									background: linear-gradient(145deg, #4f8cff, #3768d9);
+									box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 								}
 
 								.network-admin-field label {
@@ -925,10 +1042,10 @@
 
 								.upgrade-admin-item {
 									display: grid;
-									grid-template-columns: 1fr auto auto;
-									gap: 8px;
+									grid-template-columns: minmax(0, 1fr) auto auto;
+									gap: 6px;
 									align-items: center;
-									padding: 8px 10px;
+									padding: 7px 8px;
 									border-radius: 10px;
 									background: rgba(11, 23, 40, 0.85);
 									border: 1px solid rgba(124, 176, 220, 0.2);
@@ -936,8 +1053,22 @@
 
 								.upgrade-admin-meta {
 									min-width: 0;
-									font-size: 12px;
+									display: flex;
+									flex-direction: column;
+									gap: 1px;
+									font-size: 11px;
 									color: rgba(234, 244, 255, 0.92);
+								}
+
+								.upgrade-admin-label {
+									white-space: nowrap;
+									overflow: hidden;
+									text-overflow: ellipsis;
+								}
+
+								.upgrade-admin-slug {
+									font-size: 10px;
+									color: rgba(206, 222, 242, 0.68);
 									white-space: nowrap;
 									overflow: hidden;
 									text-overflow: ellipsis;
@@ -947,9 +1078,9 @@
 									display: inline-flex;
 									align-items: center;
 									justify-content: center;
-									font-size: 10px;
+									font-size: 9px;
 									font-weight: 700;
-									padding: 4px 7px;
+									padding: 3px 6px;
 									border-radius: 999px;
 									border: 1px solid rgba(255, 199, 100, 0.4);
 									color: #ffd48a;
@@ -958,24 +1089,47 @@
 
 								.upgrade-admin-actions {
 									display: inline-flex;
-									gap: 6px;
+									gap: 4px;
 								}
 
 								.upgrade-admin-action {
-									height: 28px;
-									padding: 0 10px;
+									height: 26px;
+									min-width: 26px;
+									padding: 0;
 									border-radius: 8px;
 									border: 1px solid rgba(123, 179, 227, 0.32);
 									background: rgba(10, 26, 44, 0.85);
 									color: #dceeff;
-									font-size: 11px;
-									font-weight: 600;
+									display: inline-flex;
+									align-items: center;
+									justify-content: center;
 									cursor: pointer;
+								}
+
+								.upgrade-admin-action svg {
+									width: 13px;
+									height: 13px;
+									pointer-events: none;
+								}
+
+								.upgrade-admin-action:hover {
+									background: rgba(15, 36, 60, 0.92);
+									border-color: rgba(151, 206, 247, 0.45);
+								}
+
+								.upgrade-admin-action:focus-visible {
+									outline: 2px solid rgba(103, 188, 255, 0.45);
+									outline-offset: 1px;
 								}
 
 								.upgrade-admin-action.danger {
 									border-color: rgba(255, 108, 108, 0.45);
 									color: #ffb5b5;
+								}
+
+								.upgrade-admin-action.danger:hover {
+									background: rgba(64, 21, 26, 0.9);
+									border-color: rgba(255, 145, 145, 0.55);
 								}
 
 								.network-confirm-modal {
@@ -2267,6 +2421,26 @@
 									--padding-vertical: 1.1rem;
 									--spacing: 0.75rem;
 									padding: var(--padding-vertical) var(--padding-horizontal);
+									display: flex;
+									flex-direction: column;
+								}
+
+								/* Keep Speed Test/cards above Internet Information text block */
+								#container06 #buttons02 {
+									order: 1;
+								}
+
+								#container06 #embed02 {
+									order: 2;
+								}
+
+								#container06 #text05 {
+									order: 3;
+									margin-top: 0.85rem;
+								}
+
+								#container06 #text03 {
+									order: 4;
 								}
 
 								#container06 .tiers {
@@ -2345,7 +2519,8 @@
 
 								#container06 .speedtest-modal-inline {
 									max-width: 100%;
-									transition: max-height 0.22s ease, opacity 0.18s ease, margin 0.22s ease;
+									transition: opacity 0.16s ease;
+									contain: layout paint;
 								}
 
 								#container06 .speedtest-modal-inline.show {
@@ -2359,7 +2534,15 @@
 									border-radius: 1rem;
 									backdrop-filter: blur(6px);
 									box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14);
-									transform: none;
+									transform: translate3d(0, 10px, 0) scale(0.99);
+									opacity: 0;
+									transition: transform 0.18s ease-out, opacity 0.16s linear;
+									will-change: transform, opacity;
+								}
+
+								#container06 .speedtest-modal-inline.show .speedtest-modal-content-inline {
+									transform: translate3d(0, 0, 0) scale(1);
+									opacity: 1;
 								}
 
 								#container06 .speedtest-modal-content-inline::before,
