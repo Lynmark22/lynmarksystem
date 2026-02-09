@@ -36,6 +36,11 @@ const BILLING_RENDER_SIGNATURES = {
     tenant: '',
     admin: ''
 };
+let paymentLazyBootstrapStarted = false;
+let paymentLazyBootstrapReady = false;
+let paymentLazyDropdownSyncQueued = false;
+let paymentLazyObserverReady = false;
+let paymentLazyIntersectionObserver = null;
 
 function registerBillingTableInteraction() {
     lastBillingTableInteractionAt = Date.now();
@@ -666,13 +671,13 @@ async function refreshBillingLiveData(force = false) {
             await refreshCurrentUserProfile(force);
             await fetchTenantBills(renderOptions);
             await fetchPublicBills({ silent: true, preserveScroll: false, forceRender: false });
-            await populatePaymentRoomDropdown({ sourceData: window.publicBillsData });
+            queuePaymentRoomDropdownSync(window.publicBillsData);
             return;
         }
 
         if (section === 'public') {
             await fetchPublicBills(renderOptions);
-            await populatePaymentRoomDropdown({ sourceData: window.publicBillsData });
+            queuePaymentRoomDropdownSync(window.publicBillsData);
         }
     } finally {
         billingRefreshBusy = false;
@@ -736,9 +741,14 @@ function showSection(section) {
     if (sharedPayment) {
         if (section === 'public' || section === 'tenant') {
             sharedPayment.style.display = 'block';
+            setPaymentLazyUiReady(paymentLazyBootstrapReady);
         } else {
             sharedPayment.style.display = 'none';
         }
+    }
+
+    if (section === 'admin') {
+        primePaymentDataLazy('admin-view');
     }
 }
 
@@ -784,6 +794,29 @@ window.togglePassword = function () {
     window.togglePasswordField('auth-password', 'eye-icon');
 };
 
+function buildBillingTableSkeletonMarkup(colspan = 6, rowCount = 8) {
+    const safeColspan = Math.max(1, Number(colspan) || 6);
+    const safeRows = Math.min(14, Math.max(3, Number(rowCount) || 8));
+    const rows = Array.from({ length: safeRows }, () => `
+        <div class="billing-table-skeleton-row">
+            <span class="billing-table-skeleton-dot"></span>
+            <span class="billing-table-skeleton-lines">
+                <span class="billing-table-skeleton-line is-short"></span>
+                <span class="billing-table-skeleton-line is-long"></span>
+            </span>
+            <span class="billing-table-skeleton-box"></span>
+        </div>
+    `).join('');
+
+    return `
+        <tr class="billing-table-skeleton-wrap">
+            <td colspan='${safeColspan}'>
+                <div class="billing-table-skeleton" aria-hidden="true">${rows}</div>
+            </td>
+        </tr>
+    `;
+}
+
 // Public View Logic (No authentication required)
 async function fetchPublicBills(options = {}) {
     const {
@@ -797,7 +830,7 @@ async function fetchPublicBills(options = {}) {
     const scrollSnapshot = captureTableScroll(tbody, preserveScroll);
 
     if (!silent) {
-        tbody.innerHTML = '<tr><td colspan=\'6\'>Loading...</td></tr>';
+        tbody.innerHTML = buildBillingTableSkeletonMarkup(6, 9);
     }
 
     let data = null;
@@ -827,6 +860,7 @@ async function fetchPublicBills(options = {}) {
             tbody.innerHTML = '<tr><td colspan=\'6\'>Unable to load billing data. Please login to view.</td></tr>';
         }
         console.error('Public fetch error:', error);
+        queuePaymentRoomDropdownSync([]);
         return [];
     }
 
@@ -835,6 +869,7 @@ async function fetchPublicBills(options = {}) {
         BILLING_RENDER_SIGNATURES.public = '[]';
         tbody.innerHTML = '<tr><td colspan=\'6\'>No records found.</td></tr>';
         restoreTableScroll(scrollSnapshot);
+        queuePaymentRoomDropdownSync([]);
         return [];
     }
 
@@ -857,6 +892,7 @@ async function fetchPublicBills(options = {}) {
         'status'
     ]);
     if (silent && !forceRender && nextSignature === BILLING_RENDER_SIGNATURES.public && tbody.children.length) {
+        queuePaymentRoomDropdownSync(data);
         return data;
     }
     BILLING_RENDER_SIGNATURES.public = nextSignature;
@@ -877,6 +913,7 @@ async function fetchPublicBills(options = {}) {
         </tr>
     `}).join('');
     restoreTableScroll(scrollSnapshot);
+    queuePaymentRoomDropdownSync(data);
     return data;
 }
 
@@ -896,7 +933,7 @@ async function fetchTenantBills(options = {}) {
     const scrollSnapshot = captureTableScroll(tbody, preserveScroll);
 
     if (!silent) {
-        tbody.innerHTML = '<tr><td colspan=\'6\'>Loading...</td></tr>';
+        tbody.innerHTML = buildBillingTableSkeletonMarkup(6, 9);
     }
 
     // Use RPC to get bills safe for this user
@@ -978,7 +1015,7 @@ async function fetchAdminBills(options = {}) {
     const scrollSnapshot = captureTableScroll(tbody, preserveScroll);
 
     if (!silent) {
-        tbody.innerHTML = '<tr><td colspan=\'9\'>Loading...</td></tr>';
+        tbody.innerHTML = buildBillingTableSkeletonMarkup(9, 10);
     }
 
     const { data, error } = await supabaseClient.rpc('get_bills', { p_user_id: currentUser.id });
@@ -1635,7 +1672,141 @@ window.printBillingReport = function () {
 // Global storage for public bills data (for room selection dropdown)
 window.publicBillsData = [];
 
-// Load payment settings on page load
+function runBillingTaskWhenIdle(task, timeoutMs = 1400) {
+    if (typeof task !== 'function') return;
+    const safeRun = () => {
+        Promise.resolve()
+            .then(task)
+            .catch((error) => {
+                console.error('Deferred task failed:', error);
+            });
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(safeRun, { timeout: timeoutMs });
+        return;
+    }
+
+    setTimeout(safeRun, Math.min(timeoutMs, 900));
+}
+
+function setPaymentLazyUiReady(isReady = false) {
+    const sharedPaymentContainer = document.getElementById('shared-payment-container');
+    if (!(sharedPaymentContainer instanceof HTMLElement)) return;
+
+    sharedPaymentContainer.classList.toggle('payment-lazy-pending', !isReady);
+    sharedPaymentContainer.classList.toggle('payment-lazy-ready', isReady);
+
+    const placeholder = document.getElementById('payment-lazy-placeholder');
+    if (placeholder) {
+        placeholder.hidden = isReady;
+        placeholder.setAttribute('aria-hidden', isReady ? 'true' : 'false');
+    }
+}
+
+function queuePaymentRoomDropdownSync(sourceData = null) {
+    if (!paymentLazyBootstrapReady || paymentLazyDropdownSyncQueued) return;
+    if (Array.isArray(sourceData)) {
+        window.publicBillsData = sourceData;
+    }
+
+    paymentLazyDropdownSyncQueued = true;
+    runBillingTaskWhenIdle(async () => {
+        paymentLazyDropdownSyncQueued = false;
+        const latestData = Array.isArray(window.publicBillsData) ? window.publicBillsData : [];
+        if (latestData.length > 0) {
+            await populatePaymentRoomDropdown({ sourceData: latestData });
+            return;
+        }
+        await populatePaymentRoomDropdown({ sourceData: [], skipRemoteFetch: true });
+    }, 900);
+}
+
+function disconnectPaymentLazyObserver() {
+    if (paymentLazyIntersectionObserver) {
+        paymentLazyIntersectionObserver.disconnect();
+        paymentLazyIntersectionObserver = null;
+    }
+}
+
+async function primePaymentDataLazy(reason = 'lazy') {
+    if (paymentLazyBootstrapReady) {
+        setPaymentLazyUiReady(true);
+        return;
+    }
+    if (paymentLazyBootstrapStarted) return;
+    if (!supabaseClient) {
+        setPaymentLazyUiReady(true);
+        return;
+    }
+
+    paymentLazyBootstrapStarted = true;
+    setPaymentLazyUiReady(false);
+    try {
+        await loadPaymentSettings();
+        const knownPublicBills = Array.isArray(window.publicBillsData) ? window.publicBillsData : [];
+        if (knownPublicBills.length > 0) {
+            await populatePaymentRoomDropdown({ sourceData: knownPublicBills });
+        } else {
+            await populatePaymentRoomDropdown({ forceRefresh: true });
+        }
+        paymentLazyBootstrapReady = true;
+        setPaymentLazyUiReady(true);
+        disconnectPaymentLazyObserver();
+    } catch (error) {
+        console.error(`Payment lazy bootstrap failed (${reason}):`, error);
+        setPaymentLazyUiReady(true);
+    } finally {
+        paymentLazyBootstrapStarted = false;
+    }
+}
+
+function initPaymentLazyLoading() {
+    if (paymentLazyObserverReady) return;
+    paymentLazyObserverReady = true;
+    setPaymentLazyUiReady(paymentLazyBootstrapReady);
+
+    const sharedPaymentContainer = document.getElementById('shared-payment-container');
+    const paymentSettingsPanel = document.getElementById('payment-settings-panel');
+    const lazyTargets = [sharedPaymentContainer, paymentSettingsPanel].filter((node) => node instanceof HTMLElement);
+
+    const triggerLazyPrime = () => {
+        primePaymentDataLazy('viewport');
+    };
+
+    if (lazyTargets.length > 0) {
+        lazyTargets.forEach((target) => {
+            target.addEventListener('pointerdown', () => primePaymentDataLazy('interaction'), { passive: true, once: true });
+            target.addEventListener('touchstart', () => primePaymentDataLazy('interaction'), { passive: true, once: true });
+            target.addEventListener('focusin', () => primePaymentDataLazy('interaction'), { once: true });
+        });
+    }
+
+    if (lazyTargets.length > 0 && typeof IntersectionObserver === 'function') {
+        paymentLazyIntersectionObserver = new IntersectionObserver((entries) => {
+            const shouldLoad = entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0);
+            if (!shouldLoad) return;
+            triggerLazyPrime();
+        }, {
+            root: null,
+            rootMargin: '120px 0px',
+            threshold: 0.01
+        });
+
+        lazyTargets.forEach((target) => {
+            if (target instanceof HTMLElement) {
+                paymentLazyIntersectionObserver.observe(target);
+            }
+        });
+    } else {
+        setTimeout(() => {
+            primePaymentDataLazy('fallback');
+        }, 1000);
+    }
+
+}
+
+// Load payment settings
 async function loadPaymentSettings() {
     if (!supabaseClient) return;
 
@@ -1839,13 +2010,14 @@ async function populatePaymentRoomDropdown(options = {}) {
     const config = options && typeof options === 'object' ? options : {};
     const sourceData = Array.isArray(config.sourceData) ? config.sourceData : null;
     const forceRefresh = config.forceRefresh === true;
+    const skipRemoteFetch = config.skipRemoteFetch === true;
     const optionsContainer = document.getElementById('room-select-options');
     if (!optionsContainer) return;
 
     // Get bills data
     let data = sourceData || window.publicBillsData;
 
-    if (forceRefresh || !Array.isArray(data) || data.length === 0) {
+    if (!skipRemoteFetch && (forceRefresh || !Array.isArray(data) || data.length === 0)) {
         // Fetch fresh
         const result = await supabaseClient.rpc('get_public_bills');
         if (!result.error && result.data) {
@@ -2115,7 +2287,13 @@ window.toggleRoomDropdown = async function () {
         return;
     }
 
-    await populatePaymentRoomDropdown({ forceRefresh: true });
+    await primePaymentDataLazy('room-dropdown-open');
+    const cachedPublicBills = Array.isArray(window.publicBillsData) ? window.publicBillsData : [];
+    if (cachedPublicBills.length > 0) {
+        await populatePaymentRoomDropdown({ sourceData: cachedPublicBills });
+    } else {
+        await populatePaymentRoomDropdown({ forceRefresh: true });
+    }
 
     wrapper.classList.add('open');
     if (trigger) trigger.setAttribute('aria-expanded', 'true');
@@ -2399,25 +2577,10 @@ if (paymentForm) {
     });
 }
 
-// Initialize payment system on page load
+// Initialize payment system lazy loader
 document.addEventListener('DOMContentLoaded', () => {
-    // Load payment settings for display
-    setTimeout(() => {
-        loadPaymentSettings();
-        populatePaymentRoomDropdown({ forceRefresh: true });
-        refreshBillingLiveData(true);
-    }, 500); // Slight delay to ensure Supabase is initialized
+    initPaymentLazyLoading();
 });
-
-// Also load when public bills are fetched
-const originalFetchPublicBills = window.fetchPublicBills || fetchPublicBills;
-window.fetchPublicBills = async function (...args) {
-    const data = await originalFetchPublicBills.apply(this, args);
-    if (Array.isArray(data)) {
-        await populatePaymentRoomDropdown({ sourceData: data });
-    }
-    return data;
-};
 
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {

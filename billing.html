@@ -29,7 +29,7 @@
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="normalize.css" />
-    <link rel="stylesheet" href="billing.css?v=20260208.15" /> <!-- New Theme -->
+    <link rel="stylesheet" href="billing.css?v=20260209.21" /> <!-- New Theme -->
 
     <!-- Supabase JS (local fallback to avoid CDN connection failures) -->
     <script src="vendor/supabase-js.umd.js" defer></script>
@@ -41,7 +41,7 @@
         <!-- Fullscreen QR Modal -->
         <div id="qr-fullscreen-modal" class="qr-fullscreen-modal" onclick="closeQRFullscreen()">
             <button class="qr-fullscreen-close" onclick="closeQRFullscreen()">&times;</button>
-            <img id="qr-fullscreen-img" src="" alt="GCash QR Code">
+            <img id="qr-fullscreen-img" src="" alt="GCash QR Code" decoding="async">
         </div>
 
         <div class="header-nav">
@@ -177,7 +177,7 @@
                     <p class="forgot-heading">Verify Your Identity</p>
                     <p class="forgot-subheading">Please enter your birthdate to continue</p>
 
-                    <div class="register-field">
+                    <div class="register-field birthdate-field">
                         <label class="register-field-label required" for="forgot-birthdate">Your Birthdate</label>
                         <div class="input-group no-icon">
                             <input type="date" id="forgot-birthdate" class="login-input" autocomplete="bday" required>
@@ -339,7 +339,7 @@
                         </div>
                     </div>
 
-                    <div class="register-field">
+                    <div class="register-field birthdate-field">
                         <label class="register-field-label required" for="reg-birthdate">Birthdate</label>
                         <div class="input-group no-icon">
                             <input type="date" id="reg-birthdate" class="login-input" autocomplete="bday" required>
@@ -500,7 +500,7 @@
                         <div id="payment-settings-panel" class="payment-settings-panel gcash-card-admin">
                             <div class="gcash-card-header">
                                 <div class="admin-gcash-brand">
-                                    <img src="PaymentLOGO.png" alt="GCash" class="gcash-logo-img">
+                                    <img src="PaymentLOGO.png" alt="GCash" class="gcash-logo-img" loading="lazy" decoding="async" fetchpriority="low">
                                     <span class="gcash-brand">GCash</span>
                                 </div>
                                 <button onclick="savePaymentSettings()" class="save-settings-icon-btn"
@@ -550,7 +550,7 @@
                                         onclick="document.getElementById('qr-upload').click()"
                                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('qr-upload').click();}"
                                         role="button" tabindex="0" aria-label="Upload GCash QR code">
-                                        <img id="qr-preview" src="" alt="QR" style="display: none;">
+                                        <img id="qr-preview" src="" alt="QR" loading="lazy" decoding="async" fetchpriority="low" style="display: none;">
                                         <div class="qr-placeholder" id="qr-placeholder">
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
                                                 stroke="currentColor" stroke-width="1.5">
@@ -601,6 +601,56 @@
 
                 <!-- Shared Payment Container (Visible for Public & Tenants) -->
                 <div id="shared-payment-container" style="display: none;">
+                    <div id="payment-lazy-placeholder" class="payment-lazy-placeholder" role="status" aria-live="polite">
+                        <div class="payment-skeleton-list" aria-hidden="true">
+                            <div class="payment-skeleton-row">
+                                <span class="payment-skeleton-dot"></span>
+                                <span class="payment-skeleton-lines">
+                                    <span class="payment-skeleton-line is-short"></span>
+                                    <span class="payment-skeleton-line is-long"></span>
+                                    <span class="payment-skeleton-line is-medium"></span>
+                                </span>
+                                <span class="payment-skeleton-box"></span>
+                            </div>
+                            <div class="payment-skeleton-row">
+                                <span class="payment-skeleton-dot"></span>
+                                <span class="payment-skeleton-lines">
+                                    <span class="payment-skeleton-line is-short"></span>
+                                    <span class="payment-skeleton-line is-long"></span>
+                                    <span class="payment-skeleton-line is-medium"></span>
+                                </span>
+                                <span class="payment-skeleton-box"></span>
+                            </div>
+                            <div class="payment-skeleton-row">
+                                <span class="payment-skeleton-dot"></span>
+                                <span class="payment-skeleton-lines">
+                                    <span class="payment-skeleton-line is-short"></span>
+                                    <span class="payment-skeleton-line is-long"></span>
+                                    <span class="payment-skeleton-line is-medium"></span>
+                                </span>
+                                <span class="payment-skeleton-box"></span>
+                            </div>
+                            <div class="payment-skeleton-row">
+                                <span class="payment-skeleton-dot"></span>
+                                <span class="payment-skeleton-lines">
+                                    <span class="payment-skeleton-line is-short"></span>
+                                    <span class="payment-skeleton-line is-long"></span>
+                                    <span class="payment-skeleton-line is-medium"></span>
+                                </span>
+                                <span class="payment-skeleton-box"></span>
+                            </div>
+                            <div class="payment-skeleton-row">
+                                <span class="payment-skeleton-dot"></span>
+                                <span class="payment-skeleton-lines">
+                                    <span class="payment-skeleton-line is-short"></span>
+                                    <span class="payment-skeleton-line is-long"></span>
+                                    <span class="payment-skeleton-line is-medium"></span>
+                                </span>
+                                <span class="payment-skeleton-box"></span>
+                            </div>
+                        </div>
+                        <span class="payment-lazy-caption">Loading payment section...</span>
+                    </div>
                     <!-- Mode of Payment Section - Premium GCash Card -->
                     <div id="payment-info-section" class="glass-panel payment-info-section">
                     <h3 class="billing-header section-heading" style="border: none;">
@@ -617,7 +667,7 @@
                     <!-- GCash Digital Card -->
                     <div class="gcash-card">
                         <div class="gcash-card-header">
-                            <img src="PaymentLOGO.png" alt="GCash" class="gcash-logo-img">
+                            <img src="PaymentLOGO.png" alt="GCash" class="gcash-logo-img" loading="lazy" decoding="async" fetchpriority="low">
                             <span class="gcash-brand">GCash</span>
                         </div>
                         <div class="gcash-card-body">
@@ -635,7 +685,7 @@
                         </div>
                         <div class="gcash-card-footer" id="qr-banner-section" style="display: none;">
                             <div class="qr-mini-display" id="qr-display-container" onclick="openQRFullscreen()">
-                                <img id="display-qr-code" src="" alt="GCash QR Code">
+                                <img id="display-qr-code" src="" alt="GCash QR Code" loading="lazy" decoding="async" fetchpriority="low">
                             </div>
                             <span class="qr-scan-text">Tap to<br>Scan QR</span>
                         </div>
@@ -885,7 +935,7 @@
     <div id="toast-container"></div>
 
     <!-- Logic -->
-    <script src="billing.js?v=20260208.12"></script>
+    <script src="billing.js?v=20260209.15"></script>
 </body>
 
 </html>

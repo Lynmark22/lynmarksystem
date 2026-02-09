@@ -288,20 +288,43 @@ h3.billing-header {
     font-size: 0.66rem;
 }
 
-.register-form {
+.register-form,
+.forgot-form {
     max-height: min(72vh, calc(100dvh - 170px));
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    scroll-padding-bottom: 48px;
+    min-width: 0;
+}
+
+.register-form {
     padding-top: 18px;
     padding-bottom: 24px;
+}
+
+.forgot-form {
+    padding: 16px 20px 20px;
+    gap: 10px;
+}
+
+.register-form .register-field,
+.forgot-form .register-field,
+.register-form .input-group,
+.forgot-form .input-group {
+    width: 100%;
+    min-width: 0;
 }
 
 .register-form input[type="date"],
 .forgot-form input[type="date"] {
     min-height: 44px;
+    height: 44px;
     width: 100%;
     max-width: 100%;
+    padding-top: 10px;
+    padding-bottom: 10px;
     padding-right: 36px;
     box-sizing: border-box;
     min-width: 0;
@@ -309,6 +332,8 @@ h3.billing-header {
     -webkit-appearance: auto;
     text-align: left;
     direction: ltr;
+    font-size: 0.82rem;
+    line-height: 1.2;
     font-variant-numeric: tabular-nums;
     color: rgba(255, 255, 255, 0.92);
     -webkit-text-fill-color: rgba(255, 255, 255, 0.92);
@@ -332,29 +357,45 @@ h3.billing-header {
     min-height: 1.2em;
 }
 
-.forgot-form {
-    padding: 16px 20px 20px;
-    gap: 10px;
-}
-
 @media (max-width: 600px) {
-    .login-panel {
+    #billing-auth-container.login-panel {
         max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100dvh - 76px);
+        max-height: calc(100svh - 76px);
         overflow: hidden;
+    }
+
+    #billing-auth-container.login-panel .login-header {
+        flex: 0 0 auto;
     }
 
     .login-form {
         padding-bottom: 16px;
     }
 
-    .register-form {
-        max-height: min(72vh, calc(100dvh - 170px));
+    .register-form,
+    .forgot-form {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
         overflow-y: auto;
-        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        padding-bottom: max(132px, calc(env(safe-area-inset-bottom) + 124px));
+        scroll-padding-bottom: max(132px, calc(env(safe-area-inset-bottom) + 124px));
     }
 
     #billing-register-form>.create-account-btn {
         margin-bottom: 0;
+    }
+
+    #billing-register-form::after,
+    .forgot-form::after {
+        content: "";
+        display: block;
+        width: 100%;
+        min-height: max(48px, calc(env(safe-area-inset-bottom) + 40px));
+        flex-shrink: 0;
     }
 }
 
@@ -375,11 +416,13 @@ h3.billing-header {
     line-height: 1.35;
 }
 
-.register-form::-webkit-scrollbar {
+.register-form::-webkit-scrollbar,
+.forgot-form::-webkit-scrollbar {
     width: 6px;
 }
 
-.register-form::-webkit-scrollbar-thumb {
+.register-form::-webkit-scrollbar-thumb,
+.forgot-form::-webkit-scrollbar-thumb {
     background: rgba(255, 165, 0, 0.35);
     border-radius: 999px;
 }
@@ -415,6 +458,14 @@ h3.billing-header {
     display: flex;
     flex-direction: column;
     gap: 5px;
+}
+
+.register-field.birthdate-field .input-group {
+    max-width: clamp(190px, 72%, 240px);
+}
+
+.register-field.birthdate-field .input-group .login-input[type="date"] {
+    width: 100%;
 }
 
 .register-field-label {
@@ -899,6 +950,73 @@ h3.billing-header {
     max-height: 500px !important;
 }
 
+.billing-table-skeleton-wrap td {
+    padding: 10px !important;
+}
+
+.billing-table-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.billing-table-skeleton-row {
+    display: grid;
+    grid-template-columns: 14px 1fr 64px;
+    align-items: center;
+    column-gap: 10px;
+}
+
+.billing-table-skeleton-dot,
+.billing-table-skeleton-line,
+.billing-table-skeleton-box {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.09) 15%, rgba(255, 255, 255, 0.18) 40%, rgba(255, 255, 255, 0.09) 70%);
+    background-size: 240% 100%;
+    animation: billingTableSkeletonShimmer 1.15s ease-in-out infinite;
+}
+
+.billing-table-skeleton-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+}
+
+.billing-table-skeleton-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.billing-table-skeleton-line {
+    display: block;
+    height: 7px;
+    border-radius: 999px;
+}
+
+.billing-table-skeleton-line.is-short {
+    width: 42%;
+}
+
+.billing-table-skeleton-line.is-long {
+    width: 88%;
+}
+
+.billing-table-skeleton-box {
+    width: 64px;
+    height: 24px;
+    border-radius: 6px;
+}
+
+@keyframes billingTableSkeletonShimmer {
+    0% {
+        background-position: 100% 0;
+    }
+
+    100% {
+        background-position: -100% 0;
+    }
+}
+
 /* Custom scrollbar styling */
 .billing-table-wrapper::-webkit-scrollbar {
     width: 8px;
@@ -1345,6 +1463,130 @@ h3.billing-header {
 }
 
 /* Payment Info Display (Public/Tenant) */
+#shared-payment-container {
+    content-visibility: auto;
+    contain-intrinsic-size: 1200px;
+}
+
+#shared-payment-container.payment-lazy-pending #payment-info-section,
+#shared-payment-container.payment-lazy-pending #payment-submit-section {
+    display: none;
+}
+
+#shared-payment-container.payment-lazy-ready #payment-info-section,
+#shared-payment-container.payment-lazy-ready #payment-submit-section {
+    animation: paymentSectionFadeIn 0.24s ease both;
+}
+
+#shared-payment-container .payment-info-section,
+#shared-payment-container .payment-submit-section {
+    content-visibility: auto;
+    contain-intrinsic-size: 520px;
+}
+
+.payment-lazy-placeholder {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(14, 20, 34, 0.84);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.payment-skeleton-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.payment-skeleton-row {
+    display: grid;
+    grid-template-columns: 14px 1fr 74px;
+    align-items: center;
+    column-gap: 10px;
+}
+
+.payment-skeleton-dot,
+.payment-skeleton-line,
+.payment-skeleton-box {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.1) 15%, rgba(255, 255, 255, 0.2) 40%, rgba(255, 255, 255, 0.1) 70%);
+    background-size: 240% 100%;
+    animation: paymentSkeletonShimmer 1.2s ease-in-out infinite;
+}
+
+.payment-skeleton-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+}
+
+.payment-skeleton-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.payment-skeleton-line {
+    display: block;
+    height: 8px;
+    border-radius: 999px;
+}
+
+.payment-skeleton-line.is-short {
+    width: 34%;
+}
+
+.payment-skeleton-line.is-medium {
+    width: 72%;
+}
+
+.payment-skeleton-line.is-long {
+    width: 92%;
+}
+
+.payment-skeleton-box {
+    width: 74px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.payment-lazy-caption {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+    text-align: center;
+}
+
+@keyframes paymentSkeletonShimmer {
+    0% {
+        background-position: 100% 0;
+    }
+
+    100% {
+        background-position: -100% 0;
+    }
+}
+
+#shared-payment-container.payment-lazy-pending .payment-lazy-placeholder {
+    display: flex;
+}
+
+@keyframes paymentSectionFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .payment-info-section {
     margin-top: 20px;
 }
@@ -4760,32 +5002,38 @@ h3.billing-header {
     }
 
     .login-panel {
-        max-height: none;
+        max-height: calc(100dvh - 76px);
+        max-height: calc(100svh - 76px);
         display: flex;
         flex-direction: column;
         overflow: hidden;
     }
 
-    .register-form {
-        flex: 0 1 auto;
-        max-height: min(72vh, calc(100dvh - 170px));
+    .register-form,
+    .forgot-form {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
         overflow-y: auto;
-        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: max(136px, calc(env(safe-area-inset-bottom) + 128px));
+        scroll-padding-bottom: max(136px, calc(env(safe-area-inset-bottom) + 128px));
     }
 
     .register-form input[type="date"],
     .forgot-form input[type="date"] {
-        font-size: 0.95rem;
-        line-height: 1.3;
+        font-size: 0.82rem;
+        line-height: 1.2;
         letter-spacing: 0;
-        min-height: 48px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        min-height: 44px;
+        height: 44px;
+        font-family: inherit;
     }
 
     .register-form input[type="date"]::-webkit-calendar-picker-indicator,
     .forgot-form input[type="date"]::-webkit-calendar-picker-indicator {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
     }
 
     .register-form input[type="date"]::-webkit-datetime-edit,
@@ -4810,6 +5058,15 @@ h3.billing-header {
     #billing-register-form>.create-account-btn {
         position: static;
         margin-bottom: 0;
+    }
+
+    #billing-register-form::after,
+    .forgot-form::after {
+        content: "";
+        display: block;
+        width: 100%;
+        min-height: max(54px, calc(env(safe-area-inset-bottom) + 46px));
+        flex-shrink: 0;
     }
 
     /* Fixed blend + blur layers cause visible seams/flicker in iOS Safari */
@@ -4867,5 +5124,48 @@ h3.billing-header {
         inset: 0;
         width: auto;
         height: auto;
+    }
+}
+
+/* ================================================== */
+/* AUTH SCROLL FAILSAFE (MOBILE)                      */
+/* ================================================== */
+@media (max-width: 600px) {
+    #billing-auth-container.login-panel.account-mode-register,
+    #billing-auth-container.login-panel.account-mode-forgot {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    #billing-auth-container.login-panel.account-mode-register .register-form,
+    #billing-auth-container.login-panel.account-mode-forgot .forgot-form {
+        max-height: none !important;
+        overflow: visible !important;
+        padding-bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)) !important;
+        scroll-padding-bottom: 0 !important;
+    }
+}
+
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 600px) {
+        #billing-auth-container.login-panel.account-mode-register,
+        #billing-auth-container.login-panel.account-mode-forgot {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+
+        #billing-auth-container.login-panel.account-mode-register .register-form,
+        #billing-auth-container.login-panel.account-mode-forgot .forgot-form {
+            max-height: none !important;
+            overflow: visible !important;
+            -webkit-overflow-scrolling: auto !important;
+            padding-bottom: max(28px, calc(env(safe-area-inset-bottom) + 20px)) !important;
+        }
+    }
+}
+
+@media (max-width: 600px) {
+    .register-field.birthdate-field .input-group {
+        max-width: clamp(170px, 78%, 220px);
     }
 }
