@@ -206,7 +206,7 @@ function setAuthMode(mode = 'login') {
     if (authPanel) authPanel.classList.toggle('account-mode-forgot', isForgot);
     if (subtitle) {
         if (isRegister) {
-            subtitle.textContent = 'Create Account';
+            subtitle.textContent = 'Electric Bill Tracker';
         } else if (isForgot) {
             subtitle.textContent = 'Account Recovery';
         } else {
@@ -733,7 +733,7 @@ function showSection(section) {
     const sharedPayment = document.getElementById('shared-payment-container');
 
     if (publicView) publicView.style.display = section === 'public' ? 'block' : 'none';
-    if (authContainer) authContainer.style.display = section === 'login' ? 'block' : 'none';
+    if (authContainer) authContainer.style.display = section === 'login' ? 'flex' : 'none';
     if (tenantView) tenantView.style.display = section === 'tenant' ? 'block' : 'none';
     if (adminView) adminView.style.display = section === 'admin' ? 'block' : 'none';
 

@@ -381,8 +381,9 @@ h3.billing-header {
         min-height: 0;
         max-height: none;
         overflow-y: auto;
-        padding-bottom: max(132px, calc(env(safe-area-inset-bottom) + 124px));
-        scroll-padding-bottom: max(132px, calc(env(safe-area-inset-bottom) + 124px));
+        --auth-bottom-safe: clamp(8px, env(safe-area-inset-bottom), 18px);
+        padding-bottom: calc(var(--auth-bottom-safe) + 24px);
+        scroll-padding-bottom: calc(var(--auth-bottom-safe) + 24px);
     }
 
     #billing-register-form>.create-account-btn {
@@ -394,7 +395,7 @@ h3.billing-header {
         content: "";
         display: block;
         width: 100%;
-        min-height: max(48px, calc(env(safe-area-inset-bottom) + 40px));
+        min-height: 8px;
         flex-shrink: 0;
     }
 }
@@ -460,12 +461,10 @@ h3.billing-header {
     gap: 5px;
 }
 
+.register-field.birthdate-field,
 .register-field.birthdate-field .input-group {
-    max-width: clamp(190px, 72%, 240px);
-}
-
-.register-field.birthdate-field .input-group .login-input[type="date"] {
     width: 100%;
+    min-width: 0;
 }
 
 .register-field-label {
@@ -5016,8 +5015,9 @@ h3.billing-header {
         max-height: none;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
-        padding-bottom: max(136px, calc(env(safe-area-inset-bottom) + 128px));
-        scroll-padding-bottom: max(136px, calc(env(safe-area-inset-bottom) + 128px));
+        --auth-bottom-safe: clamp(8px, env(safe-area-inset-bottom), 18px);
+        padding-bottom: calc(var(--auth-bottom-safe) + 28px);
+        scroll-padding-bottom: calc(var(--auth-bottom-safe) + 28px);
     }
 
     .register-form input[type="date"],
@@ -5065,7 +5065,7 @@ h3.billing-header {
         content: "";
         display: block;
         width: 100%;
-        min-height: max(54px, calc(env(safe-area-inset-bottom) + 46px));
+        min-height: 8px;
         flex-shrink: 0;
     }
 
@@ -5128,44 +5128,32 @@ h3.billing-header {
 }
 
 /* ================================================== */
-/* AUTH SCROLL FAILSAFE (MOBILE)                      */
+/* BIRTHDATE SIZE NORMALIZATION                       */
 /* ================================================== */
-@media (max-width: 600px) {
-    #billing-auth-container.login-panel.account-mode-register,
-    #billing-auth-container.login-panel.account-mode-forgot {
-        max-height: none !important;
-        overflow: visible !important;
-    }
-
-    #billing-auth-container.login-panel.account-mode-register .register-form,
-    #billing-auth-container.login-panel.account-mode-forgot .forgot-form {
-        max-height: none !important;
-        overflow: visible !important;
-        padding-bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px)) !important;
-        scroll-padding-bottom: 0 !important;
-    }
+#billing-register-form .birthdate-field .input-group,
+#billing-forgot-birthdate-form .birthdate-field .input-group {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
 }
 
-@supports (-webkit-touch-callout: none) {
-    @media (max-width: 600px) {
-        #billing-auth-container.login-panel.account-mode-register,
-        #billing-auth-container.login-panel.account-mode-forgot {
-            max-height: none !important;
-            overflow: visible !important;
-        }
-
-        #billing-auth-container.login-panel.account-mode-register .register-form,
-        #billing-auth-container.login-panel.account-mode-forgot .forgot-form {
-            max-height: none !important;
-            overflow: visible !important;
-            -webkit-overflow-scrolling: auto !important;
-            padding-bottom: max(28px, calc(env(safe-area-inset-bottom) + 20px)) !important;
-        }
-    }
+#reg-birthdate,
+#forgot-birthdate {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 44px !important;
+    height: 44px !important;
+    max-height: 44px !important;
+    padding: 10px 36px 10px 14px !important;
+    line-height: 1.2 !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
+    font-size: 0.82rem !important;
 }
 
-@media (max-width: 600px) {
-    .register-field.birthdate-field .input-group {
-        max-width: clamp(170px, 78%, 220px);
-    }
+#reg-birthdate::-webkit-date-and-time-value,
+#forgot-birthdate::-webkit-date-and-time-value {
+    line-height: 1.2 !important;
+    min-height: 1em !important;
 }
