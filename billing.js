@@ -1142,27 +1142,70 @@ window.openAddRecordModal = function () {
 }
 
 // Fetch rooms from tenant_locations for dropdown suggestions
+const ROOM_FETCH_PAGE_SIZE = 1000;
+const ROOM_NAME_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 let allRooms = [];
-let availableRooms = []; // Rooms not yet in billing records
+let availableRooms = []; // Rooms shown in add-record dropdown
+
+function normalizeRoomName(value) {
+    return String(value ?? '').trim();
+}
+
+function sortRoomListSmart(rooms) {
+    return rooms.sort((a, b) => ROOM_NAME_COLLATOR.compare(a.name, b.name));
+}
+
+async function fetchAllTenantLocationRooms() {
+    const rows = [];
+    let from = 0;
+
+    while (true) {
+        const to = from + ROOM_FETCH_PAGE_SIZE - 1;
+        const { data, error } = await supabaseClient
+            .from('tenant_locations')
+            .select('name')
+            .range(from, to);
+
+        if (error) {
+            throw error;
+        }
+
+        if (!data || data.length === 0) {
+            break;
+        }
+
+        rows.push(...data);
+        if (data.length < ROOM_FETCH_PAGE_SIZE) {
+            break;
+        }
+
+        from += ROOM_FETCH_PAGE_SIZE;
+    }
+
+    return rows;
+}
 
 async function loadRoomSuggestions() {
     if (!supabaseClient) return;
 
-    const { data, error } = await supabaseClient
-        .from('tenant_locations')
-        .select('name')
-        .order('name');
+    try {
+        const data = await fetchAllTenantLocationRooms();
+        const dedupedRooms = new Map();
 
-    if (error) {
+        (data || []).forEach((room) => {
+            const name = normalizeRoomName(room?.name);
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (!dedupedRooms.has(key)) {
+                dedupedRooms.set(key, { name });
+            }
+        });
+
+        allRooms = sortRoomListSmart(Array.from(dedupedRooms.values()));
+        availableRooms = [...allRooms];
+    } catch (error) {
         console.error('Error loading rooms:', error);
-        return;
     }
-
-    allRooms = data || [];
-
-    // Filter out rooms that already have billing records
-    const existingRooms = (window.allBillingRecords || []).map(r => r.room_no.toLowerCase());
-    availableRooms = allRooms.filter(room => !existingRooms.includes(room.name.toLowerCase()));
 }
 
 function renderRoomDropdown(rooms) {
@@ -1170,16 +1213,16 @@ function renderRoomDropdown(rooms) {
     if (!dropdown) return;
 
     if (rooms.length === 0) {
-        dropdown.innerHTML = '<div class="room-option" style="color: #888; cursor: default;">All rooms already have records</div>';
+        dropdown.innerHTML = '<div class="room-option" style="color: #888; cursor: default;">No rooms found.</div>';
     } else {
         dropdown.innerHTML = rooms.map(r =>
-            `<div class="room-option" onclick="selectRoom('${r.name}')">${r.name}</div>`
+            `<div class="room-option" onclick="selectRoom(decodeURIComponent('${encodeURIComponent(r.name)}'))">${escapeHtmlText(r.name)}</div>`
         ).join('');
     }
 }
 
 window.showRoomDropdown = async function () {
-    await loadRoomSuggestions(); // Always refresh to get latest available rooms
+    await loadRoomSuggestions(); // Always refresh to get latest rooms
     const dropdown = document.getElementById('room-dropdown');
     if (dropdown) {
         renderRoomDropdown(availableRooms);
@@ -1188,7 +1231,7 @@ window.showRoomDropdown = async function () {
 };
 
 window.filterRoomDropdown = function () {
-    const input = document.getElementById('record-room').value.toLowerCase();
+    const input = normalizeRoomName(document.getElementById('record-room').value).toLowerCase();
     const filtered = availableRooms.filter(r => r.name.toLowerCase().includes(input));
     renderRoomDropdown(filtered);
     const dropdown = document.getElementById('room-dropdown');

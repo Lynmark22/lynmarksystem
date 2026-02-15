@@ -200,24 +200,44 @@
 								<!-- Page Title -->
 								<h2 id="text05" class="text-component instance-5 style-1">Internet Information</h2>
 								<!-- Internet Rules and Guidelines Text -->
-								<p id="text03" class="text-component instance-3 style-3" data-onvisible-trigger><span
-										class="p"><strong>Internet Plan — Rules &amp; Guidelines</strong></span><span
-										class="p"><u>Device Limits</u><br /><em>Free WiFi:</em> Each plan allows
-										<strong>2 devices</strong>
-										at a time. Additional devices cannot connect until one
-										disconnects.<br /><em>Voucher WiFi:</em> Each voucher code is
-										valid for <strong>1 device only</strong>. The same code cannot be used on a
-										different device.</span><span class="p"><u>System Maintenance</u><br />The
-										system will
-										automatically reboot at <code>3:00 AM</code> on the <code>1st</code> day of
-										every month to refresh memory and maintain stability.</span><span
-										class="p"><u>Speed Notice</u><br />Internet speeds may vary and are not always
-										guaranteed. If you experience issues, first verify your current plan limits,
-										then contact the boarding house administrator.<br />You may reach us via
-										WhatsApp and use the link on the homepage.</span><span class="p"><u>Fair
-											Use</u><br />Wi-Fi access is provided <strong>free of charge</strong> to
-										tenants. Guests may connect, but please be mindful of your plan's <strong>device
-											limits</strong>.</span></p>
+								<div id="text03" class="text-component instance-3 style-3 internet-info-panel" data-onvisible-trigger>
+									<div class="internet-info-head">
+										<p class="internet-info-kicker">Internet Plan</p>
+										<h3>Rules &amp; Guidelines</h3>
+										<p class="internet-info-intro">Simple policies for stable speeds, fair access, and smoother switching between devices.</p>
+									</div>
+
+									<div class="internet-info-grid">
+										<article class="internet-rule-card internet-rule-card-limits">
+											<h4>Device Limits</h4>
+
+											<div class="policy-item">
+												<span class="wifi-policy-label free-wifi-label">Free WiFi</span>
+												<p>Each plan allows <strong>2 devices</strong> at a time. Additional devices cannot connect until one disconnects.</p>
+											</div>
+
+											<div class="policy-item">
+												<span class="wifi-policy-label voucher-wifi-label">Voucher WiFi</span>
+												<p>Each voucher code allows <strong>1 online device at a time</strong>. You may use the same code on a different device only after disconnecting (or turning off Wi-Fi) on the currently connected device. You can switch back any time using the same rule.</p>
+											</div>
+										</article>
+
+										<article class="internet-rule-card">
+											<h4>System Maintenance</h4>
+											<p>The system will automatically reboot at <code>3:00 AM</code> on the <code>1st</code> day of every month to refresh memory and maintain stability.</p>
+										</article>
+
+										<article class="internet-rule-card">
+											<h4>Speed Notice</h4>
+											<p>Internet speeds may vary and are not always guaranteed. If you experience issues, first verify your current plan limits, then contact the boarding house administrator. You may reach us via WhatsApp using the homepage link.</p>
+										</article>
+
+										<article class="internet-rule-card">
+											<h4>Fair Use</h4>
+											<p>Wi-Fi access is provided <strong>free of charge</strong> to tenants. Guests may connect, but please be mindful of your plan's <strong>device limits</strong>.</p>
+										</article>
+									</div>
+								</div>
 
 								<!-- ============================================= -->
 								<!-- INTERNET TIERS SELECTION WIDGET             -->
@@ -2443,6 +2463,137 @@
 									order: 4;
 								}
 
+								#container06 #text03.internet-info-panel {
+									display: grid;
+									gap: 0.82rem;
+									margin-top: 0.1rem;
+								}
+
+								#container06 #text03 .internet-info-head {
+									padding: 0.9rem 1rem;
+									border-radius: 1rem;
+									background: linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
+									border: 1px solid rgba(255, 255, 255, 0.58);
+									box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+								}
+
+								#container06 #text03 .internet-info-kicker {
+									margin: 0;
+									font-size: 0.72rem;
+									font-weight: 700;
+									letter-spacing: 0.16em;
+									text-transform: uppercase;
+									color: rgba(53, 44, 31, 0.86);
+								}
+
+								#container06 #text03 .internet-info-head h3 {
+									margin: 0.22rem 0 0;
+									font-family: 'Lato', sans-serif;
+									font-size: clamp(1.14rem, 2.05vw, 1.44rem);
+									line-height: 1.15;
+									color: #161008;
+								}
+
+								#container06 #text03 .internet-info-intro {
+									margin: 0.46rem 0 0;
+									font-size: 0.94rem;
+									line-height: 1.45;
+									color: rgba(30, 23, 15, 0.84);
+								}
+
+								#container06 #text03 .internet-info-grid {
+									display: grid;
+									grid-template-columns: repeat(2, minmax(0, 1fr));
+									gap: 0.78rem;
+								}
+
+								#container06 #text03 .internet-rule-card {
+									padding: 0.88rem 0.92rem;
+									border-radius: 1rem;
+									border: 1px solid rgba(255, 255, 255, 0.55);
+									background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.44));
+									box-shadow: 0 8px 15px rgba(0, 0, 0, 0.08);
+									transition: transform 0.16s ease, box-shadow 0.16s ease;
+								}
+
+								#container06 #text03 .internet-rule-card:hover {
+									transform: translateY(-1px);
+									box-shadow: 0 11px 18px rgba(0, 0, 0, 0.1);
+								}
+
+								#container06 #text03 .internet-rule-card-limits {
+									grid-column: 1 / -1;
+								}
+
+								#container06 #text03 .internet-rule-card h4 {
+									margin: 0 0 0.55rem;
+									font-family: 'Lato', sans-serif;
+									font-size: 1rem;
+									line-height: 1.2;
+									color: #15100a;
+									text-decoration: underline;
+									text-decoration-color: rgba(103, 79, 43, 0.45);
+									text-underline-offset: 0.16em;
+								}
+
+								#container06 #text03 .internet-rule-card p {
+									margin: 0;
+									font-size: 0.98rem;
+									line-height: 1.5;
+									color: rgba(18, 13, 9, 0.92);
+								}
+
+								#container06 #text03 .policy-item {
+									padding: 0.64rem 0.7rem;
+									border-radius: 0.78rem;
+									border: 1px solid rgba(255, 255, 255, 0.58);
+									background: rgba(255, 255, 255, 0.57);
+								}
+
+								#container06 #text03 .policy-item+.policy-item {
+									margin-top: 0.52rem;
+								}
+
+								#container06 #text03 .policy-item p {
+									margin-top: 0.48rem;
+								}
+
+								#container06 #text03 .wifi-policy-label {
+									display: inline-flex;
+									align-items: center;
+									padding: 0.16rem 0.56rem 0.19rem;
+									border-radius: 0.52rem;
+									font-size: 0.78rem;
+									font-weight: 800;
+									letter-spacing: 0.04em;
+									line-height: 1.1;
+									text-transform: uppercase;
+									border: 1px solid rgba(121, 88, 34, 0.45);
+									background: linear-gradient(180deg, rgba(255, 245, 224, 0.78) 0%, rgba(246, 231, 201, 0.72) 100%);
+									box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+								}
+
+								#container06 #text03 .free-wifi-label {
+									color: #0f4b3f;
+									border-color: rgba(26, 124, 103, 0.45);
+									background: linear-gradient(180deg, rgba(216, 244, 236, 0.84) 0%, rgba(194, 233, 222, 0.78) 100%);
+								}
+
+								#container06 #text03 .voucher-wifi-label {
+									color: #613d0b;
+									border-color: rgba(176, 111, 23, 0.5);
+									background: linear-gradient(180deg, rgba(253, 236, 208, 0.86) 0%, rgba(246, 217, 169, 0.8) 100%);
+								}
+
+								#container06 #text03 code {
+									font-size: 0.85em;
+									font-weight: 700;
+									border-radius: 0.38rem;
+									padding: 0.1rem 0.32rem;
+									background: rgba(17, 12, 8, 0.08);
+									border: 1px solid rgba(17, 12, 8, 0.12);
+								}
+
 								#container06 .tiers {
 									display: grid !important;
 									grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2751,6 +2902,10 @@
 										grid-template-columns: 1fr;
 									}
 
+									#container06 #text03 .internet-info-grid {
+										grid-template-columns: 1fr;
+									}
+
 									#container06 .speedtest-modal-footer-inline {
 										flex-direction: column;
 									}
@@ -2771,6 +2926,18 @@
 								}
 
 								@media screen and (max-width: 480px) {
+									#container06 #text03 .internet-info-head {
+										padding: 0.78rem 0.82rem;
+									}
+
+									#container06 #text03 .internet-rule-card {
+										padding: 0.78rem 0.82rem;
+									}
+
+									#container06 #text03 .policy-item {
+										padding: 0.58rem 0.62rem;
+									}
+
 									.network-confirm-card {
 										width: min(100%, 320px);
 										padding: 14px;
@@ -3153,3 +3320,4 @@
 	</body>
 
 </html>
+
