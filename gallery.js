@@ -13,7 +13,9 @@ const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 const RESUMABLE_UPLOAD_CHUNK_BYTES = 6 * 1024 * 1024;
 const RESUMABLE_UPLOAD_RETRY_DELAYS = [0, 3000, 5000, 10000, 20000];
 const SECTION_PREVIEW_LIMIT = 9;
-const SECTION_BROWSER_PAGE_SIZE = 9;
+const DEFAULT_SLIDESHOW_LIMIT = 5;
+const SECTION_BROWSER_PAGE_SIZE_MOBILE = 9;
+const SECTION_BROWSER_PAGE_SIZE_DESKTOP = 12;
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'm4v', 'ogv', 'ogg']);
 const GALLERY_THEME_STORAGE_KEY = 'gallery_theme_mode';
 const AUTO_THEME_DARK_START_HOUR = 18;
@@ -55,6 +57,16 @@ function getStoredThemeMode() {
 function getSystemTheme() {
     const currentHour = new Date().getHours();
     return currentHour >= AUTO_THEME_DARK_START_HOUR || currentHour < AUTO_THEME_LIGHT_START_HOUR ? 'dark' : 'light';
+}
+
+function getSectionBrowserPageSize() {
+    if (typeof window === 'undefined') {
+        return SECTION_BROWSER_PAGE_SIZE_DESKTOP;
+    }
+
+    return window.innerWidth <= 760
+        ? SECTION_BROWSER_PAGE_SIZE_MOBILE
+        : SECTION_BROWSER_PAGE_SIZE_DESKTOP;
 }
 
 function resolveGalleryTheme(mode, systemTheme = getSystemTheme()) {
@@ -860,7 +872,8 @@ function MediaSurface({
     controls = false,
     preload = 'metadata',
     onReady = null,
-    onAutoplayMuted = null
+    onAutoplayMuted = null,
+    onEnded = null
 }) {
     const hasPublicUrl = Boolean(media?.publicUrl);
     const isVideo = hasPublicUrl && isVideoMedia(media);
@@ -959,7 +972,8 @@ function MediaSurface({
                 preload=${preload}
                 aria-hidden=${decorative ? 'true' : undefined}
                 aria-label=${decorative ? undefined : alt}
-                onLoadedData=${onReady}></video>
+                onLoadedData=${onReady}
+                onEnded=${onEnded}></video>
         `;
     }
 
@@ -1143,17 +1157,6 @@ function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'vi
         setActiveIndex(0);
     }, [photoSignature]);
 
-    useEffect(() => {
-        if (pausePlayback) return undefined;
-        if (photos.length < 2) return;
-
-        const timerId = window.setInterval(() => {
-            setActiveIndex((current) => (current + 1) % photos.length);
-        }, 4800);
-
-        return () => window.clearInterval(timerId);
-    }, [photos.length, photoSignature, pausePlayback]);
-
     if (!photos.length) return null;
 
     const activePhoto = photos[activeIndex] || photos[0];
@@ -1165,6 +1168,18 @@ function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'vi
     const goTo = (index) => {
         setActiveIndex((index + photos.length) % photos.length);
     };
+
+    useEffect(() => {
+        if (pausePlayback) return undefined;
+        if (photos.length < 2) return undefined;
+        if (activeIsVideo) return undefined;
+
+        const timerId = window.setTimeout(() => {
+            setActiveIndex((current) => (current + 1) % photos.length);
+        }, 4800);
+
+        return () => window.clearTimeout(timerId);
+    }, [activeIndex, activeIsVideo, photos.length, photoSignature, pausePlayback]);
 
     useEffect(() => {
         setVideoMuted(false);
@@ -1197,9 +1212,10 @@ function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'vi
                         attemptPlayback=${shouldAutoplayActiveMedia}
                         suspendPlayback=${pausePlayback}
                         muted=${activeIsVideo ? videoMuted : true}
-                        loop=${true}
+                        loop=${activeIsVideo ? photos.length <= 1 : true}
                         preload=${activeMediaPreload}
-                        onAutoplayMuted=${() => setVideoMuted(true)} />
+                        onAutoplayMuted=${() => setVideoMuted(true)}
+                        onEnded=${activeIsVideo && photos.length > 1 ? () => goTo(activeIndex + 1) : undefined} />
                 </button>
                 ${photos.length > 1
                     ? html`
@@ -1225,8 +1241,7 @@ function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'vi
                     <span className="gallery-mosaic-eyebrow">${slideshowLabel}</span>
                     <strong className="gallery-slideshow-title">${getPhotoTitle(activePhoto)}</strong>
                     <div className="gallery-slideshow-meta">
-                        <span>${getPhotoOwner(activePhoto)}</span>
-                        <span>${formatCompactDate(getPhotoTimestamp(activePhoto))}</span>
+                        <span>${getPhotoOwner(activePhoto)} / ${formatCompactDate(getPhotoTimestamp(activePhoto))}</span>
                     </div>
                 </div>
                 <div className="gallery-slideshow-footer-controls">
@@ -1273,18 +1288,31 @@ function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'vi
 
 function SectionBrowserModal({ section, onClose, onOpenPhoto }) {
     const [page, setPage] = useState(0);
+    const [pageSize, setPageSize] = useState(() => getSectionBrowserPageSize());
 
     useEffect(() => {
         setPage(0);
     }, [section?.key]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+
+        const syncPageSize = () => {
+            setPageSize(getSectionBrowserPageSize());
+        };
+
+        window.addEventListener('resize', syncPageSize);
+
+        return () => window.removeEventListener('resize', syncPageSize);
+    }, []);
+
     if (!section) return null;
 
-    const pageCount = Math.max(1, Math.ceil(section.photos.length / SECTION_BROWSER_PAGE_SIZE));
+    const pageCount = Math.max(1, Math.ceil(section.photos.length / pageSize));
     const currentPage = clamp(page, 0, pageCount - 1);
     const pagePhotos = section.photos.slice(
-        currentPage * SECTION_BROWSER_PAGE_SIZE,
-        (currentPage + 1) * SECTION_BROWSER_PAGE_SIZE
+        currentPage * pageSize,
+        (currentPage + 1) * pageSize
     );
 
     const openPhoto = (photoId) => {
@@ -1896,7 +1924,6 @@ function App() {
     const [viewMode, setViewMode] = useState('days');
     const [slideshowOrderMode, setSlideshowOrderMode] = useState('latest');
     const [slideshowMediaFilter, setSlideshowMediaFilter] = useState('videos');
-    const [slideshowLimit, setSlideshowLimit] = useState(5);
     const [slideshowShuffleSeed, setSlideshowShuffleSeed] = useState(() => Date.now());
     const [themeMode, setThemeMode] = useState(() => getStoredThemeMode());
     const [systemTheme, setSystemTheme] = useState(() => getSystemTheme());
@@ -2033,7 +2060,7 @@ function App() {
         slideshowMediaFilter,
         slideshowOrderMode,
         slideshowShuffleSeed,
-        slideshowLimit
+        DEFAULT_SLIDESHOW_LIMIT
     );
     const activeIndex = filteredPhotos.findIndex((photo) => photo.id === activePhotoId);
     const activePhoto = activeIndex >= 0 ? filteredPhotos[activeIndex] : null;
@@ -2499,22 +2526,6 @@ function App() {
                                                 aria-pressed=${slideshowOrderMode === option.id ? 'true' : 'false'}
                                                 onClick=${() => setSlideshowOrderMode(option.id)}>
                                                 ${option.label}
-                                            </button>
-                                        `
-                                    )}
-                                </div>
-                            </div>
-                            <div className="gallery-browse-inline-group" role="group" aria-label="Slideshow count">
-                                <div className="gallery-segment gallery-browse-segment" role="tablist" aria-label="Slideshow count">
-                                    ${[1, 5].map(
-                                        (count) => html`
-                                            <button
-                                                type="button"
-                                                key=${count}
-                                                className=${cx(slideshowLimit === count && 'is-active')}
-                                                aria-pressed=${slideshowLimit === count ? 'true' : 'false'}
-                                                onClick=${() => setSlideshowLimit(count)}>
-                                                ${count}
                                             </button>
                                         `
                                     )}

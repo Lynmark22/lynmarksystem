@@ -765,8 +765,9 @@ a {
 .gallery-slideshow-meta {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    justify-content: flex-start;
+    gap: 0.42rem;
+    flex-wrap: wrap;
     color: rgba(255, 248, 240, 0.82);
     font-size: 0.82rem;
 }
@@ -797,7 +798,7 @@ a {
 
 .gallery-slideshow-footer {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 1rem;
 }
@@ -812,8 +813,8 @@ a {
 .gallery-slideshow-title {
     margin: 0;
     font-family: 'Fraunces', serif;
-    font-size: clamp(1rem, 0.8rem + 0.55vw, 1.35rem);
-    line-height: 1.04;
+    font-size: clamp(0.96rem, 0.78rem + 0.48vw, 1.24rem);
+    line-height: 1.01;
     color: var(--gallery-ink);
     display: -webkit-box;
     overflow: hidden;
@@ -1523,7 +1524,7 @@ a {
     position: relative;
     z-index: 1;
     display: grid;
-    gap: 0.35rem;
+    gap: 0.26rem;
     padding: 0.8rem;
     background: linear-gradient(180deg, rgba(14, 20, 32, 0), rgba(14, 20, 32, 0.72));
     color: #fff9f3;
@@ -1532,17 +1533,36 @@ a {
 .gallery-tile-title {
     margin: 0;
     font-size: 0.92rem;
-    line-height: 1.35;
+    line-height: 1.14;
     font-weight: 600;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    word-break: break-word;
 }
 
 .gallery-tile-meta {
     display: flex;
+    align-items: flex-end;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.5rem;
     color: rgba(255, 249, 243, 0.8);
     font-size: 0.75rem;
     letter-spacing: 0.03em;
+}
+
+.gallery-tile-meta span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gallery-tile-meta span:last-child {
+    flex: 0 0 auto;
+    margin-left: auto;
+    white-space: nowrap;
 }
 
 .gallery-months {
@@ -3007,7 +3027,7 @@ html[data-gallery-theme='dark'] .gallery-brand-badge {
 }
 
 .gallery-slideshow-title {
-    font-size: 0.96rem;
+    font-size: 0.88rem;
 }
 
 .gallery-slideshow-footer-controls {
