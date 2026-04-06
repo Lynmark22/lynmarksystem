@@ -413,6 +413,13 @@ function getPhotoTitle(photo) {
     return formatCompactDate(getPhotoTimestamp(photo));
 }
 
+function getCompactPhotoTitle(photo, maxLength = 34) {
+    const title = getPhotoTitle(photo);
+    if (title.length <= maxLength) return title;
+
+    return `${title.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+}
+
 function getPhotoTimestamp(photo) {
     return photo?.created_at || photo?.taken_at || null;
 }
@@ -1033,7 +1040,7 @@ function CompactTile({ photo, onOpen }) {
                 preload="metadata" />
             <${MediaBadge} media=${photo} />
             <div className="gallery-tile-overlay">
-                <p className="gallery-tile-title">${getPhotoTitle(photo)}</p>
+                <p className="gallery-tile-title">${getCompactPhotoTitle(photo)}</p>
                 <div className="gallery-tile-meta">
                     <span>${getPhotoOwner(photo)}</span>
                     <span>${formatCompactDate(getPhotoTimestamp(photo))}</span>
