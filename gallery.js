@@ -1297,7 +1297,7 @@ function SectionBrowserModal({ section, onClose, onOpenPhoto }) {
             <div className="gallery-modal gallery-browser-modal" onClick=${(event) => event.stopPropagation()}>
                 <div className="gallery-modal-body gallery-browser-body">
                     <div className="gallery-browser-header">
-                        <div>
+                        <div className="gallery-browser-header-copy">
                             <span className="gallery-kicker">Media set</span>
                             <h2>${section.title}</h2>
                             <p className="gallery-browser-subtitle">
@@ -1305,8 +1305,8 @@ function SectionBrowserModal({ section, onClose, onOpenPhoto }) {
                             </p>
                         </div>
                         <div className="gallery-browser-actions">
-                            <span className="gallery-chip">${section.photos.length} items</span>
-                            <button type="button" className="gallery-button" onClick=${onClose}>Close</button>
+                            <span className="gallery-chip gallery-browser-count">${section.photos.length} items</span>
+                            <button type="button" className="gallery-button gallery-browser-close" onClick=${onClose}>Close</button>
                         </div>
                     </div>
 
@@ -1323,23 +1323,25 @@ function SectionBrowserModal({ section, onClose, onOpenPhoto }) {
 
                     ${pageCount > 1
                         ? html`
-                              <div className="gallery-browser-pagination">
+                              <div className="gallery-browser-pagination" role="navigation" aria-label="Gallery pages">
                                   <button
                                       type="button"
-                                      className="gallery-button"
+                                      className="gallery-button gallery-browser-page-button"
+                                      aria-label="Previous page"
                                       onClick=${() => setPage((value) => Math.max(0, value - 1))}
                                       disabled=${currentPage === 0}>
-                                      Previous
+                                      ${html`<${Icon} path="M15 18l-6-6 6-6" size=${16} />`}
                                   </button>
-                                  <span className="gallery-browser-page">
-                                      Page ${currentPage + 1} of ${pageCount}
+                                  <span className="gallery-chip gallery-browser-page-indicator">
+                                      ${currentPage + 1} / ${pageCount}
                                   </span>
                                   <button
                                       type="button"
-                                      className="gallery-button"
+                                      className="gallery-button gallery-browser-page-button"
+                                      aria-label="Next page"
                                       onClick=${() => setPage((value) => Math.min(pageCount - 1, value + 1))}
                                       disabled=${currentPage >= pageCount - 1}>
-                                      Next
+                                      ${html`<${Icon} path="M9 18l6-6-6-6" size=${16} />`}
                                   </button>
                               </div>
                           `

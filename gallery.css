@@ -1965,27 +1965,41 @@ a {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.75rem;
+}
+
+.gallery-browser-header-copy {
+    display: grid;
+    gap: 0.16rem;
 }
 
 .gallery-browser-header h2 {
     margin: 0;
     font-family: 'Fraunces', serif;
-    font-size: clamp(1.45rem, 1.1rem + 0.7vw, 1.9rem);
+    font-size: clamp(1.24rem, 0.98rem + 0.6vw, 1.64rem);
+    line-height: 0.98;
 }
 
 .gallery-browser-subtitle {
-    margin: 0.28rem 0 0;
+    margin: 0.1rem 0 0;
     color: var(--gallery-ink-soft);
-    font-size: 0.92rem;
+    font-size: 0.82rem;
 }
 
 .gallery-browser-actions {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.42rem;
     flex-wrap: wrap;
     justify-content: flex-end;
+}
+
+.gallery-browser-count,
+.gallery-browser-close {
+    min-height: 34px;
+    padding: 0.48rem 0.7rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
 }
 
 .gallery-confirm-icon {
@@ -2055,13 +2069,30 @@ a {
 .gallery-browser-pagination {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 .gallery-browser-page {
     color: var(--gallery-ink-soft);
     font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.gallery-browser-page-button {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 999px;
+    flex: 0 0 auto;
+}
+
+.gallery-browser-page-indicator {
+    min-height: 36px;
+    min-width: 92px;
+    padding: 0.48rem 0.72rem;
+    justify-content: center;
+    font-size: 0.78rem;
     font-variant-numeric: tabular-nums;
 }
 
@@ -3158,12 +3189,6 @@ html[data-gallery-theme='dark'] .gallery-brand-badge {
         border-radius: 11px;
     }
 
-    .gallery-browser-header,
-    .gallery-browser-pagination {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
     .gallery-upload-progress-head,
     .gallery-upload-progress-meta,
     .gallery-file-item {
@@ -3179,8 +3204,43 @@ html[data-gallery-theme='dark'] .gallery-brand-badge {
         justify-content: flex-start;
     }
 
-    .gallery-browser-page {
-        text-align: center;
+    .gallery-browser-header {
+        gap: 0.5rem;
+    }
+
+    .gallery-browser-header h2 {
+        font-size: 1.04rem;
+    }
+
+    .gallery-browser-subtitle {
+        font-size: 0.72rem;
+        line-height: 1.15;
+    }
+
+    .gallery-browser-count,
+    .gallery-browser-close {
+        min-height: 30px;
+        padding: 0.34rem 0.56rem;
+        font-size: 0.7rem;
+        border-radius: 10px;
+    }
+
+    .gallery-browser-pagination {
+        gap: 0.36rem;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .gallery-browser-page-button {
+        min-width: 30px;
+        min-height: 30px;
+    }
+
+    .gallery-browser-page-indicator {
+        min-height: 30px;
+        min-width: 72px;
+        padding: 0.34rem 0.56rem;
+        font-size: 0.68rem;
     }
 
     .gallery-confirm-actions {
