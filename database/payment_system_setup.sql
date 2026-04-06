@@ -1,6 +1,7 @@
 -- ==================================================
 -- PAYMENT SYSTEM SETUP
 -- Dynamic GCash Payment Configuration & Submissions
+-- Run database/setup_security_rate_limits.sql first for anti-abuse checks
 -- ==================================================
 -- Run this in Supabase SQL Editor
 
@@ -36,21 +37,18 @@ ALTER TABLE public.payment_submissions ENABLE ROW LEVEL SECURITY;
 
 -- 4. RLS Policies for payment_settings
 -- Everyone can read payment settings
+DROP POLICY IF EXISTS "Public can read payment settings" ON public.payment_settings;
 CREATE POLICY "Public can read payment settings" ON public.payment_settings
     FOR SELECT USING (true);
 
 -- Only authenticated users can update (admin check done in function)
+DROP POLICY IF EXISTS "Authenticated users can update payment settings" ON public.payment_settings;
 CREATE POLICY "Authenticated users can update payment settings" ON public.payment_settings
     FOR ALL USING (true) WITH CHECK (true);
 
 -- 5. RLS Policies for payment_submissions
--- Anyone can insert submissions
-CREATE POLICY "Anyone can submit payments" ON public.payment_submissions
-    FOR INSERT WITH CHECK (true);
-
--- Anyone can read their own submissions (by matching contact info)
-CREATE POLICY "Public can read submissions" ON public.payment_submissions
-    FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Anyone can submit payments" ON public.payment_submissions;
+DROP POLICY IF EXISTS "Public can read submissions" ON public.payment_submissions;
 
 -- 6. Function to get payment settings (public access)
 CREATE OR REPLACE FUNCTION get_payment_settings()
@@ -139,10 +137,28 @@ CREATE OR REPLACE FUNCTION submit_payment(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, extensions
 AS $$
 DECLARE
     new_id UUID;
+    v_rate_limit jsonb;
 BEGIN
+    v_rate_limit := public.security_check_rate_limit(
+        'submit_payment',
+        public.security_request_subject(format('payment:%s', lower(trim(coalesce(p_room_no, 'unknown-room'))))),
+        5,
+        600,
+        3600,
+        jsonb_build_object(
+            'room_no', left(trim(coalesce(p_room_no, '')), 40),
+            'action', 'submit_payment'
+        )
+    );
+
+    if not coalesce((v_rate_limit ->> 'allowed')::boolean, false) then
+        raise exception 'Too many payment submissions from this network. Please wait before trying again.';
+    end if;
+
     INSERT INTO public.payment_submissions (
         sender_gcash_number,
         sender_full_name,
@@ -172,7 +188,7 @@ GRANT EXECUTE ON FUNCTION submit_payment(TEXT, TEXT, TEXT, TEXT, NUMERIC, TEXT) 
 -- 9. Grant table permissions for storage operations
 GRANT SELECT ON public.payment_settings TO anon;
 GRANT ALL ON public.payment_settings TO authenticated;
-GRANT SELECT, INSERT ON public.payment_submissions TO anon;
+REVOKE ALL ON public.payment_submissions FROM anon;
 GRANT ALL ON public.payment_submissions TO authenticated;
 
 -- ==================================================

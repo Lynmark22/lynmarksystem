@@ -3,6 +3,7 @@
 -- Purpose:
 --   1) Keep this app aligned with the shared users schema.
 --   2) Allow public create-account via RPC using secure hashing.
+-- Run database/setup_security_rate_limits.sql first for anti-abuse checks.
 -- =========================================================
 
 create extension if not exists pgcrypto with schema extensions;
@@ -197,12 +198,26 @@ declare
     v_username text;
     v_password text;
     v_password_ok boolean := false;
+    v_rate_limit jsonb;
 begin
     v_username := trim(coalesce(p_username, ''));
     v_password := coalesce(p_password, '');
 
     if v_username = '' or v_password = '' then
         return json_build_object('success', false, 'error', 'Username and password are required.');
+    end if;
+
+    v_rate_limit := public.security_check_rate_limit(
+        'custom_login',
+        public.security_request_subject(format('login:%s', lower(v_username))),
+        8,
+        600,
+        1800,
+        jsonb_build_object('username', left(lower(v_username), 60))
+    );
+
+    if not coalesce((v_rate_limit ->> 'allowed')::boolean, false) then
+        return json_build_object('success', false, 'error', 'Too many login attempts. Please wait before trying again.');
     end if;
 
     select u.*
@@ -259,7 +274,7 @@ begin
     );
 exception
     when others then
-        return json_build_object('success', false, 'error', sqlerrm);
+        return json_build_object('success', false, 'error', 'Unable to sign in right now.');
 end;
 $$;
 

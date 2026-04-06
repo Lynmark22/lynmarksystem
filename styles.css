@@ -1136,6 +1136,10 @@ body.is-instant::after {
 	animation-delay: 4s;
 }
 
+.buttons-component.style-1>li:nth-child(6)>a::before {
+	animation-delay: 5s;
+}
+
 @keyframes premiumShimmer {
 	0% {
 		transform: translateX(-100%);
@@ -1196,14 +1200,6 @@ body.is-instant::after {
 .buttons-component.style-1>li>a:active {
 	transform: translateY(-1px) scale(1.01);
 	transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.buttons-component.instance-1>li>a.n05>svg {
-	fill: #447DB3;
-}
-
-.buttons-component.instance-1>li>a.n05 {
-	color: #A13535;
 }
 
 .buttons-component.style-4 {

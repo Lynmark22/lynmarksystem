@@ -1,0 +1,2720 @@
+import React, { startTransition, useDeferredValue, useEffect, useRef, useState } from 'https://esm.sh/react@18.3.1';
+import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
+import htm from 'https://esm.sh/htm@3.1.1';
+import * as tus from 'https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/+esm';
+
+const html = htm.bind(React.createElement);
+
+const SUPABASE_URL = 'https://jlbvoiqexugdobzgpvyb.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsYnZvaXFleHVnZG9iemdwdnliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NTU1MzAsImV4cCI6MjA4MDMzMTUzMH0.2RVENuR1AVPbjM5vBG7c2_fppn3D4zAZCuBFVCI08SA';
+const GALLERY_BUCKET = 'lynmark-gallery';
+const MAX_UPLOAD_MB = 50;
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+const RESUMABLE_UPLOAD_CHUNK_BYTES = 6 * 1024 * 1024;
+const RESUMABLE_UPLOAD_RETRY_DELAYS = [0, 3000, 5000, 10000, 20000];
+const SECTION_PREVIEW_LIMIT = 9;
+const SECTION_BROWSER_PAGE_SIZE = 9;
+const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'm4v', 'ogv', 'ogg']);
+const GALLERY_THEME_STORAGE_KEY = 'gallery_theme_mode';
+const AUTO_THEME_DARK_START_HOUR = 18;
+const AUTO_THEME_LIGHT_START_HOUR = 7;
+const GALLERY_THEME_COLORS = {
+    light: '#f2efe8',
+    dark: '#0f1625'
+};
+
+function cx(...values) {
+    return values.filter(Boolean).join(' ');
+}
+
+function getStoredUser() {
+    try {
+        const raw = localStorage.getItem('billing_user');
+        return raw ? JSON.parse(raw) : null;
+    } catch (_error) {
+        return null;
+    }
+}
+
+function areUsersEquivalent(previousUser, nextUser) {
+    return JSON.stringify(previousUser || null) === JSON.stringify(nextUser || null);
+}
+
+function normalizeThemeMode(value) {
+    return ['auto', 'light', 'dark'].includes(value) ? value : 'auto';
+}
+
+function getStoredThemeMode() {
+    try {
+        return normalizeThemeMode(localStorage.getItem(GALLERY_THEME_STORAGE_KEY));
+    } catch (_error) {
+        return 'auto';
+    }
+}
+
+function getSystemTheme() {
+    const currentHour = new Date().getHours();
+    return currentHour >= AUTO_THEME_DARK_START_HOUR || currentHour < AUTO_THEME_LIGHT_START_HOUR ? 'dark' : 'light';
+}
+
+function resolveGalleryTheme(mode, systemTheme = getSystemTheme()) {
+    return mode === 'auto' ? systemTheme : mode;
+}
+
+function applyGalleryTheme(mode, systemTheme = getSystemTheme()) {
+    if (typeof document === 'undefined') {
+        return resolveGalleryTheme(mode, systemTheme);
+    }
+
+    const resolvedTheme = resolveGalleryTheme(mode, systemTheme);
+    const root = document.documentElement;
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+
+    root.dataset.galleryThemeMode = mode;
+    root.dataset.galleryTheme = resolvedTheme;
+
+    if (themeColor) {
+        themeColor.setAttribute('content', GALLERY_THEME_COLORS[resolvedTheme] || GALLERY_THEME_COLORS.light);
+    }
+
+    return resolvedTheme;
+}
+
+function createSupabaseClient() {
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+        throw new Error('Gallery is unavailable right now.');
+    }
+
+    return window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false }
+    });
+}
+
+function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+}
+
+function getDirectStorageOrigin(url) {
+    const parsed = new URL(url);
+
+    if (!parsed.hostname.includes('.storage.supabase.')) {
+        parsed.hostname = parsed.hostname.replace('.supabase.', '.storage.supabase.');
+    }
+
+    return parsed.origin;
+}
+
+const RESUMABLE_UPLOAD_ENDPOINT = `${getDirectStorageOrigin(SUPABASE_URL)}/storage/v1/upload/resumable`;
+
+function hashValue(value) {
+    const input = String(value || '');
+    let hash = 0;
+
+    for (let index = 0; index < input.length; index += 1) {
+        hash = (hash * 33 + input.charCodeAt(index)) % 2147483647;
+    }
+
+    return hash;
+}
+
+function formatNumber(value) {
+    return new Intl.NumberFormat('en-US').format(Number(value) || 0);
+}
+
+function formatCompactDate(value) {
+    if (!value) return 'Unknown date';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown date';
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric'
+    }).format(date);
+}
+
+function formatDisplayDate(value) {
+    if (!value) return 'Unknown date';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown date';
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+    }).format(date);
+}
+
+function formatMonthLabel(value) {
+    if (!value) return 'Unknown month';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown month';
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'long',
+        year: 'numeric'
+    }).format(date);
+}
+
+function getDayKey(value) {
+    const date = new Date(value || Date.now());
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function getDayHeading(value) {
+    const date = new Date(value || Date.now());
+    if (Number.isNaN(date.getTime())) return 'Unknown Day';
+
+    const now = new Date();
+    const todayKey = getDayKey(now);
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const yesterdayKey = getDayKey(yesterday);
+    const targetKey = getDayKey(date);
+
+    if (targetKey === todayKey) return 'Today';
+    if (targetKey === yesterdayKey) return 'Yesterday';
+
+    return new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+    }).format(date);
+}
+
+function fileSizeLabel(bytes) {
+    const size = Number(bytes) || 0;
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function percentageLabel(value) {
+    return `${Math.round(Number(value) || 0)}%`;
+}
+
+function uploadSpeedLabel(bytesPerSecond) {
+    const speed = Number(bytesPerSecond) || 0;
+    if (speed <= 0) return 'Measuring speed...';
+    return `${fileSizeLabel(speed)}/s`;
+}
+
+function createUploadProgressState(files) {
+    const items = files.map((file, index) => ({
+        id: `${file.name}-${file.size}-${index}`,
+        name: file.name,
+        totalBytes: Number(file.size) || 0,
+        uploadedBytes: 0,
+        percentage: 0,
+        speedBytesPerSecond: 0,
+        status: 'queued',
+        errorMessage: ''
+    }));
+    const totalBytes = items.reduce((sum, item) => sum + item.totalBytes, 0);
+
+    return {
+        items,
+        totalBytes,
+        uploadedBytes: 0,
+        percentage: 0,
+        activeIndex: items.length ? 0 : -1,
+        activeFileName: items[0]?.name || '',
+        speedBytesPerSecond: 0,
+        stageLabel: items.length ? `Preparing ${items[0].name}...` : ''
+    };
+}
+
+function updateUploadProgressState(previous, fileIndex, filePatch = {}, meta = {}) {
+    if (!previous || fileIndex < 0 || fileIndex >= previous.items.length) {
+        return previous;
+    }
+
+    const items = previous.items.map((item, index) => {
+        if (index !== fileIndex) return item;
+
+        const totalBytes = Number(filePatch.totalBytes ?? item.totalBytes) || 0;
+        const uploadedBytes = clamp(Number(filePatch.uploadedBytes ?? item.uploadedBytes) || 0, 0, totalBytes || Number.MAX_SAFE_INTEGER);
+
+        return {
+            ...item,
+            ...filePatch,
+            totalBytes,
+            uploadedBytes,
+            percentage: totalBytes ? clamp((uploadedBytes / totalBytes) * 100, 0, 100) : 0
+        };
+    });
+
+    const totalBytes = previous.totalBytes || items.reduce((sum, item) => sum + (Number(item.totalBytes) || 0), 0);
+    const uploadedBytes = items.reduce(
+        (sum, item) => sum + clamp(Number(item.uploadedBytes) || 0, 0, Number(item.totalBytes) || Number.MAX_SAFE_INTEGER),
+        0
+    );
+    const activeIndex = meta.activeIndex ?? previous.activeIndex;
+    const activeItem = items[activeIndex] || null;
+
+    return {
+        ...previous,
+        items,
+        totalBytes,
+        uploadedBytes,
+        percentage: totalBytes ? clamp((uploadedBytes / totalBytes) * 100, 0, 100) : 0,
+        activeIndex,
+        activeFileName: meta.activeFileName ?? (activeItem?.name || ''),
+        speedBytesPerSecond: meta.speedBytesPerSecond ?? previous.speedBytesPerSecond,
+        stageLabel: meta.stageLabel ?? previous.stageLabel
+    };
+}
+
+function getUploadItemStatusLabel(item) {
+    if (!item) return 'Ready';
+
+    switch (item.status) {
+        case 'preparing':
+            return 'Preparing';
+        case 'uploading':
+            return `${percentageLabel(item.percentage)} uploaded`;
+        case 'finalizing':
+            return 'Saving';
+        case 'complete':
+            return 'Uploaded';
+        case 'error':
+            return item.errorMessage || 'Upload failed';
+        default:
+            return 'Waiting';
+    }
+}
+
+function sanitizeFileName(name) {
+    return String(name || 'photo')
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[^a-z0-9-_]+/gi, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .toLowerCase() || 'photo';
+}
+
+function safeCaption(input) {
+    return String(input || '').trim().replace(/\s+/g, ' ');
+}
+
+function buildStoragePath(user, file) {
+    const ownerId = user?.id || 'guest';
+    const timeKey = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = sanitizeFileName(file.name);
+    const extensionMatch = String(file.name || '').match(/\.[a-z0-9]+$/i);
+    const extension = extensionMatch ? extensionMatch[0].toLowerCase() : '.jpg';
+    const randomPart = Math.random().toString(36).slice(2, 8);
+    return `${ownerId}/${timeKey}-${randomPart}-${fileName}${extension}`;
+}
+
+function getMediaExtension(value) {
+    const source = String(value?.storage_path || value?.publicUrl || value?.name || value || '');
+    const sanitized = source.split('#')[0].split('?')[0];
+    const match = sanitized.match(/\.([a-z0-9]+)$/i);
+    return match ? match[1].toLowerCase() : '';
+}
+
+function isVideoMedia(value) {
+    const type = String(value?.type || '').toLowerCase();
+    if (type.startsWith('video/')) return true;
+    if (type.startsWith('image/')) return false;
+    return VIDEO_EXTENSIONS.has(getMediaExtension(value));
+}
+
+function isSupportedMediaFile(file) {
+    const type = String(file?.type || '').toLowerCase();
+    return type.startsWith('image/') || type.startsWith('video/') || VIDEO_EXTENSIONS.has(getMediaExtension(file));
+}
+
+function getMediaContentType(file) {
+    const type = String(file?.type || '').trim().toLowerCase();
+    if (type) return type;
+    return isVideoMedia(file) ? 'video/mp4' : 'image/jpeg';
+}
+
+async function getResumableUploadHeaders(client, signedToken) {
+    const sessionResult = typeof client?.auth?.getSession === 'function'
+        ? await client.auth.getSession()
+        : { data: { session: null } };
+    const accessToken = sessionResult?.data?.session?.access_token || SUPABASE_KEY;
+
+    return {
+        authorization: `Bearer ${accessToken}`,
+        apikey: SUPABASE_KEY,
+        'x-signature': signedToken,
+        'x-upsert': 'false'
+    };
+}
+
+function normalizeUploadError(error, file) {
+    const baseMessage = String(error?.message || error || 'The upload did not finish. Please try again.');
+
+    if (/instance of Buffer or Readable/i.test(baseMessage)) {
+        return new Error(
+            `${file.name} could not start uploading because the browser loaded the wrong resumable uploader build. Refresh the page and try again.`
+        );
+    }
+
+    if (/Invalid Compact JWS|AccessDenied|Unauthorized/i.test(baseMessage)) {
+        return new Error(
+            `${file.name} was rejected by Supabase Storage during the upload handshake. Refresh the page and try again. If it keeps failing, the signed upload token or upload auth headers are outdated.`
+        );
+    }
+
+    if (/mime type .* is not supported/i.test(baseMessage)) {
+        return new Error(
+            `${file.name} is blocked by the storage bucket settings. Run the updated gallery SQL so ${getMediaContentType(file)} uploads are allowed.`
+        );
+    }
+
+    if (/file size limit|entity too large|payload too large|maximum allowed size/i.test(baseMessage)) {
+        return new Error(
+            `${file.name} is larger than the current storage bucket limit. Run the updated gallery SQL to raise the bucket limit to ${MAX_UPLOAD_MB}MB.`
+        );
+    }
+
+    return error instanceof Error ? error : new Error(baseMessage);
+}
+
+function getMediaKindLabel(value) {
+    return isVideoMedia(value) ? 'Video' : 'Image';
+}
+
+function getPhotoUrl(client, photo) {
+    if (!client || !photo?.storage_path) return '';
+    const { data } = client.storage.from(photo.bucket_name || GALLERY_BUCKET).getPublicUrl(photo.storage_path);
+    return data?.publicUrl || '';
+}
+
+function getPhotoOwner(photo) {
+    if (!photo) return 'Lynmark';
+    if (photo.owner_name) return photo.owner_name;
+    if (photo.first_name || photo.last_name) {
+        return [photo.first_name, photo.last_name].filter(Boolean).join(' ').trim() || 'Lynmark';
+    }
+    if (photo.username) return photo.username;
+    return 'Lynmark';
+}
+
+function getPhotoTitle(photo) {
+    const caption = safeCaption(photo?.caption);
+    if (caption) return caption;
+    return formatCompactDate(getPhotoTimestamp(photo));
+}
+
+function getPhotoTimestamp(photo) {
+    return photo?.created_at || photo?.taken_at || null;
+}
+
+function getPhotoShape(photo, index = 0) {
+    const width = Number(photo?.width) || 1;
+    const height = Number(photo?.height) || 1;
+    const ratio = width / height;
+
+    if (ratio > 1.45 && index % 4 !== 1) return 'wide';
+    if (ratio > 1.18) return 'landscape';
+    if (ratio < 0.8 && index % 5 !== 0) return 'tall';
+    return 'standard';
+}
+
+function getPhotoOrientation(photo) {
+    const width = Number(photo?.width) || 1;
+    const height = Number(photo?.height) || 1;
+    const ratio = width / height;
+
+    if (ratio < 0.86) return 'portrait';
+    if (ratio > 1.14) return 'landscape';
+    return 'square';
+}
+
+function deriveSearchText(photo) {
+    return [
+        photo.caption,
+        photo.owner_name,
+        photo.owner_username,
+        formatMonthLabel(getPhotoTimestamp(photo)),
+        formatCompactDate(getPhotoTimestamp(photo))
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+}
+
+function enrichPhoto(client, photo) {
+    return {
+        ...photo,
+        publicUrl: getPhotoUrl(client, photo),
+        searchText: deriveSearchText(photo)
+    };
+}
+
+function getPhotoSurfaceStyle(photo) {
+    return {
+        '--photo-bg': photo?.dominant_color || '#efe7dc'
+    };
+}
+
+async function readImageDetails(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+
+        img.onload = () => {
+            let dominantColor = '#f3a46c';
+
+            try {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d', { willReadFrequently: true });
+                canvas.width = 16;
+                canvas.height = 16;
+
+                if (context) {
+                    context.drawImage(img, 0, 0, 16, 16);
+                    const pixels = context.getImageData(0, 0, 16, 16).data;
+                    let red = 0;
+                    let green = 0;
+                    let blue = 0;
+                    let count = 0;
+
+                    for (let index = 0; index < pixels.length; index += 4) {
+                        const alpha = pixels[index + 3];
+                        if (alpha < 120) continue;
+                        red += pixels[index];
+                        green += pixels[index + 1];
+                        blue += pixels[index + 2];
+                        count += 1;
+                    }
+
+                    if (count > 0) {
+                        dominantColor = `#${[red, green, blue]
+                            .map((value) => clamp(Math.round(value / count), 0, 255).toString(16).padStart(2, '0'))
+                            .join('')}`;
+                    }
+                }
+            } catch (_error) {
+                dominantColor = '#f3a46c';
+            }
+
+            URL.revokeObjectURL(url);
+            resolve({
+                width: img.naturalWidth,
+                height: img.naturalHeight,
+                dominantColor
+            });
+        };
+
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error(`Unable to read image metadata for ${file.name}.`));
+        };
+
+        img.src = url;
+    });
+}
+
+async function readVideoDetails(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement('video');
+
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+
+        video.onloadedmetadata = () => {
+            URL.revokeObjectURL(url);
+            resolve({
+                width: video.videoWidth || null,
+                height: video.videoHeight || null,
+                dominantColor: '#1d2638'
+            });
+        };
+
+        video.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error(`Unable to read video metadata for ${file.name}.`));
+        };
+
+        video.src = url;
+    });
+}
+
+async function readMediaDetails(file) {
+    if (isVideoMedia(file)) {
+        return readVideoDetails(file);
+    }
+
+    return readImageDetails(file);
+}
+
+async function readMediaDetailsSafe(file) {
+    try {
+        return await readMediaDetails(file);
+    } catch (_error) {
+        return {
+            width: null,
+            height: null,
+            dominantColor: isVideoMedia(file) ? '#1d2638' : '#f3a46c'
+        };
+    }
+}
+
+async function uploadFileResumable(client, storagePath, file, { onProgress } = {}) {
+    const signedUpload = await client.storage.from(GALLERY_BUCKET).createSignedUploadUrl(storagePath);
+    if (signedUpload.error) throw signedUpload.error;
+    if (!signedUpload.data?.token) {
+        throw new Error('Supabase did not return a resumable upload token for this file.');
+    }
+
+    const uploadHeaders = await getResumableUploadHeaders(client, signedUpload.data.token);
+
+    return new Promise((resolve, reject) => {
+        const upload = new tus.Upload(file, {
+            endpoint: RESUMABLE_UPLOAD_ENDPOINT,
+            retryDelays: RESUMABLE_UPLOAD_RETRY_DELAYS,
+            headers: uploadHeaders,
+            metadata: {
+                bucketName: GALLERY_BUCKET,
+                objectName: storagePath,
+                contentType: getMediaContentType(file),
+                cacheControl: '3600'
+            },
+            chunkSize: RESUMABLE_UPLOAD_CHUNK_BYTES,
+            uploadDataDuringCreation: true,
+            removeFingerprintOnSuccess: true,
+            onError(error) {
+                reject(normalizeUploadError(error, file));
+            },
+            onProgress(bytesUploaded, bytesTotal) {
+                onProgress?.(bytesUploaded, bytesTotal);
+            },
+            onSuccess() {
+                resolve({
+                    path: storagePath,
+                    fullPath: `${GALLERY_BUCKET}/${storagePath}`
+                });
+            }
+        });
+
+        upload.start();
+    });
+}
+
+async function listGalleryPhotos(client) {
+    const direct = await client
+        .from('gallery_photos')
+        .select('id, owner_user_id, bucket_name, storage_path, caption, taken_at, width, height, dominant_color, is_featured, created_at')
+        .is('archived_at', null)
+        .order('taken_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(360);
+
+    if (!direct.error) {
+        return direct.data || [];
+    }
+
+    const rpcResult = await client.rpc('gallery_list_photos', {
+        p_limit: 360,
+        p_offset: 0
+    });
+
+    if (!rpcResult.error) {
+        return rpcResult.data || [];
+    }
+
+    throw direct.error;
+}
+
+async function createGalleryPhoto(client, payload) {
+    const rpcResult = await client.rpc('gallery_create_photo', payload);
+    if (!rpcResult.error) {
+        return rpcResult.data;
+    }
+
+    const message = String(rpcResult.error?.message || '');
+    if (!/gallery_create_photo|function/i.test(message)) {
+        throw rpcResult.error;
+    }
+
+    const fallback = await client
+        .from('gallery_photos')
+        .insert({
+            owner_user_id: payload.p_actor_user_id,
+            bucket_name: payload.p_bucket_name,
+            storage_path: payload.p_storage_path,
+            caption: payload.p_caption,
+            taken_at: payload.p_taken_at,
+            width: payload.p_width,
+            height: payload.p_height,
+            dominant_color: payload.p_dominant_color
+        })
+        .select('id')
+        .single();
+
+    if (fallback.error) throw fallback.error;
+    return fallback.data?.id || null;
+}
+
+async function deleteGalleryPhoto(client, actorUserId, photo) {
+    if (!photo?.id) return;
+
+    const rpcResult = await client.rpc('gallery_delete_photo', {
+        p_actor_user_id: actorUserId,
+        p_photo_id: photo.id
+    });
+
+    if (rpcResult.error && !/gallery_delete_photo|function/i.test(String(rpcResult.error.message || ''))) {
+        throw rpcResult.error;
+    }
+
+    if (rpcResult.error) {
+        const fallback = await client
+            .from('gallery_photos')
+            .delete()
+            .eq('id', photo.id);
+
+        if (fallback.error) throw fallback.error;
+    }
+
+    if (photo.storage_path) {
+        const removeResult = await client.storage
+            .from(photo.bucket_name || GALLERY_BUCKET)
+            .remove([photo.storage_path]);
+
+        if (removeResult.error) {
+            console.warn('Photo metadata removed but storage cleanup failed:', removeResult.error.message);
+        }
+    }
+}
+
+async function setGalleryPhotoFeatured(client, actorUserId, photoId, isFeatured) {
+    if (!photoId) return;
+
+    const rpcResult = await client.rpc('gallery_set_photo_featured', {
+        p_actor_user_id: actorUserId,
+        p_photo_id: photoId,
+        p_is_featured: isFeatured
+    });
+
+    if (!rpcResult.error) {
+        return true;
+    }
+
+    const message = String(rpcResult.error?.message || '');
+    if (/gallery_set_photo_featured|function/i.test(message)) {
+        throw new Error('Run the updated gallery SQL to enable slideshow pinning.');
+    }
+
+    throw rpcResult.error;
+}
+
+function getPhotoDownloadName(photo) {
+    const extension = getMediaExtension(photo) || (isVideoMedia(photo) ? 'mp4' : 'jpg');
+    return `${sanitizeFileName(getPhotoTitle(photo) || 'gallery-item')}.${extension}`;
+}
+
+async function downloadGalleryPhoto(client, photo) {
+    if (!photo) return;
+
+    let blob = null;
+
+    if (photo.storage_path && client?.storage) {
+        const result = await client.storage
+            .from(photo.bucket_name || GALLERY_BUCKET)
+            .download(photo.storage_path);
+
+        if (result.error) {
+            throw result.error;
+        }
+
+        blob = result.data || null;
+    }
+
+    if (!blob && photo.publicUrl) {
+        const response = await fetch(photo.publicUrl);
+        if (!response.ok) {
+            throw new Error('Unable to download this file right now.');
+        }
+        blob = await response.blob();
+    }
+
+    if (!blob) {
+        throw new Error('Unable to prepare this file for download.');
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = getPhotoDownloadName(photo);
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function buildDaySections(photos) {
+    const sections = [];
+    const map = new Map();
+
+    photos.forEach((photo) => {
+        const timestamp = getPhotoTimestamp(photo) || Date.now();
+        const key = getDayKey(timestamp);
+        if (!map.has(key)) {
+            map.set(key, {
+                key,
+                title: getDayHeading(timestamp),
+                subtitle: formatDisplayDate(timestamp),
+                photos: []
+            });
+            sections.push(map.get(key));
+        }
+        map.get(key).photos.push(photo);
+    });
+
+    return sections;
+}
+
+function buildMonthSections(photos) {
+    const sections = [];
+    const map = new Map();
+
+    photos.forEach((photo) => {
+        const date = new Date(getPhotoTimestamp(photo) || Date.now());
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+        if (!map.has(key)) {
+            map.set(key, {
+                key,
+                title: formatMonthLabel(date),
+                photos: []
+            });
+            sections.push(map.get(key));
+        }
+
+        map.get(key).photos.push(photo);
+    });
+
+    return sections;
+}
+
+function getSlideshowPhotos(photos, mediaFilter = 'videos', orderMode = 'latest', seed = 0, limit = 5) {
+    const filtered = photos.filter((photo) => {
+        if (mediaFilter === 'images') return !isVideoMedia(photo);
+        if (mediaFilter === 'videos') return isVideoMedia(photo);
+        return true;
+    });
+
+    const scoped = orderMode === 'pinned'
+        ? filtered.filter((photo) => Boolean(photo.is_featured))
+        : filtered;
+
+    if (orderMode === 'pinned' || orderMode === 'latest') {
+        return scoped.slice(0, Math.min(limit, scoped.length));
+    }
+
+    return [...scoped]
+        .sort((left, right) => {
+            const leftKey = hashValue(`${seed}:${left.id || left.storage_path}`);
+            const rightKey = hashValue(`${seed}:${right.id || right.storage_path}`);
+            return leftKey - rightKey;
+        })
+        .slice(0, Math.min(limit, scoped.length));
+}
+
+function getSlideshowLabel(orderMode = 'latest', mediaFilter = 'videos') {
+    const prefix = orderMode === 'shuffle'
+        ? 'Shuffle'
+        : orderMode === 'pinned'
+            ? 'Pinned'
+            : 'Recent';
+
+    if (mediaFilter === 'videos') return `${prefix} Video`;
+    if (mediaFilter === 'images') return `${prefix} Image`;
+    return `${prefix} Highlight`;
+}
+
+function Icon({ path, size = 20, strokeWidth = 1.8 }) {
+    return html`
+        <svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d=${path} stroke="currentColor" stroke-width=${strokeWidth} stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+    `;
+}
+
+function MediaBadge({ media, tone = 'default' }) {
+    if (!isVideoMedia(media)) return null;
+
+    return html`<span className=${cx('gallery-media-badge', tone !== 'default' && `is-${tone}`)}>Video</span>`;
+}
+
+function MediaSurface({
+    media,
+    className,
+    alt = '',
+    decorative = false,
+    autoPlay = false,
+    attemptPlayback = false,
+    suspendPlayback = false,
+    muted = true,
+    loop = false,
+    controls = false,
+    preload = 'metadata',
+    onReady = null,
+    onAutoplayMuted = null
+}) {
+    const hasPublicUrl = Boolean(media?.publicUrl);
+    const isVideo = hasPublicUrl && isVideoMedia(media);
+    const videoRef = useRef(null);
+
+    useEffect(() => {
+        if (!isVideo) {
+            return undefined;
+        }
+
+        const video = videoRef.current;
+        if (!video) {
+            return undefined;
+        }
+
+        video.defaultMuted = muted;
+        video.muted = muted;
+
+        if (suspendPlayback) {
+            video.pause();
+        }
+
+        return undefined;
+    }, [isVideo, muted, suspendPlayback, media?.publicUrl]);
+
+    useEffect(() => {
+        if (!isVideo || !attemptPlayback || !autoPlay || suspendPlayback) {
+            return undefined;
+        }
+
+        const video = videoRef.current;
+        if (!video) {
+            return undefined;
+        }
+
+        let cancelled = false;
+
+        const startPlayback = () => {
+            if (cancelled) return;
+
+            const playPromise = video.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {
+                    if (cancelled || video.muted) {
+                        return null;
+                    }
+
+                    video.defaultMuted = true;
+                    video.muted = true;
+                    onAutoplayMuted?.();
+
+                    const mutedFallback = video.play();
+                    if (mutedFallback && typeof mutedFallback.catch === 'function') {
+                        mutedFallback.catch(() => null);
+                    }
+
+                    return null;
+                });
+            }
+        };
+
+        if (video.readyState >= 2) {
+            startPlayback();
+        }
+
+        video.addEventListener('canplay', startPlayback);
+        video.addEventListener('loadeddata', startPlayback);
+
+        return () => {
+            cancelled = true;
+            video.removeEventListener('canplay', startPlayback);
+            video.removeEventListener('loadeddata', startPlayback);
+
+            if (!controls) {
+                video.pause();
+            }
+        };
+    }, [isVideo, attemptPlayback, autoPlay, suspendPlayback, controls, media.publicUrl, onAutoplayMuted]);
+
+    if (!hasPublicUrl) {
+        return null;
+    }
+
+    if (isVideo) {
+
+        return html`
+            <video
+                ref=${videoRef}
+                className=${className}
+                src=${media.publicUrl}
+                playsInline=${true}
+                muted=${muted}
+                loop=${loop}
+                autoPlay=${autoPlay}
+                controls=${controls}
+                preload=${preload}
+                aria-hidden=${decorative ? 'true' : undefined}
+                aria-label=${decorative ? undefined : alt}
+                onLoadedData=${onReady}></video>
+        `;
+    }
+
+    return html`
+        <img
+            className=${className}
+            src=${media.publicUrl}
+            alt=${decorative ? '' : alt}
+            aria-hidden=${decorative ? 'true' : undefined}
+            loading="lazy"
+            decoding="async"
+            onLoad=${onReady} />
+    `;
+}
+
+function Tile({ photo, index, onOpen }) {
+    return html`
+        <button
+            type="button"
+            className=${cx('gallery-tile', getPhotoShape(photo, index))}
+            style=${getPhotoSurfaceStyle(photo)}
+            onClick=${() => onOpen(photo.id)}>
+            <${MediaSurface}
+                media=${photo}
+                className="gallery-tile-media"
+                alt=${getPhotoTitle(photo)}
+                autoPlay=${isVideoMedia(photo)}
+                muted=${true}
+                loop=${true}
+                preload="metadata" />
+            <${MediaBadge} media=${photo} />
+            <div className="gallery-tile-overlay">
+                <p className="gallery-tile-title">${getPhotoTitle(photo)}</p>
+                <div className="gallery-tile-meta">
+                    <span>${getPhotoOwner(photo)}</span>
+                    <span>${formatCompactDate(getPhotoTimestamp(photo))}</span>
+                </div>
+            </div>
+        </button>
+    `;
+}
+
+function CompactTile({ photo, onOpen }) {
+    return html`
+        <button
+            type="button"
+            className="gallery-tile gallery-tile-compact"
+            style=${getPhotoSurfaceStyle(photo)}
+            onClick=${() => onOpen(photo.id)}>
+            <${MediaSurface}
+                media=${photo}
+                className="gallery-tile-media"
+                alt=${getPhotoTitle(photo)}
+                autoPlay=${isVideoMedia(photo)}
+                muted=${true}
+                loop=${true}
+                preload="metadata" />
+            <${MediaBadge} media=${photo} />
+            <div className="gallery-tile-overlay">
+                <p className="gallery-tile-title">${getPhotoTitle(photo)}</p>
+                <div className="gallery-tile-meta">
+                    <span>${getPhotoOwner(photo)}</span>
+                    <span>${formatCompactDate(getPhotoTimestamp(photo))}</span>
+                </div>
+            </div>
+        </button>
+    `;
+}
+
+function PreviewGrid({ photos, onOpenPhoto, onOpenMore }) {
+    const hasMore = photos.length > SECTION_PREVIEW_LIMIT;
+    const visiblePhotos = hasMore ? photos.slice(0, SECTION_PREVIEW_LIMIT - 1) : photos.slice(0, SECTION_PREVIEW_LIMIT);
+    const remainingCount = Math.max(0, photos.length - visiblePhotos.length);
+    const morePreviewPhoto = hasMore ? photos[visiblePhotos.length] || visiblePhotos[visiblePhotos.length - 1] || photos[0] : null;
+
+    return html`
+        <div className="gallery-grid gallery-grid-preview">
+            ${visiblePhotos.map(
+                (photo) => html`
+                    <${CompactTile}
+                        key=${photo.id}
+                        photo=${photo}
+                        onOpen=${onOpenPhoto} />
+                `
+            )}
+            ${hasMore
+                ? html`
+                      <button
+                          type="button"
+                          className="gallery-tile gallery-preview-more"
+                          style=${morePreviewPhoto ? getPhotoSurfaceStyle(morePreviewPhoto) : undefined}
+                          onClick=${onOpenMore}>
+                          ${morePreviewPhoto
+                              ? html`
+                                    <${MediaSurface}
+                                        media=${morePreviewPhoto}
+                                        className="gallery-preview-more-media"
+                                        decorative=${true}
+                                        autoPlay=${isVideoMedia(morePreviewPhoto)}
+                                        muted=${true}
+                                        loop=${true}
+                                        preload="metadata" />
+                                `
+                              : null}
+                          <div className="gallery-preview-more-overlay">
+                              <span className="gallery-preview-more-count">+${remainingCount}</span>
+                              <span className="gallery-preview-more-label">View all</span>
+                          </div>
+                      </button>
+                  `
+                : null}
+        </div>
+    `;
+}
+
+function EmptyState({ currentUser, onUpload }) {
+    return html`
+        <div className="gallery-empty">
+            <h3>No media yet</h3>
+            <p>
+                Add your first photo or video.
+            </p>
+            <div className="gallery-upload-actions" style=${{ justifyContent: 'center', marginTop: '0.85rem' }}>
+                ${currentUser
+                    ? html`<button type="button" className="gallery-button primary" onClick=${onUpload}>Upload</button>`
+                    : html`<a href="billing.html" className="gallery-button primary">Sign in</a>`}
+            </div>
+        </div>
+    `;
+}
+
+function SlideshowEmptyState({ mediaFilter, orderMode = 'latest', onReset }) {
+    const mediaLabel = mediaFilter === 'videos'
+        ? 'videos'
+        : mediaFilter === 'images'
+            ? 'images'
+            : 'media';
+    const isPinnedMode = orderMode === 'pinned';
+
+    return html`
+        <div className="gallery-empty gallery-slideshow-empty">
+            <h3>${isPinnedMode ? `No pinned ${mediaLabel} yet` : `No ${mediaLabel} in the slideshow`}</h3>
+            <p>
+                ${isPinnedMode
+                    ? 'Pin a photo or video from the viewer, or switch back to the latest feed.'
+                    : `Switch the slideshow back to videos or upload more ${mediaLabel}.`}
+            </p>
+            <div className="gallery-upload-actions" style=${{ justifyContent: 'center', marginTop: '0.85rem' }}>
+                <button type="button" className="gallery-button primary" onClick=${onReset}>
+                    ${isPinnedMode ? 'Show latest' : 'Show videos'}
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function GalleryLoader({ label = 'Opening gallery' }) {
+    return html`
+        <div className="gallery-loader-screen" role="status" aria-live="polite" aria-label=${label}>
+            <div className="gallery-loader-stack">
+                <div className="gallery-loader-card">
+                    <img src="lynmark-logo.png" alt="" className="gallery-loader-logo" />
+                </div>
+                <div className="gallery-loader-dots" aria-hidden="true">
+                    <span className="gallery-loader-dot"></span>
+                    <span className="gallery-loader-dot"></span>
+                    <span className="gallery-loader-dot"></span>
+                </div>
+                <span className="gallery-visually-hidden">${label}</span>
+            </div>
+        </div>
+    `;
+}
+
+function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'videos', pausePlayback = false }) {
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [videoMuted, setVideoMuted] = useState(false);
+    const photoSignature = photos.map((photo) => photo.id).join('|');
+
+    useEffect(() => {
+        setActiveIndex(0);
+    }, [photoSignature]);
+
+    useEffect(() => {
+        if (pausePlayback) return undefined;
+        if (photos.length < 2) return;
+
+        const timerId = window.setInterval(() => {
+            setActiveIndex((current) => (current + 1) % photos.length);
+        }, 4800);
+
+        return () => window.clearInterval(timerId);
+    }, [photos.length, photoSignature, pausePlayback]);
+
+    if (!photos.length) return null;
+
+    const activePhoto = photos[activeIndex] || photos[0];
+    const activeOrientation = getPhotoOrientation(activePhoto);
+    const activeIsVideo = isVideoMedia(activePhoto);
+    const shouldAutoplayActiveMedia = activeIsVideo;
+    const activeMediaPreload = activeIsVideo ? 'auto' : 'metadata';
+    const slideshowLabel = getSlideshowLabel(orderMode, mediaFilter);
+    const goTo = (index) => {
+        setActiveIndex((index + photos.length) % photos.length);
+    };
+
+    useEffect(() => {
+        setVideoMuted(false);
+    }, [activePhoto?.id]);
+
+    return html`
+        <div className="gallery-slideshow">
+            <div className=${cx('gallery-slideshow-stage', `is-${activeOrientation}`)} style=${getPhotoSurfaceStyle(activePhoto)}>
+                <button
+                    type="button"
+                    className=${cx('gallery-slideshow-media', `is-${activeOrientation}`)}
+                    onClick=${() => onOpen(activePhoto.id)}>
+                    ${!activeIsVideo
+                        ? html`
+                              <${MediaSurface}
+                                  media=${activePhoto}
+                                  className="gallery-slideshow-backdrop"
+                                  decorative=${true}
+                                  muted=${true}
+                                  loop=${true}
+                                  preload="metadata" />
+                          `
+                        : null}
+                    <${MediaSurface}
+                        key=${activePhoto.id || activeIndex}
+                        media=${activePhoto}
+                        className=${cx('gallery-slideshow-main', `is-${activeOrientation}`)}
+                        alt=${getPhotoTitle(activePhoto)}
+                        autoPlay=${shouldAutoplayActiveMedia}
+                        attemptPlayback=${shouldAutoplayActiveMedia}
+                        suspendPlayback=${pausePlayback}
+                        muted=${activeIsVideo ? videoMuted : true}
+                        loop=${true}
+                        preload=${activeMediaPreload}
+                        onAutoplayMuted=${() => setVideoMuted(true)} />
+                </button>
+                ${photos.length > 1
+                    ? html`
+                          <button
+                              type="button"
+                              className="gallery-slideshow-nav is-prev"
+                              aria-label="Previous highlight"
+                              onClick=${() => goTo(activeIndex - 1)}>
+                              ${html`<${Icon} path="M15 18l-6-6 6-6" size=${18} />`}
+                          </button>
+                          <button
+                              type="button"
+                              className="gallery-slideshow-nav is-next"
+                              aria-label="Next highlight"
+                              onClick=${() => goTo(activeIndex + 1)}>
+                              ${html`<${Icon} path="M9 18l6-6-6-6" size=${18} />`}
+                          </button>
+                      `
+                    : null}
+            </div>
+            <div className="gallery-slideshow-footer">
+                <div className="gallery-slideshow-info">
+                    <span className="gallery-mosaic-eyebrow">${slideshowLabel}</span>
+                    <strong className="gallery-slideshow-title">${getPhotoTitle(activePhoto)}</strong>
+                    <div className="gallery-slideshow-meta">
+                        <span>${getPhotoOwner(activePhoto)}</span>
+                        <span>${formatCompactDate(getPhotoTimestamp(activePhoto))}</span>
+                    </div>
+                </div>
+                <div className="gallery-slideshow-footer-controls">
+                    ${photos.length > 1
+                        ? html`
+                              <div className="gallery-slideshow-dots" role="tablist" aria-label="Highlight slides">
+                                  ${photos.map(
+                                      (photo, index) => html`
+                                          <button
+                                              type="button"
+                                              key=${photo.id || index}
+                                              className=${cx('gallery-slideshow-dot', index === activeIndex && 'is-active')}
+                                              aria-label=${`Show slide ${index + 1}`}
+                                              aria-pressed=${index === activeIndex ? 'true' : 'false'}
+                                              onClick=${() => goTo(index)}></button>
+                                      `
+                                  )}
+                              </div>
+                          `
+                        : null}
+                    ${activeIsVideo
+                        ? html`
+                              <button
+                                  type="button"
+                                  className=${cx('gallery-slideshow-audio', !videoMuted && 'is-active')}
+                                  aria-label=${videoMuted ? 'Enable video sound' : 'Mute video sound'}
+                                  aria-pressed=${!videoMuted ? 'true' : 'false'}
+                                  onClick=${() => setVideoMuted((current) => !current)}>
+                                  ${videoMuted
+                                      ? html`<${Icon} path="M11 5 6 9H3v6h3l5 4V5Zm6.5 4.5-3 3m0-3 3 3" size=${15} />`
+                                      : html`<${Icon} path="M11 5 6 9H3v6h3l5 4V5Zm4.5 2.5a5 5 0 0 1 0 9m-2-6.75a2.75 2.75 0 0 1 0 4.5" size=${15} />`}
+                                  <span>${videoMuted ? 'Tap for sound' : 'Sound on'}</span>
+                              </button>
+                          `
+                        : null}
+                    ${photos.length > 1
+                        ? html`<span className="gallery-slideshow-count">${activeIndex + 1} / ${photos.length}</span>`
+                        : null}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function SectionBrowserModal({ section, onClose, onOpenPhoto }) {
+    const [page, setPage] = useState(0);
+
+    useEffect(() => {
+        setPage(0);
+    }, [section?.key]);
+
+    if (!section) return null;
+
+    const pageCount = Math.max(1, Math.ceil(section.photos.length / SECTION_BROWSER_PAGE_SIZE));
+    const currentPage = clamp(page, 0, pageCount - 1);
+    const pagePhotos = section.photos.slice(
+        currentPage * SECTION_BROWSER_PAGE_SIZE,
+        (currentPage + 1) * SECTION_BROWSER_PAGE_SIZE
+    );
+
+    const openPhoto = (photoId) => {
+        onClose();
+        onOpenPhoto(photoId);
+    };
+
+    return html`
+        <div className="gallery-overlay" role="dialog" aria-modal="true" aria-label=${`${section.title} items`} onClick=${onClose}>
+            <div className="gallery-modal gallery-browser-modal" onClick=${(event) => event.stopPropagation()}>
+                <div className="gallery-modal-body gallery-browser-body">
+                    <div className="gallery-browser-header">
+                        <div>
+                            <span className="gallery-kicker">Media set</span>
+                            <h2>${section.title}</h2>
+                            <p className="gallery-browser-subtitle">
+                                ${section.subtitle || `${section.photos.length} items`}
+                            </p>
+                        </div>
+                        <div className="gallery-browser-actions">
+                            <span className="gallery-chip">${section.photos.length} items</span>
+                            <button type="button" className="gallery-button" onClick=${onClose}>Close</button>
+                        </div>
+                    </div>
+
+                    <div className="gallery-grid gallery-grid-browser">
+                        ${pagePhotos.map(
+                            (photo) => html`
+                                <${CompactTile}
+                                    key=${photo.id}
+                                    photo=${photo}
+                                    onOpen=${openPhoto} />
+                            `
+                        )}
+                    </div>
+
+                    ${pageCount > 1
+                        ? html`
+                              <div className="gallery-browser-pagination">
+                                  <button
+                                      type="button"
+                                      className="gallery-button"
+                                      onClick=${() => setPage((value) => Math.max(0, value - 1))}
+                                      disabled=${currentPage === 0}>
+                                      Previous
+                                  </button>
+                                  <span className="gallery-browser-page">
+                                      Page ${currentPage + 1} of ${pageCount}
+                                  </span>
+                                  <button
+                                      type="button"
+                                      className="gallery-button"
+                                      onClick=${() => setPage((value) => Math.min(pageCount - 1, value + 1))}
+                                      disabled=${currentPage >= pageCount - 1}>
+                                      Next
+                                  </button>
+                              </div>
+                          `
+                        : null}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function ConfirmActionModal({ action, busy, onCancel, onConfirm }) {
+    if (!action) return null;
+
+    const photo = action.photo || null;
+    const isDelete = action.type === 'delete';
+    const mediaLabel = getMediaKindLabel(photo).toLowerCase();
+
+    return html`
+        <div className="gallery-overlay" role="dialog" aria-modal="true" aria-label="Confirm action" onClick=${busy ? undefined : onCancel}>
+            <div className="gallery-modal gallery-confirm-modal" onClick=${(event) => event.stopPropagation()}>
+                <div className="gallery-modal-body gallery-confirm-body">
+                    <div className="gallery-confirm-icon ${isDelete ? 'is-danger' : ''}">
+                        ${isDelete
+                            ? html`<${Icon} path="M3 6h18M8 6V4h8v2m-7 0v12m6-12v12M6 6l1 14h10l1-14" size=${18} />`
+                            : html`<${Icon} path="M12 3v11m0 0 4-4m-4 4-4-4M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1" size=${18} />`}
+                    </div>
+                    <div className="gallery-confirm-copy">
+                        <h2>${isDelete ? 'Delete this item?' : 'Download this item?'}</h2>
+                        <p>
+                            ${isDelete
+                                ? `Remove this ${mediaLabel} from the gallery? This action cannot be undone.`
+                                : `Download this ${mediaLabel} to your device now?`}
+                        </p>
+                        ${photo
+                            ? html`<span className="gallery-confirm-caption">${getPhotoTitle(photo)}</span>`
+                            : null}
+                    </div>
+                    <div className="gallery-confirm-actions">
+                        <button type="button" className="gallery-button" onClick=${onCancel} disabled=${busy}>Cancel</button>
+                        <button
+                            type="button"
+                            className=${cx('gallery-button', isDelete ? 'danger' : 'primary')}
+                            onClick=${onConfirm}
+                            disabled=${busy}>
+                            ${busy
+                                ? isDelete ? 'Removing...' : 'Preparing...'
+                                : isDelete ? 'Delete' : 'Download'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function Lightbox({
+    photo,
+    canDelete,
+    canFeature,
+    deleting,
+    featuring,
+    downloading,
+    onClose,
+    onRequestDelete,
+    onRequestDownload,
+    onToggleFeatured,
+    onNext,
+    onPrev
+}) {
+    const stageRef = useRef(null);
+    const imageRef = useRef(null);
+    const zoomRef = useRef(1);
+    const offsetRef = useRef({ x: 0, y: 0 });
+    const dragStateRef = useRef(null);
+    const [zoom, setZoom] = useState(1);
+    const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [dragging, setDragging] = useState(false);
+
+    if (!photo) return null;
+    const isVideo = isVideoMedia(photo);
+    const title = getPhotoTitle(photo);
+    const caption = safeCaption(photo.caption);
+    const ownerName = getPhotoOwner(photo);
+    const uploadedLabel = formatDisplayDate(getPhotoTimestamp(photo));
+    const compactSummary = `${ownerName} / ${formatCompactDate(getPhotoTimestamp(photo))}`;
+    const detailCopy = caption && caption.toLowerCase() !== title.toLowerCase() ? caption : '';
+
+    const commitOffset = (nextOffset) => {
+        offsetRef.current = nextOffset;
+        setOffset(nextOffset);
+    };
+
+    const getClampedOffset = (x, y, nextZoom = zoomRef.current) => {
+        const stage = stageRef.current;
+        const image = imageRef.current;
+
+        if (!stage || !image || nextZoom <= 1) {
+            return { x: 0, y: 0 };
+        }
+
+        const baseWidth = image.clientWidth;
+        const baseHeight = image.clientHeight;
+        if (!baseWidth || !baseHeight) {
+            return { x: 0, y: 0 };
+        }
+
+        const maxX = Math.max(0, (baseWidth * nextZoom - stage.clientWidth) / 2);
+        const maxY = Math.max(0, (baseHeight * nextZoom - stage.clientHeight) / 2);
+
+        return {
+            x: clamp(x, -maxX, maxX),
+            y: clamp(y, -maxY, maxY)
+        };
+    };
+
+    const resetView = () => {
+        dragStateRef.current = null;
+        zoomRef.current = 1;
+        offsetRef.current = { x: 0, y: 0 };
+        setDragging(false);
+        setZoom(1);
+        setOffset({ x: 0, y: 0 });
+    };
+
+    const setZoomLevel = (nextZoom) => {
+        const clampedZoom = clamp(Math.round(nextZoom * 100) / 100, 1, 5);
+        zoomRef.current = clampedZoom;
+        setZoom(clampedZoom);
+        commitOffset(clampedZoom <= 1 ? { x: 0, y: 0 } : getClampedOffset(offsetRef.current.x, offsetRef.current.y, clampedZoom));
+    };
+
+    useEffect(() => {
+        resetView();
+    }, [photo.id]);
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (isVideo) return;
+            if (zoomRef.current <= 1) return;
+            commitOffset(getClampedOffset(offsetRef.current.x, offsetRef.current.y, zoomRef.current));
+        };
+
+        const handleKeyDown = (event) => {
+            if (isVideo) return;
+            if (event.key === '+' || event.key === '=') {
+                event.preventDefault();
+                setZoomLevel(zoomRef.current + 0.25);
+            }
+
+            if (event.key === '-') {
+                event.preventDefault();
+                setZoomLevel(zoomRef.current - 0.25);
+            }
+
+            if (event.key === '0') {
+                event.preventDefault();
+                resetView();
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [photo.id, isVideo]);
+
+    const handlePointerDown = (event) => {
+        if (isVideo) return;
+        if (zoomRef.current <= 1) return;
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+
+        dragStateRef.current = {
+            startX: event.clientX,
+            startY: event.clientY,
+            originX: offsetRef.current.x,
+            originY: offsetRef.current.y
+        };
+        setDragging(true);
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+    };
+
+    const handlePointerMove = (event) => {
+        if (isVideo) return;
+        const dragState = dragStateRef.current;
+        if (!dragState) return;
+
+        event.preventDefault();
+        commitOffset(
+            getClampedOffset(
+                dragState.originX + (event.clientX - dragState.startX),
+                dragState.originY + (event.clientY - dragState.startY),
+                zoomRef.current
+            )
+        );
+    };
+
+    const handlePointerUp = (event) => {
+        if (isVideo) return;
+        if (!dragStateRef.current) return;
+
+        dragStateRef.current = null;
+        setDragging(false);
+
+        try {
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+        } catch (_error) {
+            null;
+        }
+    };
+
+    const handleWheel = (event) => {
+        if (isVideo) return;
+        event.preventDefault();
+        setZoomLevel(zoomRef.current + (event.deltaY < 0 ? 0.2 : -0.2));
+    };
+
+    const handleDoubleClick = () => {
+        if (isVideo) return;
+        if (zoomRef.current > 1.2) {
+            resetView();
+            return;
+        }
+
+        setZoomLevel(2);
+    };
+
+    return html`
+        <div className="gallery-overlay" role="dialog" aria-modal="true" aria-label="Media viewer" onClick=${onClose}>
+            <div className="gallery-lightbox" onClick=${(event) => event.stopPropagation()}>
+                <button type="button" className="gallery-icon-button close" onClick=${onClose} aria-label="Close viewer">
+                    ${html`<${Icon} path="M6 6l12 12M18 6L6 18" />`}
+                </button>
+                <div className="gallery-lightbox-stage">
+                    <button type="button" className="gallery-icon-button nav-prev" onClick=${onPrev} aria-label="Previous item">
+                        ${html`<${Icon} path="M15 18l-6-6 6-6" />`}
+                    </button>
+                    <button type="button" className="gallery-icon-button nav-next" onClick=${onNext} aria-label="Next item">
+                        ${html`<${Icon} path="M9 18l6-6-6-6" />`}
+                    </button>
+                    <div
+                        ref=${stageRef}
+                        className=${cx('gallery-lightbox-viewport', isVideo && 'is-video', !isVideo && zoom > 1 && 'is-zoomed', !isVideo && dragging && 'is-dragging')}
+                        onWheel=${isVideo ? undefined : handleWheel}
+                        onDoubleClick=${isVideo ? undefined : handleDoubleClick}
+                        onPointerDown=${isVideo ? undefined : handlePointerDown}
+                        onPointerMove=${isVideo ? undefined : handlePointerMove}
+                        onPointerUp=${isVideo ? undefined : handlePointerUp}
+                        onPointerCancel=${isVideo ? undefined : handlePointerUp}>
+                        ${isVideo
+                            ? html`
+                                  <video
+                                      className="gallery-lightbox-media is-video"
+                                      src=${photo.publicUrl}
+                                      controls
+                                      playsInline
+                                      preload="auto"></video>
+                              `
+                            : html`
+                                  <img
+                                      ref=${imageRef}
+                                      className="gallery-lightbox-media is-image"
+                                      src=${photo.publicUrl}
+                                      alt=${getPhotoTitle(photo)}
+                                      onLoad=${() => commitOffset(getClampedOffset(offsetRef.current.x, offsetRef.current.y, zoomRef.current))}
+                                      style=${{
+                                          transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${zoom})`
+                                      }} />
+                              `}
+                    </div>
+                </div>
+                <aside className="gallery-lightbox-sidebar">
+                    <div className="gallery-lightbox-heading">
+                        <span className="gallery-kicker">Lynmark Memory</span>
+                        <h2>${title}</h2>
+                        <p className="gallery-lightbox-summary">${compactSummary}</p>
+                        ${detailCopy
+                            ? html`<p className="gallery-lightbox-description">${detailCopy}</p>`
+                            : null}
+                    </div>
+                    <div className="gallery-lightbox-toolbar-row">
+                        <div className="gallery-lightbox-uploaded">
+                            <span>Uploaded</span>
+                            <strong>${uploadedLabel}</strong>
+                        </div>
+                        <div className="gallery-lightbox-tools" role="toolbar" aria-label="Media actions">
+                            <button
+                                type="button"
+                                className="gallery-lightbox-tool"
+                                aria-label="Download item"
+                                title="Download"
+                                onClick=${onRequestDownload}
+                                disabled=${downloading}>
+                                ${html`<${Icon} path="M12 3v11m0 0 4-4m-4 4-4-4M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1" size=${16} />`}
+                            </button>
+                            ${canFeature
+                                ? html`
+                                      <button
+                                          type="button"
+                                          className=${cx('gallery-lightbox-tool', photo.is_featured && 'is-active')}
+                                          aria-label=${photo.is_featured ? 'Unpin from slideshow' : 'Pin to slideshow'}
+                                          title=${photo.is_featured ? 'Pinned to slideshow' : 'Pin to slideshow'}
+                                          onClick=${onToggleFeatured}
+                                          disabled=${featuring}>
+                                          ${html`<${Icon} path="M12 3l2.8 5.67 6.26.91-4.53 4.42 1.07 6.24L12 17.27 6.4 20.24l1.07-6.24L2.94 9.58l6.26-.91L12 3Z" size=${16} />`}
+                                      </button>
+                                  `
+                                : null}
+                            ${canDelete
+                                ? html`
+                                      <button
+                                          type="button"
+                                          className="gallery-lightbox-tool is-danger"
+                                          aria-label="Delete item"
+                                          title="Delete"
+                                          onClick=${onRequestDelete}
+                                          disabled=${deleting}>
+                                          ${html`<${Icon} path="M3 6h18M8 6V4h8v2m-7 0v12m6-12v12M6 6l1 14h10l1-14" size=${16} />`}
+                                      </button>
+                                  `
+                                : null}
+                        </div>
+                    </div>
+                    <div className="gallery-lightbox-meta">
+                        <div className="gallery-lightbox-meta-row">
+                            <span>Uploaded by</span>
+                            <span>${ownerName}</span>
+                        </div>
+                        <div className="gallery-lightbox-meta-row">
+                            <span>Resolution</span>
+                            <span>${photo.width && photo.height ? `${photo.width} x ${photo.height}` : 'Unknown'}</span>
+                        </div>
+                    </div>
+                    <p className="gallery-lightbox-hint">
+                        ${isVideo
+                            ? 'Use the player controls to play, pause, or scrub through the video.'
+                            : zoom > 1
+                              ? 'Drag to pan. Double-click or reset to center.'
+                              : 'Zoom in to inspect details.'}
+                    </p>
+                    <div className="gallery-lightbox-actions">
+                        ${!isVideo
+                            ? html`
+                                  <div className="gallery-lightbox-zoom" role="group" aria-label="Image zoom controls">
+                                      <button
+                                          type="button"
+                                          className="gallery-button"
+                                          onClick=${() => setZoomLevel(zoomRef.current - 0.25)}
+                                          disabled=${zoom <= 1}
+                                          aria-label="Zoom out">
+                                          ${html`<${Icon} path="M5 12h14" size=${18} />`}
+                                      </button>
+                                      <button
+                                          type="button"
+                                          className="gallery-button gallery-lightbox-zoom-readout"
+                                          onClick=${resetView}
+                                          aria-label="Reset zoom">
+                                          ${Math.round(zoom * 100)}%
+                                      </button>
+                                      <button
+                                          type="button"
+                                          className="gallery-button"
+                                          onClick=${() => setZoomLevel(zoomRef.current + 0.25)}
+                                          disabled=${zoom >= 5}
+                                          aria-label="Zoom in">
+                                          ${html`<${Icon} path="M12 5v14M5 12h14" size=${18} />`}
+                                      </button>
+                                  </div>
+                              `
+                            : null}
+                    </div>
+                </aside>
+            </div>
+        </div>
+    `;
+}
+
+function UploadModal({
+    currentUser,
+    draft,
+    busy,
+    errorMessage,
+    progress,
+    onClose,
+    onFilesSelected,
+    onRemoveFile,
+    onFieldChange,
+    onUpload
+}) {
+    const fileInputRef = useRef(null);
+    const [dragging, setDragging] = useState(false);
+    const activeProgressItem = progress?.items?.[progress.activeIndex] || null;
+
+    if (!currentUser) return null;
+
+    const pickFiles = () => {
+        const input = fileInputRef.current;
+        if (!input) return;
+        input.value = '';
+        input.click();
+    };
+
+    const handleInputChange = (event) => {
+        const input = event.currentTarget;
+        const files = Array.from(input.files || []);
+        input.value = '';
+
+        if (!files.length) return;
+        onFilesSelected(files);
+    };
+
+    const handleDrop = (event) => {
+        event.preventDefault();
+        setDragging(false);
+        const files = Array.from(event.dataTransfer?.files || []);
+        onFilesSelected(files);
+    };
+
+    return html`
+        <div className="gallery-overlay" role="dialog" aria-modal="true" aria-label="Upload media" onClick=${onClose}>
+            <div className="gallery-modal" onClick=${(event) => event.stopPropagation()}>
+                <div className="gallery-modal-body">
+                    <div className="gallery-modal-header">
+                        <div>
+                            <span className="gallery-kicker">Upload</span>
+                            <h2>Upload media</h2>
+                        </div>
+                        <button type="button" className="gallery-button" onClick=${onClose} disabled=${busy}>Close</button>
+                    </div>
+
+                    <div
+                        className=${cx('gallery-upload-zone', dragging && 'is-dragging')}
+                        onDragOver=${(event) => {
+                            event.preventDefault();
+                            setDragging(true);
+                        }}
+                        onDragLeave=${() => setDragging(false)}
+                        onDrop=${handleDrop}>
+                        <input
+                            ref=${fileInputRef}
+                            className="gallery-hidden-input"
+                            type="file"
+                            accept="image/*,video/mp4,video/webm,video/ogg,video/quicktime,video/x-m4v"
+                            multiple
+                            onChange=${handleInputChange} />
+                        <strong>Drop media here</strong>
+                        <span className="gallery-muted">Images and videos up to ${MAX_UPLOAD_MB}MB each.</span>
+                        <div className="gallery-upload-actions" style=${{ justifyContent: 'center' }}>
+                            <button type="button" className="gallery-button primary" onClick=${pickFiles} disabled=${busy}>Select files</button>
+                        </div>
+                    </div>
+
+                    <div className="gallery-field">
+                        <label htmlFor="gallery-caption">Caption</label>
+                        <textarea
+                            id="gallery-caption"
+                            value=${draft.caption}
+                            onChange=${(event) => onFieldChange('caption', event.target.value)}
+                            placeholder="Optional caption"></textarea>
+                    </div>
+
+                    ${errorMessage ? html`<div className="gallery-status error">${errorMessage}</div>` : null}
+
+                    ${progress && progress.totalBytes
+                        ? html`
+                              <div className="gallery-upload-progress" role="status" aria-live="polite">
+                                  <div className="gallery-upload-progress-head">
+                                      <strong>${progress.stageLabel || 'Preparing upload...'}</strong>
+                                      <span className="gallery-upload-progress-percent">${percentageLabel(progress.percentage)}</span>
+                                  </div>
+                                  <div
+                                      className="gallery-upload-progress-bar"
+                                      role="progressbar"
+                                      aria-valuemin="0"
+                                      aria-valuemax="100"
+                                      aria-valuenow=${Math.round(progress.percentage)}>
+                                      <span style=${{ width: `${progress.percentage}%` }}></span>
+                                  </div>
+                                  <div className="gallery-upload-progress-meta">
+                                      <span>${fileSizeLabel(progress.uploadedBytes)} of ${fileSizeLabel(progress.totalBytes)} uploaded</span>
+                                      <span>${uploadSpeedLabel(progress.speedBytesPerSecond)}</span>
+                                      ${activeProgressItem
+                                          ? html`<span>File ${progress.activeIndex + 1} of ${progress.items.length}</span>`
+                                          : null}
+                                  </div>
+                              </div>
+                          `
+                        : null}
+
+                    <div className="gallery-caption-list">
+                        <strong>${draft.files.length ? `${draft.files.length} selected` : 'No files selected'}</strong>
+                        <div className="gallery-file-list">
+                            ${draft.files.map(
+                                (file, index) => {
+                                    const progressItem = progress?.items?.[index] || null;
+
+                                    return html`
+                                    <div className=${cx('gallery-file-item', progressItem?.status === 'uploading' && 'is-uploading')} key=${`${file.name}-${index}`}>
+                                        <div className="gallery-file-meta">
+                                            <span className="gallery-file-name">${file.name}</span>
+                                            <div className="gallery-file-detail-row">
+                                                <span className="gallery-file-size">${fileSizeLabel(file.size)}</span>
+                                                ${progressItem
+                                                    ? html`
+                                                          <span className=${cx('gallery-file-status', `is-${progressItem.status}`)}>
+                                                              ${getUploadItemStatusLabel(progressItem)}
+                                                          </span>
+                                                      `
+                                                    : null}
+                                            </div>
+                                            ${progressItem
+                                                ? html`
+                                                      <div className="gallery-file-progress" aria-hidden="true">
+                                                          <span style=${{ width: `${progressItem.percentage}%` }}></span>
+                                                      </div>
+                                                  `
+                                                : null}
+                                        </div>
+                                        <button type="button" className="gallery-button" onClick=${() => onRemoveFile(index)} disabled=${busy}>
+                                            Remove
+                                        </button>
+                                    </div>
+                                `;
+                                }
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="gallery-upload-actions">
+                        <button type="button" className="gallery-button" onClick=${onClose} disabled=${busy}>Cancel</button>
+                        <button type="button" className="gallery-button primary" onClick=${onUpload} disabled=${busy || !draft.files.length}>
+                            ${busy ? 'Uploading...' : 'Upload files'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function App() {
+    const [client, setClient] = useState(null);
+    const [currentUser, setCurrentUser] = useState(() => getStoredUser());
+    const [photos, setPhotos] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [uploadErrorMessage, setUploadErrorMessage] = useState('');
+    const [statusMessage, setStatusMessage] = useState('');
+    const [viewMode, setViewMode] = useState('days');
+    const [slideshowOrderMode, setSlideshowOrderMode] = useState('latest');
+    const [slideshowMediaFilter, setSlideshowMediaFilter] = useState('videos');
+    const [slideshowLimit, setSlideshowLimit] = useState(5);
+    const [slideshowShuffleSeed, setSlideshowShuffleSeed] = useState(() => Date.now());
+    const [themeMode, setThemeMode] = useState(() => getStoredThemeMode());
+    const [systemTheme, setSystemTheme] = useState(() => getSystemTheme());
+    const [search, setSearch] = useState('');
+    const [activePhotoId, setActivePhotoId] = useState(null);
+    const [sectionBrowser, setSectionBrowser] = useState(null);
+    const [uploadOpen, setUploadOpen] = useState(false);
+    const [uploadBusy, setUploadBusy] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(null);
+    const [deleteBusy, setDeleteBusy] = useState(false);
+    const [downloadBusy, setDownloadBusy] = useState(false);
+    const [featureBusy, setFeatureBusy] = useState(false);
+    const [confirmAction, setConfirmAction] = useState(null);
+    const [uploadDraft, setUploadDraft] = useState({
+        files: [],
+        caption: ''
+    });
+
+    const deferredSearch = useDeferredValue(search);
+
+    useEffect(() => {
+        try {
+            setClient(createSupabaseClient());
+        } catch (error) {
+            setErrorMessage(error.message || 'Gallery is unavailable right now.');
+            setLoading(false);
+            setInitialLoadComplete(true);
+        }
+
+        const syncUser = () => {
+            if (document.visibilityState === 'hidden') {
+                return;
+            }
+
+            const nextUser = getStoredUser();
+            setCurrentUser((previousUser) => (
+                areUsersEquivalent(previousUser, nextUser) ? previousUser : nextUser
+            ));
+        };
+
+        window.addEventListener('storage', syncUser);
+        window.addEventListener('focus', syncUser);
+        document.addEventListener('visibilitychange', syncUser);
+
+        return () => {
+            window.removeEventListener('storage', syncUser);
+            window.removeEventListener('focus', syncUser);
+            document.removeEventListener('visibilitychange', syncUser);
+        };
+    }, []);
+
+    async function refreshPhotos() {
+        if (!client) return;
+
+        setLoading(true);
+        setErrorMessage('');
+
+        try {
+            const rows = await listGalleryPhotos(client);
+            const nextPhotos = rows.map((photo) => enrichPhoto(client, photo));
+            const commitPhotos = () => setPhotos(nextPhotos);
+
+            if (initialLoadComplete) {
+                startTransition(commitPhotos);
+            } else {
+                commitPhotos();
+            }
+        } catch (error) {
+            console.error('Gallery load failed:', error);
+            setErrorMessage(error.message || 'Unable to open the gallery right now.');
+        } finally {
+            setLoading(false);
+            setInitialLoadComplete(true);
+        }
+    }
+
+    useEffect(() => {
+        if (!client) return;
+        refreshPhotos();
+    }, [client]);
+
+    useEffect(() => {
+        if (!activePhotoId) return;
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') setActivePhotoId(null);
+            if (event.key === 'ArrowRight') moveSelection(1);
+            if (event.key === 'ArrowLeft') moveSelection(-1);
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    });
+
+    useEffect(() => {
+        if (!sectionBrowser) return;
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                setSectionBrowser(null);
+            }
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, [sectionBrowser]);
+
+    useEffect(() => {
+        const syncThemeFromLocalTime = () => setSystemTheme(getSystemTheme());
+
+        syncThemeFromLocalTime();
+        const intervalId = window.setInterval(syncThemeFromLocalTime, 60000);
+
+        return () => window.clearInterval(intervalId);
+    }, []);
+
+    useEffect(() => {
+        applyGalleryTheme(themeMode, systemTheme);
+
+        try {
+            localStorage.setItem(GALLERY_THEME_STORAGE_KEY, themeMode);
+        } catch (_error) {
+            // Ignore storage failures so the gallery still works in restricted browsers.
+        }
+    }, [themeMode, systemTheme]);
+
+    const query = deferredSearch.trim().toLowerCase();
+    const filteredPhotos = query ? photos.filter((photo) => photo.searchText.includes(query)) : photos;
+    const filteredSignature = filteredPhotos.map((photo) => photo.id).join('|');
+    const daySections = buildDaySections(filteredPhotos);
+    const monthSections = buildMonthSections(filteredPhotos);
+    const slideshowPhotos = getSlideshowPhotos(
+        filteredPhotos,
+        slideshowMediaFilter,
+        slideshowOrderMode,
+        slideshowShuffleSeed,
+        slideshowLimit
+    );
+    const activeIndex = filteredPhotos.findIndex((photo) => photo.id === activePhotoId);
+    const activePhoto = activeIndex >= 0 ? filteredPhotos[activeIndex] : null;
+    const resolvedTheme = resolveGalleryTheme(themeMode, systemTheme);
+
+    const canUpload = Boolean(currentUser?.id);
+    const canDelete = Boolean(
+        activePhoto &&
+        currentUser?.id &&
+        (currentUser.id === activePhoto.owner_user_id || String(currentUser.role || '').toLowerCase() === 'admin')
+    );
+    const canFeature = canDelete;
+
+    useEffect(() => {
+        if (!activePhoto) {
+            setConfirmAction(null);
+        }
+    }, [activePhoto?.id]);
+
+    function moveSelection(direction) {
+        if (!filteredPhotos.length) return;
+        const currentIndex = Math.max(activeIndex, 0);
+        const nextIndex = (currentIndex + direction + filteredPhotos.length) % filteredPhotos.length;
+        setActivePhotoId(filteredPhotos[nextIndex].id);
+    }
+
+    useEffect(() => {
+        if (slideshowOrderMode !== 'shuffle') return;
+        setSlideshowShuffleSeed((current) => current + 1);
+    }, [slideshowOrderMode, slideshowMediaFilter, filteredSignature]);
+
+    function updateDraftField(field, value) {
+        setUploadDraft((previous) => ({
+            ...previous,
+            [field]: value
+        }));
+    }
+
+    function resetUploadFeedback() {
+        setUploadErrorMessage('');
+        setUploadProgress(null);
+    }
+
+    function patchUploadProgress(fileIndex, filePatch, meta = {}) {
+        startTransition(() => {
+            setUploadProgress((previous) => updateUploadProgressState(previous, fileIndex, filePatch, meta));
+        });
+    }
+
+    function resetUploadDraft() {
+        setUploadDraft({
+            files: [],
+            caption: ''
+        });
+    }
+
+    function handleFilesSelected(files) {
+        const nextFiles = files.filter((file) => isSupportedMediaFile(file));
+        setUploadErrorMessage('');
+        if (!uploadBusy) {
+            setUploadProgress(null);
+        }
+        setUploadDraft((previous) => ({
+            ...previous,
+            files: [...previous.files, ...nextFiles]
+        }));
+    }
+
+    function removeDraftFile(index) {
+        setUploadErrorMessage('');
+        if (!uploadBusy) {
+            setUploadProgress(null);
+        }
+        setUploadDraft((previous) => ({
+            ...previous,
+            files: previous.files.filter((_, fileIndex) => fileIndex !== index)
+        }));
+    }
+
+    async function handleUpload() {
+        if (!client) return;
+        if (!canUpload) {
+            setUploadErrorMessage('Sign in from the Billing Tracker first so uploads can be linked to your account.');
+            return;
+        }
+        if (!uploadDraft.files.length) {
+            setUploadErrorMessage('Choose at least one file to upload.');
+            return;
+        }
+
+        const filesToUpload = [...uploadDraft.files];
+        let activeUploadIndex = -1;
+        let activeUploadFile = null;
+
+        setUploadBusy(true);
+        setUploadErrorMessage('');
+        setErrorMessage('');
+        setStatusMessage('');
+        setUploadProgress(createUploadProgressState(filesToUpload));
+
+        try {
+            for (let index = 0; index < filesToUpload.length; index += 1) {
+                const file = filesToUpload[index];
+
+                if (file.size > MAX_UPLOAD_BYTES) {
+                    throw new Error(`${file.name} is larger than ${MAX_UPLOAD_MB}MB.`);
+                }
+
+                activeUploadIndex = index;
+                activeUploadFile = file;
+
+                const detailsPromise = readMediaDetailsSafe(file);
+                const storagePath = buildStoragePath(currentUser, file);
+                const uploadedAt = new Date().toISOString();
+                let lastProgressAt = performance.now();
+                let lastProgressBytes = 0;
+                let smoothedSpeed = 0;
+
+                patchUploadProgress(index, {
+                    status: 'preparing',
+                    errorMessage: '',
+                    speedBytesPerSecond: 0
+                }, {
+                    activeIndex: index,
+                    activeFileName: file.name,
+                    speedBytesPerSecond: 0,
+                    stageLabel: `Preparing ${file.name} (${index + 1} of ${filesToUpload.length})...`
+                });
+
+                await uploadFileResumable(client, storagePath, file, {
+                    onProgress(bytesUploaded, bytesTotal) {
+                        const now = performance.now();
+                        const elapsedSeconds = Math.max((now - lastProgressAt) / 1000, 0.001);
+                        const deltaBytes = Math.max(bytesUploaded - lastProgressBytes, 0);
+
+                        if (deltaBytes > 0) {
+                            const measuredSpeed = deltaBytes / elapsedSeconds;
+                            smoothedSpeed = smoothedSpeed ? (smoothedSpeed * 0.62) + (measuredSpeed * 0.38) : measuredSpeed;
+                            lastProgressAt = now;
+                            lastProgressBytes = bytesUploaded;
+                        }
+
+                        patchUploadProgress(index, {
+                            status: 'uploading',
+                            uploadedBytes: bytesUploaded,
+                            totalBytes: bytesTotal,
+                            speedBytesPerSecond: smoothedSpeed,
+                            errorMessage: ''
+                        }, {
+                            activeIndex: index,
+                            activeFileName: file.name,
+                            speedBytesPerSecond: smoothedSpeed,
+                            stageLabel: `Uploading ${file.name} (${index + 1} of ${filesToUpload.length})...`
+                        });
+                    }
+                });
+
+                const details = await detailsPromise;
+
+                patchUploadProgress(index, {
+                    status: 'finalizing',
+                    uploadedBytes: file.size,
+                    totalBytes: file.size,
+                    speedBytesPerSecond: 0,
+                    errorMessage: ''
+                }, {
+                    activeIndex: index,
+                    activeFileName: file.name,
+                    speedBytesPerSecond: 0,
+                    stageLabel: `Saving ${file.name} to the gallery...`
+                });
+
+                await createGalleryPhoto(client, {
+                    p_actor_user_id: currentUser.id,
+                    p_bucket_name: GALLERY_BUCKET,
+                    p_storage_path: storagePath,
+                    p_caption: safeCaption(uploadDraft.caption) || safeCaption(file.name.replace(/\.[^/.]+$/, '')),
+                    p_taken_at: uploadedAt,
+                    p_width: details.width,
+                    p_height: details.height,
+                    p_dominant_color: details.dominantColor
+                });
+
+                patchUploadProgress(index, {
+                    status: 'complete',
+                    uploadedBytes: file.size,
+                    totalBytes: file.size,
+                    speedBytesPerSecond: 0,
+                    errorMessage: ''
+                }, {
+                    activeIndex: index,
+                    activeFileName: file.name,
+                    speedBytesPerSecond: 0,
+                    stageLabel: index === filesToUpload.length - 1
+                        ? 'Finalizing gallery...'
+                        : `Uploaded ${file.name}. Preparing the next file...`
+                });
+            }
+
+            setStatusMessage(
+                `${filesToUpload.length} item${filesToUpload.length === 1 ? '' : 's'} added to the gallery.`
+            );
+            resetUploadDraft();
+            resetUploadFeedback();
+            setUploadOpen(false);
+            await refreshPhotos();
+        } catch (error) {
+            console.error('Upload failed:', error);
+            const message = error?.message || 'The upload did not finish. Please try again.';
+
+            if (activeUploadIndex >= 0) {
+                patchUploadProgress(activeUploadIndex, {
+                    status: 'error',
+                    speedBytesPerSecond: 0,
+                    errorMessage: message
+                }, {
+                    activeIndex: activeUploadIndex,
+                    activeFileName: activeUploadFile?.name || '',
+                    speedBytesPerSecond: 0,
+                    stageLabel: 'Upload stopped.'
+                });
+            }
+
+            setUploadErrorMessage(message);
+        } finally {
+            setUploadBusy(false);
+        }
+    }
+
+    async function handleDeleteActivePhoto() {
+        if (!client || !activePhoto || !currentUser?.id) return;
+        setDeleteBusy(true);
+        setErrorMessage('');
+
+        try {
+            await deleteGalleryPhoto(client, currentUser.id, activePhoto);
+            setActivePhotoId(null);
+            setStatusMessage('Item removed.');
+            await refreshPhotos();
+        } catch (error) {
+            console.error('Delete failed:', error);
+            setErrorMessage(error.message || 'Unable to delete the selected item.');
+        } finally {
+            setDeleteBusy(false);
+        }
+    }
+
+    async function handleDownloadActivePhoto() {
+        if (!client || !activePhoto) return;
+
+        setDownloadBusy(true);
+        setErrorMessage('');
+
+        try {
+            await downloadGalleryPhoto(client, activePhoto);
+            setStatusMessage('Download started.');
+        } catch (error) {
+            console.error('Download failed:', error);
+            setErrorMessage(error.message || 'Unable to download the selected item.');
+        } finally {
+            setDownloadBusy(false);
+        }
+    }
+
+    async function handleToggleFeaturedActivePhoto() {
+        if (!client || !activePhoto || !currentUser?.id) return;
+
+        const nextFeatured = !activePhoto.is_featured;
+        setFeatureBusy(true);
+        setErrorMessage('');
+
+        try {
+            await setGalleryPhotoFeatured(client, currentUser.id, activePhoto.id, nextFeatured);
+            setPhotos((previous) => previous.map((photo) => (
+                photo.id === activePhoto.id
+                    ? { ...photo, is_featured: nextFeatured }
+                    : photo
+            )));
+            setStatusMessage(nextFeatured ? 'Pinned to slideshow.' : 'Removed from pinned slideshow.');
+        } catch (error) {
+            console.error('Pin update failed:', error);
+            setErrorMessage(error.message || 'Unable to update slideshow pin.');
+        } finally {
+            setFeatureBusy(false);
+        }
+    }
+
+    const openSectionBrowser = (section) => setSectionBrowser(section);
+    const showBootLoader = !initialLoadComplete && loading;
+
+    const openUploadPanel = () => {
+        setUploadOpen(true);
+    };
+
+    const closeConfirmAction = () => {
+        if (deleteBusy || downloadBusy) return;
+        setConfirmAction(null);
+    };
+
+    const requestDeleteActivePhoto = () => {
+        if (!activePhoto) return;
+        setConfirmAction({ type: 'delete', photo: activePhoto });
+    };
+
+    const requestDownloadActivePhoto = () => {
+        if (!activePhoto) return;
+        setConfirmAction({ type: 'download', photo: activePhoto });
+    };
+
+    async function handleConfirmAction() {
+        if (!confirmAction) return;
+
+        if (confirmAction.type === 'delete') {
+            await handleDeleteActivePhoto();
+        } else if (confirmAction.type === 'download') {
+            await handleDownloadActivePhoto();
+        }
+
+        setConfirmAction(null);
+    }
+
+    const renderHeaderActions = () => html`
+        <div className="gallery-action-rail" role="toolbar" aria-label="Gallery actions">
+            <span className="gallery-chip">
+                ${html`<${Icon} path="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Zm3 8 2.5-3 2.5 3 1.5-2 3 4H7Z" size=${18} />`}
+                <span className="gallery-action-label">${formatNumber(photos.length)} items</span>
+            </span>
+            <a href="index.html" className="gallery-button">
+                ${html`<${Icon} path="M15 18l-6-6 6-6" size=${18} />`}
+                <span className="gallery-action-label">Home</span>
+            </a>
+            ${canUpload
+                ? html`
+                      <button type="button" className="gallery-button primary" onClick=${openUploadPanel}>
+                          ${html`<${Icon} path="M12 5v14M5 12h14" size=${18} />`}
+                          <span className="gallery-action-label">Upload</span>
+                      </button>
+                  `
+                : html`
+                      <a href="billing.html" className="gallery-button primary">
+                          ${html`<${Icon} path="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" size=${18} />`}
+                          <span className="gallery-action-label">Sign in</span>
+                      </a>
+                  `}
+        </div>
+    `;
+
+    if (showBootLoader) {
+        return html`<${GalleryLoader} label="Opening gallery" />`;
+    }
+
+    return html`
+        <div className="gallery-shell">
+            <nav className="gallery-nav">
+                <div className="gallery-brand">
+                    <div className="gallery-brand-badge" aria-hidden="true">
+                        <img src="lynmark-logo.png" alt="Lynmark Logo" className="gallery-brand-mark" />
+                    </div>
+                    <div className="gallery-brand-copy">
+                        <span className="gallery-kicker">Lynmark System</span>
+                        <h1 className="gallery-title">Gallery</h1>
+                        <p className="gallery-subtitle">
+                            Shared moments.
+                        </p>
+                    </div>
+                </div>
+                <div className="gallery-header-tools">
+                    ${renderHeaderActions()}
+                </div>
+            </nav>
+
+            <main className="gallery-main">
+                <section className="gallery-hero">
+                    <article className="gallery-card gallery-mosaic">
+                        ${slideshowPhotos.length
+                            ? html`
+                                  <${HeroSlideshow}
+                                      photos=${slideshowPhotos}
+                                      orderMode=${slideshowOrderMode}
+                                      mediaFilter=${slideshowMediaFilter}
+                                      pausePlayback=${Boolean(activePhoto)}
+                                      onOpen=${(photoId) => setActivePhotoId(photoId)} />
+                              `
+                            : html`
+                                      <${SlideshowEmptyState}
+                                          mediaFilter=${slideshowMediaFilter}
+                                          orderMode=${slideshowOrderMode}
+                                          onReset=${() => {
+                                          setSlideshowOrderMode('latest');
+                                          setSlideshowMediaFilter('videos');
+                                      }} />
+                              `}
+                    </article>
+                </section>
+
+                <section className="gallery-section gallery-browse-panel" aria-label="Browse gallery views">
+                    <div className="gallery-browse-topline">
+                        <div className="gallery-browse-heading">
+                            <span className="gallery-kicker">Explore</span>
+                            <h2 className="gallery-section-title">Browse</h2>
+                        </div>
+                        <span className="gallery-chip gallery-browse-summary">
+                            ${formatNumber(filteredPhotos.length)} result${filteredPhotos.length === 1 ? '' : 's'}
+                        </span>
+                    </div>
+                    <div className="gallery-browse-controls">
+                        <div className="gallery-search gallery-browse-search">
+                            ${html`<${Icon} path="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" size=${18} />`}
+                            <input
+                                type="search"
+                                placeholder="Search captions, dates, people"
+                                value=${search}
+                                onChange=${(event) => setSearch(event.target.value)} />
+                        </div>
+                        <div className="gallery-browse-toolbar" role="group" aria-label="Browse controls">
+                            <div className="gallery-browse-inline-group" role="group" aria-label="View mode">
+                                <div className="gallery-segment gallery-browse-segment" role="tablist" aria-label="Gallery layout modes">
+                                    ${['highlights', 'days', 'months'].map(
+                                        (mode) => html`
+                                            <button
+                                                type="button"
+                                                key=${mode}
+                                                className=${cx(viewMode === mode && 'is-active')}
+                                                onClick=${() => startTransition(() => setViewMode(mode))}>
+                                                ${mode.charAt(0).toUpperCase() + mode.slice(1)}
+                                            </button>
+                                        `
+                                    )}
+                                </div>
+                            </div>
+                            <div className="gallery-browse-inline-group" role="group" aria-label="Theme mode">
+                                <div className="gallery-segment gallery-browse-segment" role="tablist" aria-label="Gallery appearance">
+                                    ${[
+                                        { id: 'auto', label: 'Auto' },
+                                        { id: 'light', label: 'Light' },
+                                        { id: 'dark', label: 'Dark' }
+                                    ].map(
+                                        (option) => html`
+                                            <button
+                                                type="button"
+                                                key=${option.id}
+                                                className=${cx(themeMode === option.id && 'is-active')}
+                                                aria-pressed=${themeMode === option.id ? 'true' : 'false'}
+                                                onClick=${() => setThemeMode(option.id)}>
+                                                ${option.label}
+                                            </button>
+                                        `
+                                    )}
+                                </div>
+                            </div>
+                            <div className="gallery-browse-inline-group" role="group" aria-label="Slideshow order">
+                                <div className="gallery-segment gallery-browse-segment" role="tablist" aria-label="Slideshow order">
+                                    ${[
+                                        { id: 'latest', label: 'Latest' },
+                                        { id: 'pinned', label: 'Pinned' },
+                                        { id: 'shuffle', label: 'Shuffle' }
+                                    ].map(
+                                        (option) => html`
+                                            <button
+                                                type="button"
+                                                key=${option.id}
+                                                className=${cx(slideshowOrderMode === option.id && 'is-active')}
+                                                aria-pressed=${slideshowOrderMode === option.id ? 'true' : 'false'}
+                                                onClick=${() => setSlideshowOrderMode(option.id)}>
+                                                ${option.label}
+                                            </button>
+                                        `
+                                    )}
+                                </div>
+                            </div>
+                            <div className="gallery-browse-inline-group" role="group" aria-label="Slideshow count">
+                                <div className="gallery-segment gallery-browse-segment" role="tablist" aria-label="Slideshow count">
+                                    ${[1, 5].map(
+                                        (count) => html`
+                                            <button
+                                                type="button"
+                                                key=${count}
+                                                className=${cx(slideshowLimit === count && 'is-active')}
+                                                aria-pressed=${slideshowLimit === count ? 'true' : 'false'}
+                                                onClick=${() => setSlideshowLimit(count)}>
+                                                ${count}
+                                            </button>
+                                        `
+                                    )}
+                                </div>
+                            </div>
+                            <div className="gallery-browse-inline-group" role="group" aria-label="Slideshow media">
+                                <div className="gallery-segment gallery-browse-segment" role="tablist" aria-label="Slideshow media filter">
+                                    ${[
+                                        { id: 'all', label: 'All' },
+                                        { id: 'images', label: 'Images' },
+                                        { id: 'videos', label: 'Videos' }
+                                    ].map(
+                                        (option) => html`
+                                            <button
+                                                type="button"
+                                                key=${option.id}
+                                                className=${cx(slideshowMediaFilter === option.id && 'is-active')}
+                                                aria-pressed=${slideshowMediaFilter === option.id ? 'true' : 'false'}
+                                                onClick=${() => setSlideshowMediaFilter(option.id)}>
+                                                ${option.label}
+                                            </button>
+                                        `
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                ${(statusMessage || errorMessage)
+                    ? html`
+                          <div className=${cx('gallery-status', errorMessage && 'error')}>
+                              ${errorMessage
+                                  ? html`<${Icon} path="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94A2 2 0 0 0 22.18 18L13.71 3.86a2 2 0 0 0-3.42 0Z" />`
+                                  : html`<${Icon} path="M20 6 9 17l-5-5" />`}
+                              <span>${errorMessage || statusMessage}</span>
+                          </div>
+                      `
+                    : null}
+
+                <section className="gallery-view">
+                    ${loading
+                        ? html`
+                              <div className="gallery-status">
+                                  <span>Refreshing gallery...</span>
+                              </div>
+                          `
+                        : null}
+
+                    ${!loading && !filteredPhotos.length
+                        ? html`<${EmptyState} currentUser=${currentUser} onUpload=${() => setUploadOpen(true)} />`
+                        : null}
+
+                    ${!loading && filteredPhotos.length && viewMode === 'highlights'
+                        ? html`
+                              <section className="gallery-section">
+                                  <div className="gallery-section-header">
+                                      <div>
+                                          <h2 className="gallery-section-title">Highlights</h2>
+                                          <p className="gallery-section-meta">
+                                              A quick look at the newest uploads.
+                                          </p>
+                                      </div>
+                                      <span className="gallery-chip">${filteredPhotos.length} items</span>
+                                  </div>
+                                  <${PreviewGrid}
+                                      photos=${filteredPhotos}
+                                      onOpenPhoto=${setActivePhotoId}
+                                      onOpenMore=${() =>
+                                          openSectionBrowser({
+                                              key: 'highlights-all',
+                                              title: 'Highlights',
+                                              subtitle: 'All visible items',
+                                              photos: filteredPhotos
+                                          })} />
+                              </section>
+
+                              ${daySections.slice(0, 3).map(
+                                  (section) => html`
+                                      <section className="gallery-section" key=${section.key}>
+                                          <div className="gallery-section-header">
+                                              <div>
+                                                  <h2 className="gallery-section-title">${section.title}</h2>
+                                                  <p className="gallery-section-meta">${section.subtitle}</p>
+                                              </div>
+                                              <span className="gallery-chip">${section.photos.length} items</span>
+                                          </div>
+                                          <${PreviewGrid}
+                                              photos=${section.photos}
+                                              onOpenPhoto=${setActivePhotoId}
+                                              onOpenMore=${() => openSectionBrowser(section)} />
+                                      </section>
+                                  `
+                              )}
+                          `
+                        : null}
+
+                    ${!loading && filteredPhotos.length && viewMode === 'days'
+                        ? html`
+                              ${daySections.map(
+                                  (section) => html`
+                                      <section className="gallery-section" key=${section.key}>
+                                          <div className="gallery-section-header">
+                                              <div>
+                                                  <h2 className="gallery-section-title">${section.title}</h2>
+                                                  <p className="gallery-section-meta">${section.subtitle}</p>
+                                              </div>
+                                              <span className="gallery-chip">${section.photos.length} items</span>
+                                          </div>
+                                          <${PreviewGrid}
+                                              photos=${section.photos}
+                                              onOpenPhoto=${setActivePhotoId}
+                                              onOpenMore=${() => openSectionBrowser(section)} />
+                                      </section>
+                                  `
+                              )}
+                          `
+                        : null}
+
+                    ${!loading && filteredPhotos.length && viewMode === 'months'
+                        ? html`
+                              ${monthSections.map(
+                                  (section) => html`
+                                      <section className="gallery-section" key=${section.key}>
+                                          <div className="gallery-section-header">
+                                              <div>
+                                                  <h2 className="gallery-section-title">${section.title}</h2>
+                                                  <p className="gallery-section-meta">
+                                                      ${section.photos.length} item${section.photos.length === 1 ? '' : 's'} captured this month
+                                                  </p>
+                                              </div>
+                                              <span className="gallery-chip">${section.photos.length} items</span>
+                                          </div>
+                                          <${PreviewGrid}
+                                              photos=${section.photos}
+                                              onOpenPhoto=${setActivePhotoId}
+                                              onOpenMore=${() => openSectionBrowser(section)} />
+                                      </section>
+                                  `
+                              )}
+                          `
+                        : null}
+                </section>
+            </main>
+
+            ${uploadOpen
+                ? html`
+                      <${UploadModal}
+                          currentUser=${currentUser}
+                          draft=${uploadDraft}
+                          busy=${uploadBusy}
+                          errorMessage=${uploadErrorMessage}
+                          progress=${uploadProgress}
+                          onClose=${() => {
+                              if (uploadBusy) return;
+                              setUploadOpen(false);
+                              resetUploadFeedback();
+                          }}
+                          onFilesSelected=${handleFilesSelected}
+                          onRemoveFile=${removeDraftFile}
+                          onFieldChange=${updateDraftField}
+                          onUpload=${handleUpload} />
+                  `
+                : null}
+
+            ${activePhoto
+                ? html`
+                      <${Lightbox}
+                          photo=${activePhoto}
+                          canDelete=${canDelete}
+                          canFeature=${canFeature}
+                          deleting=${deleteBusy}
+                          featuring=${featureBusy}
+                          downloading=${downloadBusy}
+                          onClose=${() => setActivePhotoId(null)}
+                          onRequestDelete=${requestDeleteActivePhoto}
+                          onRequestDownload=${requestDownloadActivePhoto}
+                          onToggleFeatured=${handleToggleFeaturedActivePhoto}
+                          onNext=${() => moveSelection(1)}
+                          onPrev=${() => moveSelection(-1)} />
+                  `
+                : null}
+
+            ${confirmAction
+                ? html`
+                      <${ConfirmActionModal}
+                          action=${confirmAction}
+                          busy=${deleteBusy || downloadBusy}
+                          onCancel=${closeConfirmAction}
+                          onConfirm=${handleConfirmAction} />
+                  `
+                : null}
+
+            ${sectionBrowser
+                ? html`
+                      <${SectionBrowserModal}
+                          section=${sectionBrowser}
+                          onClose=${() => setSectionBrowser(null)}
+                          onOpenPhoto=${setActivePhotoId} />
+                  `
+                : null}
+        </div>
+    `;
+}
+
+createRoot(document.getElementById('gallery-root')).render(html`<${App} />`);

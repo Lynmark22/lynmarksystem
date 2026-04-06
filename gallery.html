@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Browse and upload photos and videos in Lynmark Gallery." />
+    <meta name="theme-color" content="#f2efe8" />
+    <title>Lynmark Gallery</title>
+
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="lynmark-logo.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://esm.sh" crossorigin />
+    <link rel="preconnect" href="https://jlbvoiqexugdobzgpvyb.supabase.co" crossorigin />
+
+    <link
+        href="https://fonts.googleapis.com/css2?display=swap&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Sora:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet"
+        type="text/css" />
+
+    <script>
+        (() => {
+            const storageKey = 'gallery_theme_mode';
+            const darkStartHour = 18;
+            const lightStartHour = 7;
+            const storedValue = (() => {
+                try {
+                    return localStorage.getItem(storageKey);
+                } catch (_error) {
+                    return null;
+                }
+            })();
+            const mode = ['auto', 'light', 'dark'].includes(storedValue) ? storedValue : 'auto';
+            const currentHour = new Date().getHours();
+            const autoTheme = currentHour >= darkStartHour || currentHour < lightStartHour ? 'dark' : 'light';
+            const resolvedTheme = mode === 'auto' ? autoTheme : mode;
+            const root = document.documentElement;
+            const themeColor = document.querySelector('meta[name="theme-color"]');
+
+            root.dataset.galleryThemeMode = mode;
+            root.dataset.galleryTheme = resolvedTheme;
+
+            if (themeColor) {
+                themeColor.setAttribute('content', resolvedTheme === 'dark' ? '#0f1625' : '#f2efe8');
+            }
+        })();
+    </script>
+
+    <link rel="stylesheet" href="normalize.css" />
+    <link rel="stylesheet" href="gallery.css" />
+
+    <script src="vendor/supabase-js.umd.js" defer></script>
+    <script type="module" src="gallery.js"></script>
+</head>
+<body>
+    <div id="gallery-root">
+        <div class="gallery-loader-screen" role="status" aria-live="polite" aria-label="Opening gallery">
+            <div class="gallery-loader-stack">
+                <div class="gallery-loader-card">
+                    <img src="lynmark-logo.png" alt="" class="gallery-loader-logo" />
+                </div>
+                <div class="gallery-loader-dots" aria-hidden="true">
+                    <span class="gallery-loader-dot"></span>
+                    <span class="gallery-loader-dot"></span>
+                    <span class="gallery-loader-dot"></span>
+                </div>
+                <span class="gallery-visually-hidden">Opening gallery...</span>
+            </div>
+        </div>
+    </div>
+    <noscript>
+        <div class="gallery-fallback">
+            <div class="gallery-fallback-card">
+                <p>This gallery needs JavaScript enabled.</p>
+            </div>
+        </div>
+    </noscript>
+</body>
+</html>

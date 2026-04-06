@@ -1,18 +1,65 @@
 // @ts-nocheck
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const RECIPIENT_EMAIL = "lynmarkapartment@gmail.com";
+import {
+  buildCorsHeaders,
+  checkRateLimit,
+  jsonResponse,
+  requireAllowedOrigin,
+  requireJsonBody,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+const RECIPIENT_EMAILS = String(Deno.env.get("LYNMARK_NOTIFICATION_EMAILS") ?? Deno.env.get("LYNMARK_NOTIFICATION_EMAIL") ?? "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") ?? "Lynmark Billing <onboarding@resend.dev>";
+const SEND_PAYMENT_EMAIL_LIMIT = {
+  scope: "send_payment_email",
+  maxRequests: 5,
+  windowSeconds: 300,
+  blockSeconds: 1800,
 };
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = buildCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  if (req.method !== "POST") {
+    return jsonResponse(req, { error: "Method not allowed." }, 405);
+  }
+
+  const originCheck = requireAllowedOrigin(req);
+  if (!originCheck.ok) {
+    return originCheck.response;
+  }
+
+  const bodyCheck = requireJsonBody(req, 64 * 1024);
+  if (!bodyCheck.ok) {
+    return bodyCheck.response;
+  }
+
+  if (!RESEND_API_KEY || !RECIPIENT_EMAILS.length) {
+    return jsonResponse(req, { error: "Email service is not configured." }, 503);
+  }
+
   try {
+    const rateLimit = await checkRateLimit(req, {
+      ...SEND_PAYMENT_EMAIL_LIMIT,
+      fingerprint: "payment-email",
+    });
+
+    if (!rateLimit.allowed) {
+      return jsonResponse(
+        req,
+        { error: "Too many email requests from this network. Please wait before trying again." },
+        429,
+        rateLimit.headers,
+      );
+    }
+
     const {
       senderName,
       senderGcash,
@@ -30,9 +77,11 @@ Deno.serve(async (req: Request) => {
     } = await req.json();
 
     if (!senderName || !senderGcash || !roomNo || !amount) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      return jsonResponse(
+        req,
+        { error: "Missing required fields." },
+        400,
+        rateLimit.headers,
       );
     }
 
@@ -380,8 +429,8 @@ Deno.serve(async (req: Request) => {
         "Authorization": `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Lynmark Billing <onboarding@resend.dev>",
-        to: RECIPIENT_EMAIL,
+        from: RESEND_FROM_EMAIL,
+        to: RECIPIENT_EMAILS,
         subject: `Payment Submission: ${roomNo} (${senderName}) - PHP ${amountDisplay}`,
         html: emailHtml,
       }),
@@ -391,20 +440,12 @@ Deno.serve(async (req: Request) => {
 
     if (!res.ok) {
       console.error("Resend API Error:", data);
-      return new Response(JSON.stringify({ error: "Failed to send email", details: data }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(req, { error: "Failed to send email." }, 502, rateLimit.headers);
     }
 
-    return new Response(JSON.stringify({ success: true, id: data.id }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(req, { success: true, id: data.id }, 200, rateLimit.headers);
   } catch (err) {
     console.error("Internal Function Error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(req, { error: "Internal server error." }, 500);
   }
 });
