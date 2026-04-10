@@ -38,6 +38,40 @@ function getStoredUser() {
     }
 }
 
+function getStoredSessionToken() {
+    try {
+        const raw = localStorage.getItem('billing_session');
+        if (!raw) return '';
+        const session = JSON.parse(raw);
+        return String(session?.token || '').trim();
+    } catch (_error) {
+        return '';
+    }
+}
+
+function getUserDisplayName(user) {
+    const firstName = String(user?.first_name || '').trim();
+    const lastName = String(user?.last_name || '').trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+    return fullName || String(user?.username || '').trim() || 'Signed in user';
+}
+
+function getUserInitials(user) {
+    const displayName = getUserDisplayName(user);
+    const parts = displayName.split(/\s+/).filter(Boolean);
+    const initials = parts.slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+    return initials || 'U';
+}
+
+function getUserProfileDetail(user) {
+    const room = String(user?.tenant_location || '').trim();
+    const username = String(user?.username || '').trim();
+    if (room && username) return `${room} / @${username}`;
+    if (room) return room;
+    if (username) return `@${username}`;
+    return 'Account active';
+}
+
 function areUsersEquivalent(previousUser, nextUser) {
     return JSON.stringify(previousUser || null) === JSON.stringify(nextUser || null);
 }
@@ -398,13 +432,14 @@ function getPhotoUrl(client, photo) {
 }
 
 function getPhotoOwner(photo) {
-    if (!photo) return 'Lynmark';
+    if (!photo) return 'Unknown uploader';
     if (photo.owner_name) return photo.owner_name;
     if (photo.first_name || photo.last_name) {
-        return [photo.first_name, photo.last_name].filter(Boolean).join(' ').trim() || 'Lynmark';
+        return [photo.first_name, photo.last_name].filter(Boolean).join(' ').trim() || 'Unknown uploader';
     }
+    if (photo.owner_username) return photo.owner_username;
     if (photo.username) return photo.username;
-    return 'Lynmark';
+    return 'Unknown uploader';
 }
 
 function getPhotoTitle(photo) {
@@ -467,8 +502,13 @@ function enrichPhoto(client, photo) {
 }
 
 function getPhotoSurfaceStyle(photo) {
+    const width = Number(photo?.width);
+    const height = Number(photo?.height);
+    const hasRatio = Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0;
+
     return {
-        '--photo-bg': photo?.dominant_color || '#efe7dc'
+        '--photo-bg': photo?.dominant_color || '#efe7dc',
+        '--photo-ratio': hasRatio ? `${width} / ${height}` : '16 / 9'
     };
 }
 
@@ -619,6 +659,15 @@ async function uploadFileResumable(client, storagePath, file, { onProgress } = {
 }
 
 async function listGalleryPhotos(client) {
+    const rpcResult = await client.rpc('gallery_list_photos', {
+        p_limit: 360,
+        p_offset: 0
+    });
+
+    if (!rpcResult.error) {
+        return rpcResult.data || [];
+    }
+
     const direct = await client
         .from('gallery_photos')
         .select('id, owner_user_id, bucket_name, storage_path, caption, taken_at, width, height, dominant_color, is_featured, created_at')
@@ -631,16 +680,7 @@ async function listGalleryPhotos(client) {
         return direct.data || [];
     }
 
-    const rpcResult = await client.rpc('gallery_list_photos', {
-        p_limit: 360,
-        p_offset: 0
-    });
-
-    if (!rpcResult.error) {
-        return rpcResult.data || [];
-    }
-
-    throw direct.error;
+    throw rpcResult.error || direct.error;
 }
 
 async function createGalleryPhoto(client, payload) {
@@ -1194,10 +1234,10 @@ function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'vi
 
     return html`
         <div className="gallery-slideshow">
-            <div className=${cx('gallery-slideshow-stage', `is-${activeOrientation}`)} style=${getPhotoSurfaceStyle(activePhoto)}>
+            <div className=${cx('gallery-slideshow-stage', `is-${activeOrientation}`, activeIsVideo && 'is-video')} style=${getPhotoSurfaceStyle(activePhoto)}>
                 <button
                     type="button"
-                    className=${cx('gallery-slideshow-media', `is-${activeOrientation}`)}
+                    className=${cx('gallery-slideshow-media', `is-${activeOrientation}`, activeIsVideo && 'is-video')}
                     onClick=${() => onOpen(activePhoto.id)}>
                     ${!activeIsVideo
                         ? html`
@@ -2377,6 +2417,32 @@ function App() {
         setConfirmAction({ type: 'download', photo: activePhoto });
     };
 
+    async function handleSignOut() {
+        const sessionToken = getStoredSessionToken();
+
+        try {
+            if (client && sessionToken) {
+                await client.rpc('custom_logout', {
+                    p_session_token: sessionToken
+                });
+            }
+        } catch (error) {
+            console.warn('Gallery sign out session revoke failed:', error?.message || error);
+        }
+
+        try {
+            localStorage.removeItem('billing_user');
+            localStorage.removeItem('billing_session');
+        } catch (_error) {
+            null;
+        }
+
+        setCurrentUser(null);
+        setUploadOpen(false);
+        setUploadErrorMessage('');
+        setStatusMessage('Signed out.');
+    }
+
     async function handleConfirmAction() {
         if (!confirmAction) return;
 
@@ -2391,10 +2457,6 @@ function App() {
 
     const renderHeaderActions = () => html`
         <div className="gallery-action-rail" role="toolbar" aria-label="Gallery actions">
-            <span className="gallery-chip">
-                ${html`<${Icon} path="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Zm3 8 2.5-3 2.5 3 1.5-2 3 4H7Z" size=${18} />`}
-                <span className="gallery-action-label">${formatNumber(photos.length)} items</span>
-            </span>
             <a href="index.html" className="gallery-button">
                 ${html`<${Icon} path="M15 18l-6-6 6-6" size=${18} />`}
                 <span className="gallery-action-label">Home</span>
@@ -2428,15 +2490,32 @@ function App() {
                     </div>
                     <div className="gallery-brand-copy">
                         <span className="gallery-kicker">Lynmark System</span>
-                        <h1 className="gallery-title">Gallery</h1>
+                        <div className="gallery-title-row">
+                            <h1 className="gallery-title">Gallery</h1>
+                            ${renderHeaderActions()}
+                        </div>
                         <p className="gallery-subtitle">
                             Shared moments.
                         </p>
                     </div>
                 </div>
-                <div className="gallery-header-tools">
-                    ${renderHeaderActions()}
-                </div>
+                ${currentUser
+                    ? html`
+                          <div className="gallery-header-tools">
+                              <div className="gallery-profile-badge" aria-label=${`Signed in as ${getUserDisplayName(currentUser)}`}>
+                                  <span className="gallery-profile-avatar" aria-hidden="true">${getUserInitials(currentUser)}</span>
+                                  <span className="gallery-profile-copy">
+                                      <span className="gallery-profile-label">Signed in as</span>
+                                      <strong>${getUserDisplayName(currentUser)}</strong>
+                                      <span>${getUserProfileDetail(currentUser)}</span>
+                                  </span>
+                                  <button type="button" className="gallery-profile-signout" onClick=${handleSignOut}>
+                                      Sign out
+                                  </button>
+                              </div>
+                          </div>
+                      `
+                    : null}
             </nav>
 
             <main className="gallery-main">

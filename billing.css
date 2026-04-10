@@ -4223,6 +4223,7 @@ h3.billing-header {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     overflow: hidden;
+    position: relative;
 }
 
 #payment-submit-section .section-heading {
@@ -4253,6 +4254,154 @@ h3.billing-header {
     font-size: 0.71rem;
     color: rgba(255, 255, 255, 0.62);
     text-align: left;
+}
+
+.payment-auth-note {
+    margin-top: 6px !important;
+    color: rgba(109, 230, 182, 0.96) !important;
+    font-size: 0.72rem !important;
+    line-height: 1.45;
+}
+
+.payment-login-gate {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    position: absolute;
+    left: 50%;
+    top: 58px;
+    width: min(560px, calc(100% - 36px));
+    max-height: calc(100% - 72px);
+    z-index: 8;
+    justify-content: flex-start;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid #343747;
+    background: #171923;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 18px 38px rgba(0, 0, 0, 0.22);
+    overflow: auto;
+    transform: translateX(-50%);
+}
+
+.payment-login-gate-badge {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(255, 165, 0, 0.16);
+    border: 1px solid rgba(255, 165, 0, 0.32);
+    color: #ffb44f;
+    font-size: 0.61rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.payment-login-gate h4 {
+    margin: 0;
+    color: #fff;
+    font-size: 0.88rem;
+    line-height: 1.25;
+}
+
+.payment-login-gate p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.73rem;
+    line-height: 1.4;
+}
+
+.payment-login-gate-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.payment-gate-login-btn,
+.payment-gate-register-btn {
+    min-height: 38px;
+    margin-top: 0;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    font-size: 0.82rem;
+}
+
+#payment-submit-section.payment-locked .payflow-form {
+    filter: blur(1.5px);
+    opacity: 0.82;
+    pointer-events: none;
+    user-select: none;
+    transform: scale(0.998);
+    transform-origin: center;
+}
+
+@media (max-width: 560px) {
+    .payment-login-gate {
+        top: 50%;
+        width: min(300px, calc(100% - 42px));
+        max-height: none;
+        padding: 14px;
+        gap: 8px;
+        align-items: center;
+        text-align: center;
+        border-radius: 18px;
+        border-color: #30364a;
+        background: #131720;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.08),
+            0 20px 46px rgba(0, 0, 0, 0.38);
+        transform: translate(-50%, -50%);
+    }
+
+    .payment-login-gate-badge {
+        align-self: center;
+        padding: 4px 10px;
+        font-size: 0.58rem;
+    }
+
+    .payment-login-gate h4 {
+        max-width: 230px;
+        font-size: 0.9rem;
+        line-height: 1.18;
+    }
+
+    .payment-login-gate p {
+        max-width: 250px;
+        font-size: 0.69rem;
+        line-height: 1.35;
+    }
+
+    .payment-login-gate-actions {
+        width: 100%;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+    }
+
+    .payment-gate-login-btn,
+    .payment-gate-register-btn {
+        min-height: 36px;
+        padding: 7px 10px;
+        font-size: 0.78rem;
+        border-radius: 10px;
+    }
+
+    #payment-submit-section.payment-locked .payflow-form {
+        filter: blur(0.9px);
+        opacity: 0.74;
+    }
+}
+
+@media (max-width: 360px) {
+    .payment-login-gate {
+        width: calc(100% - 28px);
+    }
+
+    .payment-login-gate-actions {
+        grid-template-columns: 1fr;
+    }
 }
 
 .payflow-layout {

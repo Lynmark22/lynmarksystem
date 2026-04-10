@@ -142,6 +142,30 @@ where (is_blocked = true);
 create index if not exists idx_users_restricted_until on public.users using btree (restricted_until)
 where (restricted_until is not null);
 
+create table if not exists public.user_sessions (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references public.users(id) on delete cascade,
+    session_token_hash text not null,
+    app_context text not null default 'billing',
+    created_at timestamptz not null default now(),
+    last_seen_at timestamptz not null default now(),
+    expires_at timestamptz not null default (now() + interval '30 days'),
+    revoked_at timestamptz
+);
+
+alter table public.user_sessions add column if not exists user_id uuid;
+alter table public.user_sessions add column if not exists session_token_hash text;
+alter table public.user_sessions add column if not exists app_context text default 'billing';
+alter table public.user_sessions add column if not exists created_at timestamptz default now();
+alter table public.user_sessions add column if not exists last_seen_at timestamptz default now();
+alter table public.user_sessions add column if not exists expires_at timestamptz default (now() + interval '30 days');
+alter table public.user_sessions add column if not exists revoked_at timestamptz;
+
+create unique index if not exists idx_user_sessions_token_hash on public.user_sessions (session_token_hash);
+create index if not exists idx_user_sessions_user_id on public.user_sessions (user_id);
+create index if not exists idx_user_sessions_active on public.user_sessions (user_id, expires_at)
+where revoked_at is null;
+
 do $$
 begin
     -- Compatibility migration:
@@ -199,6 +223,9 @@ declare
     v_password text;
     v_password_ok boolean := false;
     v_rate_limit jsonb;
+    v_session_token text;
+    v_session_token_hash text;
+    v_session_expires_at timestamptz := now() + interval '30 days';
 begin
     v_username := trim(coalesce(p_username, ''));
     v_password := coalesce(p_password, '');
@@ -255,6 +282,25 @@ begin
         return json_build_object('success', false, 'error', 'Invalid username or password.');
     end if;
 
+    delete from public.user_sessions
+    where expires_at < now() - interval '7 days'
+       or (revoked_at is not null and revoked_at < now() - interval '7 days');
+
+    v_session_token := encode(gen_random_bytes(32), 'hex');
+    v_session_token_hash := encode(digest(v_session_token, 'sha256'), 'hex');
+
+    insert into public.user_sessions (
+        user_id,
+        session_token_hash,
+        app_context,
+        expires_at
+    ) values (
+        v_user.id,
+        v_session_token_hash,
+        'billing',
+        v_session_expires_at
+    );
+
     update public.users
     set
         last_active = now(),
@@ -268,8 +314,13 @@ begin
             'username', v_user.username,
             'first_name', v_user.first_name,
             'last_name', v_user.last_name,
+            'contact_info', v_user.contact_info,
             'role', coalesce(v_user.role, 'user'),
             'tenant_location', v_user.tenant_location
+        ),
+        'session', json_build_object(
+            'token', v_session_token,
+            'expires_at', v_session_expires_at
         )
     );
 exception
@@ -279,6 +330,143 @@ end;
 $$;
 
 grant execute on function public.custom_login(text, text) to anon, authenticated;
+
+create or replace function public.verify_user_session(
+    p_session_token text
+)
+returns json
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+    v_token text;
+    v_token_hash text;
+    v_session public.user_sessions%rowtype;
+    v_user public.users%rowtype;
+begin
+    v_token := trim(coalesce(p_session_token, ''));
+    if v_token = '' then
+        return json_build_object('success', false, 'error', 'Missing session token.');
+    end if;
+
+    v_token_hash := encode(digest(v_token, 'sha256'), 'hex');
+
+    select s.*
+    into v_session
+    from public.user_sessions s
+    where s.session_token_hash = v_token_hash
+      and s.app_context = 'billing'
+      and s.revoked_at is null
+    order by s.created_at desc
+    limit 1;
+
+    if not found then
+        return json_build_object('success', false, 'error', 'Session expired. Please sign in again.');
+    end if;
+
+    if v_session.expires_at <= now() then
+        update public.user_sessions
+        set revoked_at = coalesce(revoked_at, now())
+        where id = v_session.id;
+
+        return json_build_object('success', false, 'error', 'Session expired. Please sign in again.');
+    end if;
+
+    select u.*
+    into v_user
+    from public.users u
+    where u.id = v_session.user_id
+    limit 1;
+
+    if not found then
+        update public.user_sessions
+        set revoked_at = coalesce(revoked_at, now())
+        where id = v_session.id;
+
+        return json_build_object('success', false, 'error', 'Account not found. Please sign in again.');
+    end if;
+
+    if coalesce(v_user.is_blocked, false) then
+        update public.user_sessions
+        set revoked_at = coalesce(revoked_at, now())
+        where id = v_session.id;
+
+        return json_build_object('success', false, 'error', 'This account is blocked. Please contact admin.');
+    end if;
+
+    if v_user.restricted_until is not null and v_user.restricted_until > now() then
+        update public.user_sessions
+        set revoked_at = coalesce(revoked_at, now())
+        where id = v_session.id;
+
+        return json_build_object('success', false, 'error', 'This account is temporarily restricted.');
+    end if;
+
+    update public.user_sessions
+    set last_seen_at = now()
+    where id = v_session.id;
+
+    update public.users
+    set last_active = now(),
+        updated_at = now()
+    where id = v_user.id;
+
+    return json_build_object(
+        'success', true,
+        'user', json_build_object(
+            'id', v_user.id,
+            'username', v_user.username,
+            'first_name', v_user.first_name,
+            'last_name', v_user.last_name,
+            'contact_info', v_user.contact_info,
+            'role', coalesce(v_user.role, 'user'),
+            'tenant_location', v_user.tenant_location
+        ),
+        'session', json_build_object(
+            'expires_at', v_session.expires_at
+        )
+    );
+exception
+    when others then
+        return json_build_object('success', false, 'error', 'Unable to verify session right now.');
+end;
+$$;
+
+grant execute on function public.verify_user_session(text) to anon, authenticated;
+
+create or replace function public.custom_logout(
+    p_session_token text
+)
+returns json
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+    v_token text;
+    v_token_hash text;
+begin
+    v_token := trim(coalesce(p_session_token, ''));
+    if v_token = '' then
+        return json_build_object('success', true);
+    end if;
+
+    v_token_hash := encode(digest(v_token, 'sha256'), 'hex');
+
+    update public.user_sessions
+    set revoked_at = coalesce(revoked_at, now())
+    where session_token_hash = v_token_hash
+      and app_context = 'billing';
+
+    return json_build_object('success', true);
+exception
+    when others then
+        return json_build_object('success', false, 'error', 'Unable to sign out right now.');
+end;
+$$;
+
+grant execute on function public.custom_logout(text) to anon, authenticated;
 
 create or replace function public.custom_register_user(
     p_username text,

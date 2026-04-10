@@ -145,11 +145,11 @@ begin
         gp.id,
         gp.owner_user_id,
         coalesce(
-            nullif(trim(concat_ws(' ', u.first_name, u.last_name)), ''),
-            nullif(trim(u.username), ''),
-            'Lynmark'
+            nullif(trim(concat_ws(' ', u.first_name::text, u.last_name::text)), ''),
+            nullif(trim(u.username::text), ''),
+            'Unknown uploader'
         ) as owner_name,
-        u.username as owner_username,
+        u.username::text as owner_username,
         gp.bucket_name,
         gp.storage_path,
         gp.caption,

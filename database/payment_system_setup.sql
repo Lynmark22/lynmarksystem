@@ -2,6 +2,8 @@
 -- PAYMENT SYSTEM SETUP
 -- Dynamic GCash Payment Configuration & Submissions
 -- Run database/setup_security_rate_limits.sql first for anti-abuse checks
+-- Run database/setup_shared_users_create_account.sql before this if you want
+-- login-required payment submissions via submit_payment_authenticated().
 -- ==================================================
 -- Run this in Supabase SQL Editor
 
@@ -25,11 +27,16 @@ CREATE TABLE IF NOT EXISTS public.payment_submissions (
     room_no TEXT NOT NULL,
     amount_to_pay NUMERIC NOT NULL,
     receipt_image_url TEXT,
+    submitted_by_user_id UUID,
+    submitted_by_username TEXT,
     status TEXT DEFAULT 'PENDING',  -- PENDING, REVIEWING, APPROVED, REJECTED
     submitted_at TIMESTAMPTZ DEFAULT now(),
     reviewed_at TIMESTAMPTZ,
     reviewed_by UUID
 );
+
+ALTER TABLE public.payment_submissions ADD COLUMN IF NOT EXISTS submitted_by_user_id UUID;
+ALTER TABLE public.payment_submissions ADD COLUMN IF NOT EXISTS submitted_by_username TEXT;
 
 -- 3. Enable RLS on both tables
 ALTER TABLE public.payment_settings ENABLE ROW LEVEL SECURITY;
@@ -125,8 +132,9 @@ $$;
 -- Grant execute to authenticated users
 GRANT EXECUTE ON FUNCTION upsert_payment_settings(TEXT, TEXT, TEXT, TEXT) TO authenticated;
 
--- 8. Function to submit payment (public access)
-CREATE OR REPLACE FUNCTION submit_payment(
+-- 8. Function to submit payment (requires valid custom login session)
+CREATE OR REPLACE FUNCTION submit_payment_authenticated(
+    p_session_token TEXT,
     p_sender_gcash_number TEXT,
     p_sender_full_name TEXT,
     p_sender_contact_number TEXT,
@@ -142,22 +150,92 @@ AS $$
 DECLARE
     new_id UUID;
     v_rate_limit jsonb;
+    v_user public.users%rowtype;
+    v_session public.user_sessions%rowtype;
+    v_token_hash text;
+    v_room_no text;
+    v_account_room text;
 BEGIN
+    v_room_no := trim(coalesce(p_room_no, ''));
+
+    if trim(coalesce(p_session_token, '')) = '' then
+        raise exception 'Sign in is required before submitting payment.';
+    end if;
+
+    if trim(coalesce(p_sender_gcash_number, '')) = ''
+        or trim(coalesce(p_sender_full_name, '')) = ''
+        or trim(coalesce(p_sender_contact_number, '')) = ''
+        or v_room_no = '' then
+        raise exception 'All payment fields are required.';
+    end if;
+
+    if p_amount_to_pay is null or p_amount_to_pay <= 0 then
+        raise exception 'Payment amount must be greater than zero.';
+    end if;
+
+    v_token_hash := encode(digest(trim(p_session_token), 'sha256'), 'hex');
+
+    select s.*
+    into v_session
+    from public.user_sessions s
+    where s.session_token_hash = v_token_hash
+      and s.app_context = 'billing'
+      and s.revoked_at is null
+    order by s.created_at desc
+    limit 1;
+
+    if not found or v_session.expires_at <= now() then
+        raise exception 'Your session expired. Please sign in again.';
+    end if;
+
+    select u.*
+    into v_user
+    from public.users u
+    where u.id = v_session.user_id
+    limit 1;
+
+    if not found then
+        raise exception 'Account not found. Please sign in again.';
+    end if;
+
+    if coalesce(v_user.is_blocked, false) then
+        raise exception 'This account is blocked. Please contact admin.';
+    end if;
+
+    if v_user.restricted_until is not null and v_user.restricted_until > now() then
+        raise exception 'This account is temporarily restricted.';
+    end if;
+
+    v_account_room := trim(coalesce(v_user.tenant_location, ''));
+    if v_account_room <> '' and lower(v_account_room) <> lower(v_room_no) then
+        raise exception 'This account can only submit payment for room %.', v_account_room;
+    end if;
+
     v_rate_limit := public.security_check_rate_limit(
-        'submit_payment',
-        public.security_request_subject(format('payment:%s', lower(trim(coalesce(p_room_no, 'unknown-room'))))),
+        'submit_payment_authenticated',
+        public.security_request_subject(format('payment:%s:%s', v_user.id::text, lower(v_room_no))),
         5,
         600,
         3600,
         jsonb_build_object(
-            'room_no', left(trim(coalesce(p_room_no, '')), 40),
-            'action', 'submit_payment'
+            'room_no', left(v_room_no, 40),
+            'action', 'submit_payment_authenticated',
+            'user_id', v_user.id::text
         )
     );
 
     if not coalesce((v_rate_limit ->> 'allowed')::boolean, false) then
         raise exception 'Too many payment submissions from this network. Please wait before trying again.';
     end if;
+
+    update public.user_sessions
+    set last_seen_at = now()
+    where id = v_session.id;
+
+    update public.users
+    set last_active = now(),
+        updated_at = now()
+    where id = v_user.id;
 
     INSERT INTO public.payment_submissions (
         sender_gcash_number,
@@ -166,24 +244,36 @@ BEGIN
         room_no,
         amount_to_pay,
         receipt_image_url,
+        submitted_by_user_id,
+        submitted_by_username,
         status
     ) VALUES (
-        p_sender_gcash_number,
-        p_sender_full_name,
-        p_sender_contact_number,
-        p_room_no,
+        trim(p_sender_gcash_number),
+        trim(p_sender_full_name),
+        trim(p_sender_contact_number),
+        v_room_no,
         p_amount_to_pay,
-        p_receipt_image_url,
+        nullif(trim(coalesce(p_receipt_image_url, '')), ''),
+        v_user.id,
+        v_user.username,
         'PENDING'
     )
     RETURNING id INTO new_id;
-    
+
     RETURN new_id;
 END;
 $$;
 
--- Grant execute to anonymous users
-GRANT EXECUTE ON FUNCTION submit_payment(TEXT, TEXT, TEXT, TEXT, NUMERIC, TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION submit_payment_authenticated(TEXT, TEXT, TEXT, TEXT, TEXT, NUMERIC, TEXT) TO anon, authenticated;
+
+DO $$
+BEGIN
+    REVOKE EXECUTE ON FUNCTION submit_payment(TEXT, TEXT, TEXT, TEXT, NUMERIC, TEXT) FROM anon, authenticated;
+EXCEPTION
+    WHEN undefined_function THEN
+        NULL;
+END;
+$$;
 
 -- 9. Grant table permissions for storage operations
 GRANT SELECT ON public.payment_settings TO anon;

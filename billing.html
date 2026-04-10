@@ -29,7 +29,7 @@
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="normalize.css" />
-    <link rel="stylesheet" href="billing.css?v=20260209.26" /> <!-- New Theme -->
+    <link rel="stylesheet" href="billing.css?v=20260209.27" /> <!-- New Theme -->
 
     <!-- Supabase JS (local fallback to avoid CDN connection failures) -->
     <script src="vendor/supabase-js.umd.js" defer></script>
@@ -721,15 +721,30 @@
                         </span>
                     </h3>
 
+                    <div id="payment-login-gate" class="payment-login-gate" style="display: none;">
+                        <div class="payment-login-gate-badge">Account Required</div>
+                        <h4>Sign in before sending a payment receipt</h4>
+                        <p>Create your tenant account or log in first so every payment submission is tied to a real user account.</p>
+                        <div class="payment-login-gate-actions">
+                            <button type="button" class="login-btn payment-gate-login-btn" onclick="showLoginModal()">
+                                <span>Sign In</span>
+                            </button>
+                            <button type="button" class="create-account-btn payment-gate-register-btn" onclick="showRegisterModal()">
+                                <span>Create Account</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <form id="payment-submission-form" class="payflow-form" novalidate>
                         <div class="payflow-intro">
                             <p>Fill in your details, select your room, then upload your receipt.</p>
+                            <p id="payment-auth-note" class="payment-auth-note" style="display: none;"></p>
                         </div>
 
                         <div class="payflow-layout">
                             <div class="payflow-details">
                                 <div class="payfield">
-                                    <label class="payfield-label" for="sender-gcash">GCash Number</label>
+                                    <label class="payfield-label" for="sender-gcash">Your GCash Number</label>
                                     <div class="payfield-control">
                                         <span class="payfield-icon">
                                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -935,7 +950,7 @@
     <div id="toast-container"></div>
 
     <!-- Logic -->
-    <script src="billing.js?v=20260209.17"></script>
+    <script src="billing.js?v=20260209.20"></script>
 </body>
 
 </html>

@@ -5,9 +5,12 @@
 
 // Global state
 let currentUser = null;
+let currentSession = null;
 let userProfile = null;
 let billingRecords = [];
 const CURRENCY_SYMBOL = '\u20B1';
+const BILLING_USER_STORAGE_KEY = 'billing_user';
+const BILLING_SESSION_STORAGE_KEY = 'billing_session';
 
 function formatCurrency(amount) {
     const numericAmount = Number(amount) || 0;
@@ -97,7 +100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initBillingTableInteractionTracking();
     if (typeof window.supabase !== 'undefined') {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        checkSession();
+        await checkSession();
     } else {
         console.error('Supabase SDK not loaded');
         const errMsg = document.getElementById('auth-error-msg');
@@ -178,6 +181,190 @@ function setFormError(targetId, message = '') {
     }
     errorNode.textContent = message;
     errorNode.style.display = 'block';
+}
+
+function getCurrentSessionToken() {
+    return String(currentSession?.token || '').trim();
+}
+
+function persistBillingAuthState() {
+    if (currentUser) {
+        localStorage.setItem(BILLING_USER_STORAGE_KEY, JSON.stringify(currentUser));
+    } else {
+        localStorage.removeItem(BILLING_USER_STORAGE_KEY);
+    }
+
+    if (currentSession?.token) {
+        localStorage.setItem(BILLING_SESSION_STORAGE_KEY, JSON.stringify(currentSession));
+    } else {
+        localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
+    }
+}
+
+function clearBillingAuthState() {
+    currentUser = null;
+    currentSession = null;
+    localStorage.removeItem(BILLING_USER_STORAGE_KEY);
+    localStorage.removeItem(BILLING_SESSION_STORAGE_KEY);
+}
+
+function buildBillingUserFullName(user = currentUser) {
+    const firstName = String(user?.first_name || '').trim();
+    const lastName = String(user?.last_name || '').trim();
+    return [firstName, lastName].filter(Boolean).join(' ').trim();
+}
+
+function prefillPaymentIdentityFields() {
+    const senderNameInput = document.getElementById('sender-name');
+    const senderContactInput = document.getElementById('sender-contact');
+    const savedFullName = buildBillingUserFullName();
+    const savedContact = String(currentUser?.contact_info || '').trim();
+
+    if (senderNameInput && savedFullName && !senderNameInput.value.trim()) {
+        senderNameInput.value = savedFullName;
+    }
+
+    if (senderContactInput && savedContact && !senderContactInput.value.trim()) {
+        senderContactInput.value = savedContact;
+    }
+}
+
+function normalizeComparableRoom(value) {
+    return normalizeRoomSearchValue(value);
+}
+
+function getAssignedPaymentRoomMatch(assignedRoom) {
+    const target = String(assignedRoom || '').trim();
+    if (!target) return null;
+
+    const targetExact = target.toLowerCase();
+    const targetCompact = normalizeComparableRoom(target);
+    const matchesRoom = (roomNo) => {
+        const roomText = String(roomNo || '').trim();
+        return roomText.toLowerCase() === targetExact ||
+            normalizeComparableRoom(roomText) === targetCompact;
+    };
+
+    const roomOptions = Array.isArray(window.paymentRoomOptions) ? window.paymentRoomOptions : [];
+    const optionMatch = roomOptions.find((room) => matchesRoom(room?.room_no));
+    if (optionMatch) {
+        return {
+            roomNo: String(optionMatch.room_no || target).trim(),
+            amount: optionMatch.amount ?? '0.00',
+        };
+    }
+
+    const roomData = window.paymentRoomData && typeof window.paymentRoomData === 'object'
+        ? window.paymentRoomData
+        : {};
+    const dataKey = Object.keys(roomData).find(matchesRoom);
+    if (dataKey) {
+        return {
+            roomNo: dataKey,
+            amount: roomData[dataKey]?.amount ?? '0.00',
+        };
+    }
+
+    const bills = Array.isArray(window.publicBillsData) ? window.publicBillsData : [];
+    const billMatch = bills.find((bill) => matchesRoom(bill?.room_no));
+    if (billMatch) {
+        const amount = ((Number(billMatch.current_reading) - Number(billMatch.previous_reading)) * Number(billMatch.rate)).toFixed(2);
+        return {
+            roomNo: String(billMatch.room_no || target).trim(),
+            amount: Number.isFinite(Number(amount)) ? amount : '0.00',
+        };
+    }
+
+    return {
+        roomNo: target,
+        amount: '0.00',
+    };
+}
+
+function autoSelectAssignedPaymentRoom() {
+    const assignedRoom = String(currentUser?.tenant_location || '').trim();
+    if (!assignedRoom) return false;
+
+    const roomMatch = getAssignedPaymentRoomMatch(assignedRoom);
+    if (!roomMatch?.roomNo) return false;
+
+    if (typeof window.selectPaymentRoom === 'function') {
+        window.selectPaymentRoom(roomMatch.roomNo, roomMatch.roomNo, roomMatch.amount);
+        return true;
+    }
+
+    const trigger = document.getElementById('room-select-text');
+    const hiddenInput = document.getElementById('payment-room-select');
+    const amountDisplay = document.getElementById('payment-amount');
+
+    if (trigger) trigger.textContent = roomMatch.roomNo;
+    if (hiddenInput) hiddenInput.value = roomMatch.roomNo;
+    if (amountDisplay) amountDisplay.textContent = formatCurrency(roomMatch.amount);
+
+    return true;
+}
+
+function updatePaymentAuthState() {
+    const loginGate = document.getElementById('payment-login-gate');
+    const paymentForm = document.getElementById('payment-submission-form');
+    const paymentSection = document.getElementById('payment-submit-section');
+    const authNote = document.getElementById('payment-auth-note');
+    const canSubmitPayment = !!currentUser && currentUser.role !== 'admin' && !!getCurrentSessionToken();
+
+    if (paymentSection) paymentSection.classList.toggle('payment-locked', !canSubmitPayment);
+    if (loginGate) {
+        loginGate.style.display = canSubmitPayment ? 'none' : 'flex';
+        loginGate.setAttribute('aria-hidden', canSubmitPayment ? 'true' : 'false');
+    }
+    if (paymentForm) {
+        paymentForm.style.display = 'flex';
+        paymentForm.classList.toggle('payment-form-locked', !canSubmitPayment);
+        paymentForm.toggleAttribute('inert', !canSubmitPayment);
+        paymentForm.setAttribute('aria-hidden', canSubmitPayment ? 'false' : 'true');
+    }
+
+    if (!canSubmitPayment) {
+        if (authNote) {
+            authNote.textContent = '';
+            authNote.style.display = 'none';
+        }
+        return;
+    }
+
+    prefillPaymentIdentityFields();
+    autoSelectAssignedPaymentRoom();
+
+    if (authNote) {
+        const assignedRoom = String(currentUser?.tenant_location || '').trim();
+        authNote.textContent = assignedRoom
+            ? `Your account is linked to Room ${assignedRoom}. Please use that same room when you submit payment.`
+            : 'Signed in. Your payment submission will be recorded under your account.';
+        authNote.style.display = 'block';
+    }
+}
+
+function isBillingSessionError(message = '') {
+    return /session|sign in|signed in|login|expired|revoked|invalid token|account required/i.test(String(message || ''));
+}
+
+async function revokeStoredBillingSession(sessionToken = getCurrentSessionToken()) {
+    if (!supabaseClient || !sessionToken) return;
+    try {
+        await supabaseClient.rpc('custom_logout', {
+            p_session_token: sessionToken
+        });
+    } catch (_error) {
+        // Best-effort logout only.
+    }
+}
+
+async function expireBillingSession(message = 'Please sign in again to continue.') {
+    const previousToken = getCurrentSessionToken();
+    clearBillingAuthState();
+    updatePaymentAuthState();
+    await revokeStoredBillingSession(previousToken);
+    showToast(message, 'info');
+    showLoginModal();
 }
 
 function setAuthMode(mode = 'login') {
@@ -275,9 +462,17 @@ if (loginForm) {
             }
 
             if (loginResult.success) {
-                // Save Session
+                const sessionToken = String(loginResult?.session?.token || '').trim();
+                if (!sessionToken) {
+                    throw new Error('Unable to start a secure session right now.');
+                }
+
                 currentUser = loginResult.user;
-                localStorage.setItem('billing_user', JSON.stringify(currentUser));
+                currentSession = {
+                    token: sessionToken,
+                    expires_at: loginResult?.session?.expires_at || null
+                };
+                persistBillingAuthState();
                 showToast('Logged in successfully!', 'success');
                 handleSession();
                 return;
@@ -285,8 +480,12 @@ if (loginForm) {
 
             throw new Error('Login failed.');
         } catch (err) {
-            // Show clean error message instead of debug info
-            setFormError('auth-error-msg', 'Incorrect username or password.');
+            const message = String(err?.message || '');
+            if (/invalid username or password|incorrect username or password/i.test(message)) {
+                setFormError('auth-error-msg', 'Incorrect username or password.');
+            } else {
+                setFormError('auth-error-msg', message || 'Unable to sign in right now.');
+            }
         } finally {
             if (submitBtn) submitBtn.disabled = false;
         }
@@ -555,32 +754,58 @@ if (forgotResetForm) {
     });
 }
 
-function logoutBilling() {
-    localStorage.removeItem('billing_user');
-    currentUser = null;
+async function logoutBilling() {
+    const previousToken = getCurrentSessionToken();
+    clearBillingAuthState();
+    updatePaymentAuthState();
     showSection('public');
     fetchPublicBills({ forceRender: true });
+    await revokeStoredBillingSession(previousToken);
 }
 
-function checkSession() {
-    const storedUser = localStorage.getItem('billing_user');
-    if (storedUser) {
-        try {
-            currentUser = JSON.parse(storedUser);
-            handleSession();
-        } catch (_err) {
-            localStorage.removeItem('billing_user');
-            currentUser = null;
-            showSection('public');
-            fetchPublicBills({ forceRender: true });
-            startBillingAutoSync();
-        }
+async function checkSession() {
+    const storedUser = localStorage.getItem(BILLING_USER_STORAGE_KEY);
+    const storedSession = localStorage.getItem(BILLING_SESSION_STORAGE_KEY);
+
+    if (!storedUser || !storedSession) {
+        clearBillingAuthState();
+        showSection('public');
+        fetchPublicBills({ forceRender: true });
+        startBillingAutoSync();
         return;
     }
 
-    showSection('public');
-    fetchPublicBills({ forceRender: true });
-    startBillingAutoSync();
+    try {
+        JSON.parse(storedUser);
+        const parsedSession = JSON.parse(storedSession);
+        const sessionToken = String(parsedSession?.token || '').trim();
+        if (!sessionToken) {
+            throw new Error('Missing session token.');
+        }
+
+        const { data, error } = await supabaseClient.rpc('verify_user_session', {
+            p_session_token: sessionToken
+        });
+        if (error) throw error;
+
+        const sessionResult = parseRpcJson(data);
+        if (!sessionResult?.success || !sessionResult.user) {
+            throw new Error(sessionResult?.error || 'Session verification failed.');
+        }
+
+        currentUser = sessionResult.user;
+        currentSession = {
+            token: sessionToken,
+            expires_at: sessionResult?.session?.expires_at || parsedSession?.expires_at || null
+        };
+        persistBillingAuthState();
+        handleSession();
+    } catch (_err) {
+        clearBillingAuthState();
+        showSection('public');
+        fetchPublicBills({ forceRender: true });
+        startBillingAutoSync();
+    }
 }
 
 function updateTenantRoomLabel(roomText = '') {
@@ -599,7 +824,7 @@ async function refreshCurrentUserProfile(force = false) {
     try {
         const { data, error } = await supabaseClient
             .from('users')
-            .select('role, tenant_location')
+            .select('role, tenant_location, first_name, last_name, contact_info')
             .eq('id', currentUser.id)
             .maybeSingle();
 
@@ -614,21 +839,31 @@ async function refreshCurrentUserProfile(force = false) {
 
         const nextRole = data.role || currentUser.role || 'user';
         const nextLocation = data.tenant_location || '';
+        const nextFirstName = data.first_name || currentUser.first_name || '';
+        const nextLastName = data.last_name || currentUser.last_name || '';
+        const nextContactInfo = data.contact_info || currentUser.contact_info || '';
         const roleChanged = String(nextRole) !== String(currentUser.role);
         const locationChanged = String(nextLocation) !== String(currentUser.tenant_location || '');
-        if (!roleChanged && !locationChanged) return;
+        const firstNameChanged = String(nextFirstName) !== String(currentUser.first_name || '');
+        const lastNameChanged = String(nextLastName) !== String(currentUser.last_name || '');
+        const contactChanged = String(nextContactInfo) !== String(currentUser.contact_info || '');
+        if (!roleChanged && !locationChanged && !firstNameChanged && !lastNameChanged && !contactChanged) return;
 
         currentUser = {
             ...currentUser,
             role: nextRole,
-            tenant_location: nextLocation
+            tenant_location: nextLocation,
+            first_name: nextFirstName,
+            last_name: nextLastName,
+            contact_info: nextContactInfo
         };
-        localStorage.setItem('billing_user', JSON.stringify(currentUser));
+        persistBillingAuthState();
         if (currentUser.role === 'admin') {
             handleSession();
             return;
         }
         updateTenantRoomLabel(currentUser.tenant_location || 'Not Assigned');
+        updatePaymentAuthState();
     } catch (_err) {
         // Silent fallback: live UI still refreshes from bills.
     }
@@ -750,12 +985,19 @@ function showSection(section) {
     if (section === 'admin') {
         primePaymentDataLazy('admin-view');
     }
+
+    updatePaymentAuthState();
 }
 
 // Show login modal (from public view)
 window.showLoginModal = function () {
     showSection('login');
     setAuthMode('login');
+};
+
+window.showRegisterModal = function () {
+    showSection('login');
+    setAuthMode('register');
 };
 
 // Close login modal (return to public view)
@@ -2094,6 +2336,7 @@ async function populatePaymentRoomDropdown(options = {}) {
 
     renderPaymentRoomOptions();
     bindPaymentRoomDropdownEvents();
+    autoSelectAssignedPaymentRoom();
 }
 
 function escapeHtmlText(value) {
@@ -2462,6 +2705,13 @@ if (paymentForm) {
     paymentForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        const sessionToken = getCurrentSessionToken();
+        if (!currentUser || currentUser.role === 'admin' || !sessionToken) {
+            showToast('Please sign in or create an account before submitting payment.', 'info');
+            showLoginModal();
+            return;
+        }
+
         const senderGcash = document.getElementById('sender-gcash').value.trim();
         const senderName = document.getElementById('sender-name').value.trim();
         const senderContact = document.getElementById('sender-contact').value.trim();
@@ -2527,7 +2777,8 @@ if (paymentForm) {
             const receiptUrl = urlData.publicUrl;
 
             // Save to database
-            const { data: submissionId, error: insertError } = await supabaseClient.rpc('submit_payment', {
+            const { data: submissionId, error: insertError } = await supabaseClient.rpc('submit_payment_authenticated', {
+                p_session_token: sessionToken,
                 p_sender_gcash_number: senderGcash,
                 p_sender_full_name: senderName,
                 p_sender_contact_number: senderContact,
@@ -2537,6 +2788,10 @@ if (paymentForm) {
             });
 
             if (insertError) {
+                if (isBillingSessionError(insertError.message)) {
+                    await expireBillingSession('Your session expired. Please sign in again before submitting payment.');
+                    return;
+                }
                 throw new Error('Failed to submit payment: ' + insertError.message);
             }
 
@@ -2567,6 +2822,7 @@ if (paymentForm) {
                         'Authorization': `Bearer ${SUPABASE_KEY}`
                     },
                     body: JSON.stringify({
+                        submissionId,
                         senderName,
                         senderGcash,
                         senderContact,
@@ -2593,6 +2849,7 @@ if (paymentForm) {
 
             // Reset form
             paymentForm.reset();
+            prefillPaymentIdentityFields();
             document.getElementById('payment-amount').textContent = formatCurrency(0);
             const fileNameEl = document.getElementById('uploaded-file-name');
             if (fileNameEl) fileNameEl.textContent = '';
@@ -2602,12 +2859,20 @@ if (paymentForm) {
                 ? window.showReceiptValidationNote
                 : () => {};
             setReceiptNote('');
-            const roomText = document.getElementById('room-select-text');
-            if (roomText) roomText.textContent = '-- Select Room --';
-            document.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
+            if (!autoSelectAssignedPaymentRoom()) {
+                const roomText = document.getElementById('room-select-text');
+                const roomInput = document.getElementById('payment-room-select');
+                if (roomText) roomText.textContent = '-- Select Room --';
+                if (roomInput) roomInput.value = '';
+                document.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
+            }
 
         } catch (err) {
             console.error('Payment submission error:', err);
+            if (isBillingSessionError(err?.message)) {
+                await expireBillingSession('Please sign in again before submitting payment.');
+                return;
+            }
             showToast(err.message || 'Failed to submit payment. Please try again.', 'error');
         } finally {
             // Re-enable submit button
