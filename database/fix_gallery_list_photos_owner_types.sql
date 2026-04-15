@@ -3,6 +3,7 @@
 -- Run this in Supabase SQL Editor if gallery_list_photos fails.
 -- =========================================================
 
+drop function if exists public.gallery_list_photos(integer, integer);
 create or replace function public.gallery_list_photos(
     p_limit integer default 240,
     p_offset integer default 0
@@ -14,6 +15,8 @@ returns table (
     owner_username text,
     bucket_name text,
     storage_path text,
+    poster_storage_path text,
+    video_variants jsonb,
     caption text,
     taken_at timestamptz,
     width integer,
@@ -59,6 +62,8 @@ begin
         u.username::text as owner_username,
         gp.bucket_name,
         gp.storage_path,
+        gp.poster_storage_path,
+        coalesce(gp.video_variants, '{}'::jsonb),
         gp.caption,
         gp.taken_at,
         gp.width,

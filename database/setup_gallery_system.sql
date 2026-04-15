@@ -12,6 +12,8 @@ create table if not exists public.gallery_photos (
     owner_user_id uuid references public.users(id) on delete set null,
     bucket_name text not null default 'lynmark-gallery',
     storage_path text not null unique,
+    poster_storage_path text,
+    video_variants jsonb not null default '{}'::jsonb,
     caption text,
     taken_at timestamptz not null default now(),
     width integer,
@@ -22,6 +24,12 @@ create table if not exists public.gallery_photos (
     updated_at timestamptz not null default now(),
     archived_at timestamptz
 );
+
+alter table public.gallery_photos
+    add column if not exists poster_storage_path text;
+
+alter table public.gallery_photos
+    add column if not exists video_variants jsonb not null default '{}'::jsonb;
 
 create index if not exists idx_gallery_photos_live_timeline
     on public.gallery_photos (taken_at desc, created_at desc)
@@ -96,6 +104,7 @@ begin
 end;
 $$;
 
+drop function if exists public.gallery_list_photos(integer, integer);
 create or replace function public.gallery_list_photos(
     p_limit integer default 240,
     p_offset integer default 0
@@ -107,6 +116,8 @@ returns table (
     owner_username text,
     bucket_name text,
     storage_path text,
+    poster_storage_path text,
+    video_variants jsonb,
     caption text,
     taken_at timestamptz,
     width integer,
@@ -152,6 +163,8 @@ begin
         u.username::text as owner_username,
         gp.bucket_name,
         gp.storage_path,
+        gp.poster_storage_path,
+        coalesce(gp.video_variants, '{}'::jsonb),
         gp.caption,
         gp.taken_at,
         gp.width,
@@ -177,7 +190,9 @@ create or replace function public.gallery_create_photo(
     p_taken_at timestamptz default null,
     p_width integer default null,
     p_height integer default null,
-    p_dominant_color text default null
+    p_dominant_color text default null,
+    p_poster_storage_path text default null,
+    p_video_variants jsonb default '{}'::jsonb
 )
 returns uuid
 language plpgsql
@@ -229,6 +244,8 @@ begin
         owner_user_id,
         bucket_name,
         storage_path,
+        poster_storage_path,
+        video_variants,
         caption,
         taken_at,
         width,
@@ -239,6 +256,8 @@ begin
         p_actor_user_id,
         coalesce(nullif(trim(p_bucket_name), ''), 'lynmark-gallery'),
         trim(p_storage_path),
+        nullif(trim(coalesce(p_poster_storage_path, '')), ''),
+        coalesce(p_video_variants, '{}'::jsonb),
         nullif(trim(coalesce(p_caption, '')), ''),
         coalesce(p_taken_at, now()),
         p_width,
@@ -372,7 +391,7 @@ $$;
 
 grant execute on function public.gallery_is_admin(uuid) to anon, authenticated;
 grant execute on function public.gallery_list_photos(integer, integer) to anon, authenticated;
-grant execute on function public.gallery_create_photo(uuid, text, text, text, timestamptz, integer, integer, text) to anon, authenticated;
+grant execute on function public.gallery_create_photo(uuid, text, text, text, timestamptz, integer, integer, text, text, jsonb) to anon, authenticated;
 grant execute on function public.gallery_delete_photo(uuid, uuid) to anon, authenticated;
 grant execute on function public.gallery_set_photo_featured(uuid, uuid, boolean) to anon, authenticated;
 

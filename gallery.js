@@ -13,17 +13,50 @@ const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 const RESUMABLE_UPLOAD_CHUNK_BYTES = 6 * 1024 * 1024;
 const RESUMABLE_UPLOAD_RETRY_DELAYS = [0, 3000, 5000, 10000, 20000];
 const SECTION_PREVIEW_LIMIT = 9;
-const DEFAULT_SLIDESHOW_LIMIT = 5;
+const CONSTRAINED_SECTION_PREVIEW_LIMIT = 6;
+const INITIAL_VISIBLE_SECTION_COUNT = 10;
+const CONSTRAINED_VISIBLE_SECTION_COUNT = 4;
+const SECTION_BATCH_SIZE = 10;
+const CONSTRAINED_SECTION_BATCH_SIZE = 4;
+const DEFAULT_SLIDESHOW_LIMIT = 360;
+const SECTION_BROWSER_PAGE_SIZE_CONSTRAINED = 6;
 const SECTION_BROWSER_PAGE_SIZE_MOBILE = 9;
 const SECTION_BROWSER_PAGE_SIZE_DESKTOP = 12;
+const GALLERY_METADATA_PAGE_SIZE = 48;
+const GALLERY_METADATA_PAGE_SIZE_CONSTRAINED = 24;
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'm4v', 'ogv', 'ogg']);
 const GALLERY_THEME_STORAGE_KEY = 'gallery_theme_mode';
+const GALLERY_PHOTOS_CACHE_KEY = 'gallery_photos_cache_v6';
+const GALLERY_PHOTOS_CACHE_LIMIT = 600;
+const GALLERY_MEDIA_CACHE_NAME = 'lynmark-gallery-media-v1';
+const GALLERY_PHOTOS_CACHE_TTL_MS = 10 * 60 * 1000;
+const GALLERY_SLIDESHOW_STATE_KEY = 'gallery_slideshow_state_v1';
+const GALLERY_VIDEO_DURATION_CACHE_KEY = 'gallery_video_duration_cache_v1';
+const GALLERY_VIDEO_DURATION_CACHE_LIMIT = 500;
+const VIDEO_DURATION_PROBE_CONCURRENCY = 2;
+const VIDEO_DURATION_PROBE_TIMEOUT_MS = 9000;
+const VIDEO_DURATION_ROOT_MARGIN = '360px 0px';
+const MEDIA_CACHE_FETCH_CONCURRENCY = 3;
+const CONSTRAINED_MEDIA_CACHE_FETCH_CONCURRENCY = 1;
+const GALLERY_NEXT_PAGE_ROOT_MARGIN = '880px 0px';
+const GALLERY_MEDIA_ROOT_MARGIN = '720px 0px';
+const GALLERY_CONSTRAINED_MEDIA_ROOT_MARGIN = '120px 0px';
+const GALLERY_OBJECT_CACHE_CONTROL_SECONDS = 60 * 60 * 24 * 365;
+const LIGHTBOX_CAPTION_PREVIEW_MAX_LENGTH = 72;
+const LIGHTBOX_DESCRIPTION_PREVIEW_MAX_LENGTH = 120;
 const AUTO_THEME_DARK_START_HOUR = 18;
 const AUTO_THEME_LIGHT_START_HOUR = 7;
 const GALLERY_THEME_COLORS = {
     light: '#f2efe8',
     dark: '#0f1625'
 };
+const videoDurationProbeQueue = [];
+const videoDurationProbePending = new Map();
+const mediaCacheFetchQueue = [];
+const mediaCacheFetchPending = new Map();
+let videoDurationProbeActiveCount = 0;
+let videoDurationCacheSnapshot = null;
+let mediaCacheFetchActiveCount = 0;
 
 function cx(...values) {
     return values.filter(Boolean).join(' ');
@@ -46,6 +79,62 @@ function getStoredSessionToken() {
         return String(session?.token || '').trim();
     } catch (_error) {
         return '';
+    }
+}
+
+function readGalleryPhotoCache() {
+    try {
+        const raw = localStorage.getItem(GALLERY_PHOTOS_CACHE_KEY);
+        if (!raw) return { photos: [], cachedAt: 0, isFresh: false };
+
+        const parsed = JSON.parse(raw);
+        const cachedAt = Number(parsed?.cachedAt) || 0;
+        const photos = Array.isArray(parsed?.photos) ? parsed.photos : [];
+
+        return {
+            photos,
+            cachedAt,
+            isFresh: cachedAt > 0 && Date.now() - cachedAt < GALLERY_PHOTOS_CACHE_TTL_MS
+        };
+    } catch (_error) {
+        return { photos: [], cachedAt: 0, isFresh: false };
+    }
+}
+
+function writeGalleryPhotoCache(photos) {
+    try {
+        localStorage.setItem(GALLERY_PHOTOS_CACHE_KEY, JSON.stringify({
+            cachedAt: Date.now(),
+            photos: Array.isArray(photos) ? photos.slice(0, GALLERY_PHOTOS_CACHE_LIMIT) : []
+        }));
+    } catch (_error) {
+        null;
+    }
+}
+
+function readSlideshowState(signature, length) {
+    try {
+        const raw = localStorage.getItem(GALLERY_SLIDESHOW_STATE_KEY);
+        if (!raw) return 0;
+
+        const parsed = JSON.parse(raw);
+        if (parsed?.signature !== signature) return 0;
+
+        return clamp(Number(parsed?.index) || 0, 0, Math.max(0, length - 1));
+    } catch (_error) {
+        return 0;
+    }
+}
+
+function writeSlideshowState(signature, index) {
+    try {
+        localStorage.setItem(GALLERY_SLIDESHOW_STATE_KEY, JSON.stringify({
+            signature,
+            index,
+            updatedAt: Date.now()
+        }));
+    } catch (_error) {
+        null;
     }
 }
 
@@ -93,14 +182,75 @@ function getSystemTheme() {
     return currentHour >= AUTO_THEME_DARK_START_HOUR || currentHour < AUTO_THEME_LIGHT_START_HOUR ? 'dark' : 'light';
 }
 
+function isConstrainedGalleryDevice() {
+    if (typeof window === 'undefined' && typeof navigator === 'undefined') {
+        return false;
+    }
+
+    const nav = typeof navigator === 'undefined' ? null : navigator;
+    const connection = nav?.connection || nav?.mozConnection || nav?.webkitConnection;
+    const effectiveType = String(connection?.effectiveType || '').toLowerCase();
+    const saveData = Boolean(connection?.saveData);
+    const deviceMemory = Number(nav?.deviceMemory) || 0;
+    const hardwareConcurrency = Number(nav?.hardwareConcurrency) || 0;
+    const viewportWidth = typeof window === 'undefined' ? 1024 : window.innerWidth;
+
+    return saveData
+        || effectiveType.includes('2g')
+        || effectiveType.includes('3g')
+        || (deviceMemory > 0 && deviceMemory <= 2)
+        || (hardwareConcurrency > 0 && hardwareConcurrency <= 4)
+        || viewportWidth <= 520;
+}
+
+function getInitialVisibleSectionCount() {
+    return isConstrainedGalleryDevice()
+        ? CONSTRAINED_VISIBLE_SECTION_COUNT
+        : INITIAL_VISIBLE_SECTION_COUNT;
+}
+
+function getSectionBatchSize() {
+    return isConstrainedGalleryDevice()
+        ? CONSTRAINED_SECTION_BATCH_SIZE
+        : SECTION_BATCH_SIZE;
+}
+
+function getSectionPreviewLimit() {
+    return isConstrainedGalleryDevice()
+        ? CONSTRAINED_SECTION_PREVIEW_LIMIT
+        : SECTION_PREVIEW_LIMIT;
+}
+
+function getGalleryMediaRootMargin() {
+    return isConstrainedGalleryDevice()
+        ? GALLERY_CONSTRAINED_MEDIA_ROOT_MARGIN
+        : GALLERY_MEDIA_ROOT_MARGIN;
+}
+
 function getSectionBrowserPageSize() {
     if (typeof window === 'undefined') {
         return SECTION_BROWSER_PAGE_SIZE_DESKTOP;
     }
 
+    if (isConstrainedGalleryDevice()) {
+        return SECTION_BROWSER_PAGE_SIZE_CONSTRAINED;
+    }
+
     return window.innerWidth <= 760
         ? SECTION_BROWSER_PAGE_SIZE_MOBILE
         : SECTION_BROWSER_PAGE_SIZE_DESKTOP;
+}
+
+function getGalleryMetadataPageSize() {
+    return isConstrainedGalleryDevice()
+        ? GALLERY_METADATA_PAGE_SIZE_CONSTRAINED
+        : GALLERY_METADATA_PAGE_SIZE;
+}
+
+function getMediaCacheFetchConcurrency() {
+    return isConstrainedGalleryDevice()
+        ? CONSTRAINED_MEDIA_CACHE_FETCH_CONCURRENCY
+        : MEDIA_CACHE_FETCH_CONCURRENCY;
 }
 
 function resolveGalleryTheme(mode, systemTheme = getSystemTheme()) {
@@ -161,6 +311,105 @@ function hashValue(value) {
     }
 
     return hash;
+}
+
+function canUseCacheStorage() {
+    return typeof caches !== 'undefined' && typeof Request !== 'undefined' && typeof Response !== 'undefined';
+}
+
+function getGeneratedPosterCacheUrl(media) {
+    const baseUrl = typeof window === 'undefined' ? 'https://lynmark.local' : window.location.origin;
+    const cacheId = hashValue(media?.id || media?.storage_path || media?.publicUrl || '');
+    return `${baseUrl}/__gallery_generated_video_posters__/${cacheId}.jpg`;
+}
+
+async function readCachedBlob(cacheKey) {
+    if (!cacheKey || !canUseCacheStorage()) return null;
+
+    const cache = await caches.open(GALLERY_MEDIA_CACHE_NAME);
+    const cached = await cache.match(cacheKey);
+    if (!cached) return null;
+
+    return cached.blob();
+}
+
+async function readCachedBlobUrl(cacheKey) {
+    const blob = await readCachedBlob(cacheKey);
+    return blob ? URL.createObjectURL(blob) : '';
+}
+
+async function cacheBlob(cacheKey, blob, contentType = blob?.type || 'application/octet-stream') {
+    if (!cacheKey || !blob || !canUseCacheStorage()) return;
+
+    const cache = await caches.open(GALLERY_MEDIA_CACHE_NAME);
+    await cache.put(cacheKey, new Response(blob, {
+        headers: {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=31536000, immutable'
+        }
+    }));
+}
+
+async function fetchAndCacheMediaBlob(sourceUrl, cacheKey = sourceUrl) {
+    const cachedBlob = await readCachedBlob(cacheKey);
+    if (cachedBlob) {
+        return cachedBlob;
+    }
+
+    const response = await fetch(sourceUrl, {
+        mode: 'cors',
+        cache: 'force-cache'
+    });
+
+    if (!response.ok) {
+        throw new Error('Media cache fetch failed.');
+    }
+
+    const blob = await response.blob();
+    await cacheBlob(cacheKey, blob, response.headers.get('content-type') || blob.type);
+    return blob;
+}
+
+function flushMediaCacheFetchQueue() {
+    while (mediaCacheFetchActiveCount < getMediaCacheFetchConcurrency() && mediaCacheFetchQueue.length) {
+        const task = mediaCacheFetchQueue.shift();
+        mediaCacheFetchActiveCount += 1;
+
+        fetchAndCacheMediaBlob(task.sourceUrl, task.cacheKey)
+            .then(task.resolve)
+            .catch(task.reject)
+            .finally(() => {
+                mediaCacheFetchActiveCount = Math.max(0, mediaCacheFetchActiveCount - 1);
+                flushMediaCacheFetchQueue();
+            });
+    }
+}
+
+function scheduleMediaCacheFetch(sourceUrl, cacheKey = sourceUrl) {
+    if (!sourceUrl || !canUseCacheStorage()) {
+        return Promise.reject(new Error('Media cache is unavailable.'));
+    }
+
+    const pendingKey = String(cacheKey || sourceUrl);
+    if (mediaCacheFetchPending.has(pendingKey)) {
+        return mediaCacheFetchPending.get(pendingKey);
+    }
+
+    const scheduledFetch = new Promise((resolve, reject) => {
+        mediaCacheFetchQueue.push({
+            sourceUrl,
+            cacheKey: pendingKey,
+            resolve,
+            reject
+        });
+        flushMediaCacheFetchQueue();
+    });
+    const trackedFetch = scheduledFetch.finally(() => {
+        mediaCacheFetchPending.delete(pendingKey);
+    });
+
+    mediaCacheFetchPending.set(pendingKey, trackedFetch);
+    return trackedFetch;
 }
 
 function formatNumber(value) {
@@ -342,6 +591,21 @@ function safeCaption(input) {
     return String(input || '').trim().replace(/\s+/g, ' ');
 }
 
+function truncateText(input, maxLength = LIGHTBOX_CAPTION_PREVIEW_MAX_LENGTH) {
+    const value = safeCaption(input);
+    const limit = Math.max(4, Number(maxLength) || LIGHTBOX_CAPTION_PREVIEW_MAX_LENGTH);
+
+    if (value.length <= limit) {
+        return value;
+    }
+
+    const rawClip = value.slice(0, limit - 3).trimEnd();
+    const lastSpace = rawClip.lastIndexOf(' ');
+    const clipped = lastSpace > limit * 0.55 ? rawClip.slice(0, lastSpace) : rawClip;
+
+    return `${clipped.replace(/[.,;:!?-]+$/g, '').trimEnd()}...`;
+}
+
 function buildStoragePath(user, file) {
     const ownerId = user?.id || 'guest';
     const timeKey = new Date().toISOString().replace(/[:.]/g, '-');
@@ -364,6 +628,111 @@ function isVideoMedia(value) {
     if (type.startsWith('video/')) return true;
     if (type.startsWith('image/')) return false;
     return VIDEO_EXTENSIONS.has(getMediaExtension(value));
+}
+
+function normalizeVideoDuration(rawDuration) {
+    const duration = Number(rawDuration);
+    return Number.isFinite(duration) && duration > 0 ? duration : null;
+}
+
+function getVideoDurationCacheId(media) {
+    return String(media?.id || media?.storage_path || media?.publicUrl || '').trim();
+}
+
+function getVideoDurationSeconds(media) {
+    if (!media) return null;
+
+    const variants = media.video_variants && typeof media.video_variants === 'object'
+        ? media.video_variants
+        : {};
+    const rawDuration = variants.duration_seconds
+        ?? variants.durationSeconds
+        ?? variants.duration
+        ?? media.duration_seconds
+        ?? media.durationSeconds;
+
+    return normalizeVideoDuration(rawDuration);
+}
+
+function getVideoDurationCacheSnapshot() {
+    if (videoDurationCacheSnapshot) {
+        return videoDurationCacheSnapshot;
+    }
+
+    try {
+        const raw = localStorage.getItem(GALLERY_VIDEO_DURATION_CACHE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        videoDurationCacheSnapshot = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed
+            : {};
+    } catch (_error) {
+        videoDurationCacheSnapshot = {};
+    }
+
+    return videoDurationCacheSnapshot;
+}
+
+function readCachedVideoDurationSeconds(media) {
+    const cacheId = getVideoDurationCacheId(media);
+    if (!cacheId) return null;
+
+    const cached = getVideoDurationCacheSnapshot()[cacheId];
+    const rawDuration = cached && typeof cached === 'object'
+        ? cached.duration_seconds ?? cached.durationSeconds ?? cached.duration
+        : cached;
+
+    return normalizeVideoDuration(rawDuration);
+}
+
+function writeCachedVideoDurationSeconds(media, duration) {
+    const cacheId = getVideoDurationCacheId(media);
+    const normalizedDuration = normalizeVideoDuration(duration);
+    if (!cacheId || !normalizedDuration) return;
+
+    const snapshot = {
+        ...getVideoDurationCacheSnapshot(),
+        [cacheId]: {
+            duration_seconds: normalizedDuration,
+            cached_at: Date.now()
+        }
+    };
+    const trimmedEntries = Object.entries(snapshot)
+        .sort((left, right) => {
+            const leftTime = Number(left[1]?.cached_at) || 0;
+            const rightTime = Number(right[1]?.cached_at) || 0;
+            return rightTime - leftTime;
+        })
+        .slice(0, GALLERY_VIDEO_DURATION_CACHE_LIMIT);
+
+    videoDurationCacheSnapshot = Object.fromEntries(trimmedEntries);
+
+    try {
+        localStorage.setItem(GALLERY_VIDEO_DURATION_CACHE_KEY, JSON.stringify(videoDurationCacheSnapshot));
+    } catch (_error) {
+        null;
+    }
+}
+
+function getKnownVideoDurationSeconds(media) {
+    return getVideoDurationSeconds(media) || readCachedVideoDurationSeconds(media);
+}
+
+function formatVideoDurationValue(duration) {
+    const normalizedDuration = normalizeVideoDuration(duration);
+    if (!normalizedDuration) return '';
+
+    const totalSeconds = Math.max(1, Math.round(normalizedDuration));
+    if (totalSeconds < 60) {
+        return `${totalSeconds} sec${totalSeconds === 1 ? '' : 's'}`;
+    }
+
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function formatVideoDurationLabel(media) {
+    return formatVideoDurationValue(getKnownVideoDurationSeconds(media));
 }
 
 function isSupportedMediaFile(file) {
@@ -431,6 +800,18 @@ function getPhotoUrl(client, photo) {
     return data?.publicUrl || '';
 }
 
+function getStoragePublicUrl(client, bucketName, storagePath) {
+    if (!client || !storagePath) return '';
+    if (/^https?:\/\//i.test(storagePath)) return storagePath;
+
+    const { data } = client.storage.from(bucketName || GALLERY_BUCKET).getPublicUrl(storagePath);
+    return data?.publicUrl || '';
+}
+
+function getPhotoPosterUrl(client, photo) {
+    return getStoragePublicUrl(client, photo?.bucket_name || GALLERY_BUCKET, photo?.poster_storage_path);
+}
+
 function getPhotoOwner(photo) {
     if (!photo) return 'Unknown uploader';
     if (photo.owner_name) return photo.owner_name;
@@ -450,9 +831,7 @@ function getPhotoTitle(photo) {
 
 function getCompactPhotoTitle(photo, maxLength = 34) {
     const title = getPhotoTitle(photo);
-    if (title.length <= maxLength) return title;
-
-    return `${title.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+    return truncateText(title, maxLength);
 }
 
 function getPhotoTimestamp(photo) {
@@ -497,8 +876,25 @@ function enrichPhoto(client, photo) {
     return {
         ...photo,
         publicUrl: getPhotoUrl(client, photo),
+        posterUrl: getPhotoPosterUrl(client, photo),
         searchText: deriveSearchText(photo)
     };
+}
+
+function mergePhotoLists(primaryPhotos, secondaryPhotos = []) {
+    const merged = new Map();
+
+    [...primaryPhotos, ...secondaryPhotos].forEach((photo) => {
+        const key = photo?.id || photo?.storage_path;
+        if (!key || merged.has(key)) return;
+        merged.set(key, photo);
+    });
+
+    return [...merged.values()].sort((left, right) => {
+        const leftTime = new Date(getPhotoTimestamp(left) || 0).getTime();
+        const rightTime = new Date(getPhotoTimestamp(right) || 0).getTime();
+        return rightTime - leftTime;
+    });
 }
 
 function getPhotoSurfaceStyle(photo) {
@@ -584,6 +980,7 @@ async function readVideoDetails(file) {
             resolve({
                 width: video.videoWidth || null,
                 height: video.videoHeight || null,
+                durationSeconds: Number.isFinite(video.duration) && video.duration > 0 ? video.duration : null,
                 dominantColor: '#1d2638'
             });
         };
@@ -595,6 +992,109 @@ async function readVideoDetails(file) {
 
         video.src = url;
     });
+}
+
+function buildPosterStoragePath(storagePath) {
+    const withoutExtension = String(storagePath || 'video').replace(/\.[a-z0-9]+$/i, '');
+    return `${withoutExtension}-poster.jpg`;
+}
+
+async function createVideoPosterBlob(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement('video');
+        let settled = false;
+
+        const cleanup = () => {
+            URL.revokeObjectURL(url);
+            video.removeAttribute('src');
+            video.load();
+        };
+
+        const finish = () => {
+            if (settled) return;
+
+            try {
+                const sourceWidth = video.videoWidth || 640;
+                const sourceHeight = video.videoHeight || 360;
+                const scale = Math.min(1, 720 / Math.max(sourceWidth, sourceHeight));
+                const width = Math.max(1, Math.round(sourceWidth * scale));
+                const height = Math.max(1, Math.round(sourceHeight * scale));
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+
+                canvas.width = width;
+                canvas.height = height;
+
+                if (!context) {
+                    cleanup();
+                    reject(new Error('Unable to prepare video thumbnail.'));
+                    return;
+                }
+
+                context.drawImage(video, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    cleanup();
+                    if (!blob) {
+                        reject(new Error('Unable to prepare video thumbnail.'));
+                        return;
+                    }
+
+                    resolve(blob);
+                }, 'image/jpeg', 0.78);
+            } catch (error) {
+                cleanup();
+                reject(error);
+            }
+        };
+
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        video.onloadedmetadata = () => {
+            const seekTarget = Number.isFinite(video.duration) && video.duration > 1 ? 1 : 0;
+            if (Number.isFinite(seekTarget) && seekTarget > 0 && video.duration > seekTarget) {
+                video.currentTime = seekTarget;
+            } else {
+                finish();
+            }
+        };
+        video.onseeked = finish;
+        video.onloadeddata = () => {
+            if (!Number.isFinite(video.duration) || video.duration <= 0) {
+                finish();
+            }
+        };
+        video.onerror = () => {
+            cleanup();
+            reject(new Error(`Unable to prepare a thumbnail for ${file.name}.`));
+        };
+        video.src = url;
+    });
+}
+
+async function uploadVideoPoster(client, storagePath, file) {
+    if (!isVideoMedia(file)) return null;
+
+    try {
+        const posterPath = buildPosterStoragePath(storagePath);
+        const posterBlob = await createVideoPosterBlob(file);
+        const result = await client.storage.from(GALLERY_BUCKET).upload(posterPath, posterBlob, {
+            contentType: 'image/jpeg',
+            cacheControl: String(GALLERY_OBJECT_CACHE_CONTROL_SECONDS),
+            upsert: false
+        });
+
+        if (result.error) {
+            console.warn('Video thumbnail upload failed:', result.error.message);
+            return null;
+        }
+
+        return posterPath;
+    } catch (error) {
+        console.warn('Video thumbnail generation failed:', error?.message || error);
+        return null;
+    }
 }
 
 async function readMediaDetails(file) {
@@ -635,7 +1135,7 @@ async function uploadFileResumable(client, storagePath, file, { onProgress } = {
                 bucketName: GALLERY_BUCKET,
                 objectName: storagePath,
                 contentType: getMediaContentType(file),
-                cacheControl: '3600'
+                cacheControl: String(GALLERY_OBJECT_CACHE_CONTROL_SECONDS)
             },
             chunkSize: RESUMABLE_UPLOAD_CHUNK_BYTES,
             uploadDataDuringCreation: true,
@@ -658,10 +1158,12 @@ async function uploadFileResumable(client, storagePath, file, { onProgress } = {
     });
 }
 
-async function listGalleryPhotos(client) {
+async function listGalleryPhotos(client, { limit = getGalleryMetadataPageSize(), offset = 0 } = {}) {
+    const pageLimit = clamp(Number(limit) || getGalleryMetadataPageSize(), 1, 500);
+    const pageOffset = Math.max(0, Number(offset) || 0);
     const rpcResult = await client.rpc('gallery_list_photos', {
-        p_limit: 360,
-        p_offset: 0
+        p_limit: pageLimit,
+        p_offset: pageOffset
     });
 
     if (!rpcResult.error) {
@@ -670,17 +1172,29 @@ async function listGalleryPhotos(client) {
 
     const direct = await client
         .from('gallery_photos')
-        .select('id, owner_user_id, bucket_name, storage_path, caption, taken_at, width, height, dominant_color, is_featured, created_at')
+        .select('id, owner_user_id, bucket_name, storage_path, poster_storage_path, video_variants, caption, taken_at, width, height, dominant_color, is_featured, created_at')
         .is('archived_at', null)
         .order('taken_at', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(360);
+        .range(pageOffset, pageOffset + pageLimit - 1);
 
     if (!direct.error) {
         return direct.data || [];
     }
 
-    throw rpcResult.error || direct.error;
+    const legacyDirect = await client
+        .from('gallery_photos')
+        .select('id, owner_user_id, bucket_name, storage_path, caption, taken_at, width, height, dominant_color, is_featured, created_at')
+        .is('archived_at', null)
+        .order('taken_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(pageOffset, pageOffset + pageLimit - 1);
+
+    if (!legacyDirect.error) {
+        return legacyDirect.data || [];
+    }
+
+    throw rpcResult.error || direct.error || legacyDirect.error;
 }
 
 async function createGalleryPhoto(client, payload) {
@@ -694,12 +1208,25 @@ async function createGalleryPhoto(client, payload) {
         throw rpcResult.error;
     }
 
+    if ('p_poster_storage_path' in payload || 'p_video_variants' in payload) {
+        const legacyPayload = { ...payload };
+        delete legacyPayload.p_poster_storage_path;
+        delete legacyPayload.p_video_variants;
+
+        const legacyRpcResult = await client.rpc('gallery_create_photo', legacyPayload);
+        if (!legacyRpcResult.error) {
+            return legacyRpcResult.data;
+        }
+    }
+
     const fallback = await client
         .from('gallery_photos')
         .insert({
             owner_user_id: payload.p_actor_user_id,
             bucket_name: payload.p_bucket_name,
             storage_path: payload.p_storage_path,
+            poster_storage_path: payload.p_poster_storage_path || null,
+            video_variants: payload.p_video_variants || {},
             caption: payload.p_caption,
             taken_at: payload.p_taken_at,
             width: payload.p_width,
@@ -708,6 +1235,26 @@ async function createGalleryPhoto(client, payload) {
         })
         .select('id')
         .single();
+
+    if (fallback.error && /poster_storage_path|video_variants|schema cache|column/i.test(String(fallback.error.message || ''))) {
+        const legacyFallback = await client
+            .from('gallery_photos')
+            .insert({
+                owner_user_id: payload.p_actor_user_id,
+                bucket_name: payload.p_bucket_name,
+                storage_path: payload.p_storage_path,
+                caption: payload.p_caption,
+                taken_at: payload.p_taken_at,
+                width: payload.p_width,
+                height: payload.p_height,
+                dominant_color: payload.p_dominant_color
+            })
+            .select('id')
+            .single();
+
+        if (legacyFallback.error) throw legacyFallback.error;
+        return legacyFallback.data?.id || null;
+    }
 
     if (fallback.error) throw fallback.error;
     return fallback.data?.id || null;
@@ -734,10 +1281,11 @@ async function deleteGalleryPhoto(client, actorUserId, photo) {
         if (fallback.error) throw fallback.error;
     }
 
-    if (photo.storage_path) {
+    const storagePaths = [photo.storage_path, photo.poster_storage_path].filter(Boolean);
+    if (storagePaths.length) {
         const removeResult = await client.storage
             .from(photo.bucket_name || GALLERY_BUCKET)
-            .remove([photo.storage_path]);
+            .remove(storagePaths);
 
         if (removeResult.error) {
             console.warn('Photo metadata removed but storage cleanup failed:', removeResult.error.message);
@@ -900,10 +1448,340 @@ function Icon({ path, size = 20, strokeWidth = 1.8 }) {
     `;
 }
 
-function MediaBadge({ media, tone = 'default' }) {
-    if (!isVideoMedia(media)) return null;
+function probeVideoDuration(media) {
+    if (!media?.publicUrl || typeof document === 'undefined') {
+        return Promise.resolve(null);
+    }
 
-    return html`<span className=${cx('gallery-media-badge', tone !== 'default' && `is-${tone}`)}>Video</span>`;
+    return new Promise((resolve) => {
+        const video = document.createElement('video');
+        let settled = false;
+        const timeoutId = setTimeout(() => finish(null), VIDEO_DURATION_PROBE_TIMEOUT_MS);
+
+        const cleanup = () => {
+            clearTimeout(timeoutId);
+
+            try {
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+            } catch (_error) {
+                null;
+            }
+        };
+
+        const finish = (duration) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve(normalizeVideoDuration(duration));
+        };
+
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        video.onloadedmetadata = () => finish(video.duration);
+        video.onerror = () => finish(null);
+        video.src = media.publicUrl;
+
+        try {
+            video.load();
+        } catch (_error) {
+            finish(null);
+        }
+    });
+}
+
+function flushVideoDurationProbeQueue() {
+    while (videoDurationProbeActiveCount < VIDEO_DURATION_PROBE_CONCURRENCY && videoDurationProbeQueue.length) {
+        const task = videoDurationProbeQueue.shift();
+        videoDurationProbeActiveCount += 1;
+
+        probeVideoDuration(task.media)
+            .then((duration) => {
+                if (duration) {
+                    writeCachedVideoDurationSeconds(task.media, duration);
+                }
+
+                task.resolve(duration);
+            })
+            .catch(() => task.resolve(null))
+            .finally(() => {
+                videoDurationProbeActiveCount = Math.max(0, videoDurationProbeActiveCount - 1);
+                flushVideoDurationProbeQueue();
+            });
+    }
+}
+
+function scheduleVideoDurationProbe(media) {
+    const knownDuration = getKnownVideoDurationSeconds(media);
+    if (knownDuration) {
+        return Promise.resolve(knownDuration);
+    }
+
+    const cacheId = getVideoDurationCacheId(media);
+    if (!cacheId || !isVideoMedia(media) || !media?.publicUrl) {
+        return Promise.resolve(null);
+    }
+
+    if (videoDurationProbePending.has(cacheId)) {
+        return videoDurationProbePending.get(cacheId);
+    }
+
+    const scheduledProbe = new Promise((resolve) => {
+        videoDurationProbeQueue.push({ media, resolve });
+        flushVideoDurationProbeQueue();
+    });
+    const trackedProbe = scheduledProbe.finally(() => {
+        videoDurationProbePending.delete(cacheId);
+    });
+
+    videoDurationProbePending.set(cacheId, trackedProbe);
+    return trackedProbe;
+}
+
+function useVideoDurationLabel(media, enabled = true) {
+    const isEnabledVideo = Boolean(enabled && isVideoMedia(media));
+    const cacheId = getVideoDurationCacheId(media);
+    const badgeRef = useRef(null);
+    const [duration, setDuration] = useState(() => (
+        isEnabledVideo ? getKnownVideoDurationSeconds(media) : null
+    ));
+    const [isNearViewport, setIsNearViewport] = useState(false);
+
+    useEffect(() => {
+        setDuration(isEnabledVideo ? getKnownVideoDurationSeconds(media) : null);
+        setIsNearViewport(false);
+    }, [cacheId, isEnabledVideo, media?.publicUrl]);
+
+    useEffect(() => {
+        if (!isEnabledVideo || duration || !media?.publicUrl) {
+            return undefined;
+        }
+
+        const node = badgeRef.current;
+        if (!node || typeof IntersectionObserver === 'undefined') {
+            setIsNearViewport(true);
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+                setIsNearViewport(true);
+                observer.disconnect();
+            }
+        }, {
+            rootMargin: isConstrainedGalleryDevice() ? GALLERY_CONSTRAINED_MEDIA_ROOT_MARGIN : VIDEO_DURATION_ROOT_MARGIN
+        });
+
+        observer.observe(node);
+
+        return () => observer.disconnect();
+    }, [cacheId, duration, isEnabledVideo, media?.publicUrl]);
+
+    useEffect(() => {
+        if (!isEnabledVideo || duration || !isNearViewport || !media?.publicUrl) {
+            return undefined;
+        }
+
+        let cancelled = false;
+
+        scheduleVideoDurationProbe(media).then((nextDuration) => {
+            if (!cancelled && nextDuration) {
+                setDuration(nextDuration);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [cacheId, duration, isEnabledVideo, isNearViewport, media?.publicUrl]);
+
+    return {
+        badgeRef,
+        durationLabel: formatVideoDurationValue(duration)
+    };
+}
+
+function MediaBadge({ media, tone = 'default' }) {
+    const isVideo = isVideoMedia(media);
+    const { badgeRef, durationLabel } = useVideoDurationLabel(media, isVideo);
+
+    if (!isVideo) return null;
+
+    return html`
+        <span
+            ref=${badgeRef}
+            className=${cx('gallery-media-badge', durationLabel && 'has-duration', tone !== 'default' && `is-${tone}`)}>
+            <span>Video</span>
+            ${durationLabel ? html`<span className="gallery-media-duration">${durationLabel}</span>` : null}
+        </span>
+    `;
+}
+
+function useCachedMediaUrl(sourceUrl, enabled, cacheKey = sourceUrl) {
+    const [resolvedUrl, setResolvedUrl] = useState('');
+
+    useEffect(() => {
+        let cancelled = false;
+        let objectUrl = '';
+
+        setResolvedUrl('');
+
+        if (!sourceUrl || !enabled) {
+            return undefined;
+        }
+
+        if (!canUseCacheStorage()) {
+            setResolvedUrl(sourceUrl);
+            return undefined;
+        }
+
+        const loadMedia = async () => {
+            try {
+                const cachedUrl = await readCachedBlobUrl(cacheKey);
+                if (cachedUrl) {
+                    if (cancelled) {
+                        URL.revokeObjectURL(cachedUrl);
+                        return;
+                    }
+
+                    objectUrl = cachedUrl;
+                    setResolvedUrl(cachedUrl);
+                    return;
+                }
+
+                const blob = await scheduleMediaCacheFetch(sourceUrl, cacheKey);
+
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setResolvedUrl(objectUrl);
+            } catch (_error) {
+                if (!cancelled) {
+                    setResolvedUrl(sourceUrl);
+                }
+            }
+        };
+
+        loadMedia();
+
+        return () => {
+            cancelled = true;
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [cacheKey, enabled, sourceUrl]);
+
+    return resolvedUrl;
+}
+
+function useCachedPlaybackUrl(sourceUrl, enabled, cacheKey = sourceUrl) {
+    const [cachedUrl, setCachedUrl] = useState('');
+
+    useEffect(() => {
+        let cancelled = false;
+        let objectUrl = '';
+
+        setCachedUrl('');
+
+        if (!sourceUrl || !enabled || !canUseCacheStorage()) {
+            return undefined;
+        }
+
+        const loadCachedPlayback = async () => {
+            try {
+                const nextCachedUrl = await readCachedBlobUrl(cacheKey);
+                if (!nextCachedUrl) return;
+
+                if (cancelled) {
+                    URL.revokeObjectURL(nextCachedUrl);
+                    return;
+                }
+
+                objectUrl = nextCachedUrl;
+                setCachedUrl(nextCachedUrl);
+            } catch (_error) {
+                null;
+            }
+        };
+
+        loadCachedPlayback();
+
+        return () => {
+            cancelled = true;
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [cacheKey, enabled, sourceUrl]);
+
+    return cachedUrl;
+}
+
+function queueVideoPlaybackCache(media, queuedRef) {
+    if (!media?.publicUrl || !isVideoMedia(media)) return;
+    if (queuedRef?.current) return;
+
+    if (queuedRef) {
+        queuedRef.current = true;
+    }
+
+    scheduleMediaCacheFetch(media.publicUrl, media.publicUrl).catch((error) => {
+        console.warn('Video playback cache failed:', error?.message || error);
+    });
+}
+
+function useGeneratedVideoPosterUrl(media, enabled) {
+    const [posterUrl, setPosterUrl] = useState('');
+
+    useEffect(() => {
+        let cancelled = false;
+        let objectUrl = '';
+
+        setPosterUrl(enabled ? null : '');
+
+        if (!enabled || !media?.publicUrl) {
+            return undefined;
+        }
+
+        const cacheKey = getGeneratedPosterCacheUrl(media);
+
+        const loadPoster = async () => {
+            try {
+                const cachedUrl = await readCachedBlobUrl(cacheKey);
+                if (cachedUrl) {
+                    if (cancelled) {
+                        URL.revokeObjectURL(cachedUrl);
+                        return;
+                    }
+
+                    objectUrl = cachedUrl;
+                    setPosterUrl(cachedUrl);
+                    return;
+                }
+
+                if (!cancelled) {
+                    setPosterUrl('');
+                }
+            } catch (_error) {
+                if (!cancelled) {
+                    setPosterUrl('');
+                }
+            }
+        };
+
+        loadPoster();
+
+        return () => {
+            cancelled = true;
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [enabled, media?.id, media?.publicUrl, media?.storage_path]);
+
+    return posterUrl;
 }
 
 function MediaSurface({
@@ -911,6 +1789,8 @@ function MediaSurface({
     className,
     alt = '',
     decorative = false,
+    lazy = true,
+    playVideo = false,
     autoPlay = false,
     attemptPlayback = false,
     suspendPlayback = false,
@@ -918,20 +1798,117 @@ function MediaSurface({
     loop = false,
     controls = false,
     preload = 'metadata',
+    framePreview = false,
+    generatePoster = false,
     onReady = null,
     onAutoplayMuted = null,
     onEnded = null
 }) {
     const hasPublicUrl = Boolean(media?.publicUrl);
     const isVideo = hasPublicUrl && isVideoMedia(media);
-    const videoRef = useRef(null);
+    const shouldRenderVideo = isVideo && playVideo;
+    const mediaRef = useRef(null);
+    const videoPlaybackCacheQueuedRef = useRef(false);
+    const [isNearViewport, setIsNearViewport] = useState(() => !lazy);
+    const shouldLoadMedia = hasPublicUrl && (!lazy || isNearViewport);
+    const cachedImageUrl = useCachedMediaUrl(media?.publicUrl, shouldLoadMedia && !isVideo, media?.publicUrl);
+    const cachedPosterUrl = useCachedMediaUrl(media?.posterUrl, shouldLoadMedia && isVideo && !playVideo && Boolean(media?.posterUrl), media?.posterUrl);
+    const generatedPosterUrl = useGeneratedVideoPosterUrl(media, shouldLoadMedia && isVideo && !playVideo && !media?.posterUrl && generatePoster);
+    const cachedPlaybackUrl = useCachedPlaybackUrl(media?.publicUrl, shouldRenderVideo && shouldLoadMedia, media?.publicUrl);
+    const videoPosterUrl = media?.posterUrl ? cachedPosterUrl : generatedPosterUrl;
+    const playbackUrl = cachedPlaybackUrl || media?.publicUrl;
+    const renderVideoPreview = (posterUrl = '', extraClassName = '', includeFrame = false) => html`
+        <span
+            ref=${mediaRef}
+            className=${cx(className, 'is-video-preview', posterUrl ? 'has-poster' : 'is-video-placeholder', includeFrame && !posterUrl && 'has-frame-preview', extraClassName)}
+            style=${posterUrl ? { '--video-poster-url': `url("${posterUrl}")` } : undefined}
+            role=${decorative ? undefined : 'img'}
+            aria-hidden=${decorative ? 'true' : undefined}
+            aria-label=${decorative ? undefined : alt}>
+            ${posterUrl
+                ? html`
+                      <img
+                          className="gallery-video-poster-image"
+                          src=${posterUrl}
+                          alt=""
+                          aria-hidden="true"
+                          loading="lazy"
+                          decoding="async" />
+                  `
+                : null}
+            ${!posterUrl && includeFrame
+                ? html`
+                      <video
+                          className="gallery-video-preview-frame"
+                          src=${media.publicUrl}
+                          muted=${true}
+                          playsInline=${true}
+                          preload="metadata"
+                          aria-hidden="true"
+                          tabIndex="-1"
+                          onLoadedMetadata=${(event) => {
+                              const video = event.currentTarget;
+                              const targetTime = Number.isFinite(video.duration) && video.duration > 1
+                                  ? 1
+                                  : 0;
+
+                              try {
+                                  if (Math.abs(video.currentTime - targetTime) > 0.05) {
+                                      video.currentTime = targetTime;
+                                  }
+                              } catch (_error) {
+                                  null;
+                              }
+                          }}
+                          onLoadedData=${(event) => {
+                              event.currentTarget.pause();
+                              onReady?.(event);
+                          }}></video>
+                  `
+                : null}
+        </span>
+    `;
 
     useEffect(() => {
-        if (!isVideo) {
+        setIsNearViewport(!lazy);
+        videoPlaybackCacheQueuedRef.current = false;
+    }, [lazy, media?.publicUrl]);
+
+    useEffect(() => {
+        if (!hasPublicUrl || !lazy || isNearViewport) {
             return undefined;
         }
 
-        const video = videoRef.current;
+        const node = mediaRef.current;
+        if (!node) {
+            return undefined;
+        }
+
+        if (typeof IntersectionObserver === 'undefined') {
+            setIsNearViewport(true);
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+                setIsNearViewport(true);
+                observer.disconnect();
+            }
+        }, {
+            rootMargin: getGalleryMediaRootMargin()
+        });
+
+        observer.observe(node);
+
+        return () => observer.disconnect();
+    }, [hasPublicUrl, isNearViewport, lazy, media?.publicUrl]);
+
+    useEffect(() => {
+        if (!shouldRenderVideo || !shouldLoadMedia) {
+            return undefined;
+        }
+
+        const video = mediaRef.current;
         if (!video) {
             return undefined;
         }
@@ -944,14 +1921,14 @@ function MediaSurface({
         }
 
         return undefined;
-    }, [isVideo, muted, suspendPlayback, media?.publicUrl]);
+    }, [shouldRenderVideo, muted, shouldLoadMedia, suspendPlayback, media?.publicUrl]);
 
     useEffect(() => {
-        if (!isVideo || !attemptPlayback || !autoPlay || suspendPlayback) {
+        if (!shouldRenderVideo || !shouldLoadMedia || !attemptPlayback || !autoPlay || suspendPlayback) {
             return undefined;
         }
 
-        const video = videoRef.current;
+        const video = mediaRef.current;
         if (!video) {
             return undefined;
         }
@@ -998,36 +1975,90 @@ function MediaSurface({
                 video.pause();
             }
         };
-    }, [isVideo, attemptPlayback, autoPlay, suspendPlayback, controls, media.publicUrl, onAutoplayMuted]);
+    }, [shouldRenderVideo, shouldLoadMedia, attemptPlayback, autoPlay, suspendPlayback, controls, media?.publicUrl, onAutoplayMuted]);
 
     if (!hasPublicUrl) {
         return null;
     }
 
-    if (isVideo) {
+    if (!shouldLoadMedia) {
+        return html`
+            <span
+                ref=${mediaRef}
+                className=${cx(className, 'is-media-deferred')}
+                aria-hidden=${decorative ? 'true' : undefined}
+                aria-label=${decorative ? undefined : alt}></span>
+        `;
+    }
+
+    if (isVideo && !playVideo) {
+        if (media.posterUrl && !cachedPosterUrl) {
+            return renderVideoPreview('', 'is-video-poster-loading');
+        }
+
+        if (!media.posterUrl && generatePoster && generatedPosterUrl === null) {
+            return renderVideoPreview('', 'is-video-poster-loading');
+        }
+
+        if (videoPosterUrl) {
+            return renderVideoPreview(videoPosterUrl);
+        }
+
+        return renderVideoPreview('', '', framePreview);
+    }
+
+    if (shouldRenderVideo) {
+        const handlePlaybackProgress = (event) => {
+            const video = event.currentTarget;
+            const duration = Number(video.duration);
+            if (!Number.isFinite(duration) || duration <= 0) return;
+
+            if (video.currentTime / duration >= 0.82) {
+                queueVideoPlaybackCache(media, videoPlaybackCacheQueuedRef);
+            }
+        };
+
+        const handlePlaybackEnded = (event) => {
+            queueVideoPlaybackCache(media, videoPlaybackCacheQueuedRef);
+            onEnded?.(event);
+        };
 
         return html`
             <video
-                ref=${videoRef}
+                ref=${mediaRef}
                 className=${className}
-                src=${media.publicUrl}
+                src=${playbackUrl}
                 playsInline=${true}
                 muted=${muted}
                 loop=${loop}
                 autoPlay=${autoPlay}
                 controls=${controls}
+                controlsList="nodownload noremoteplayback"
+                disablePictureInPicture=${true}
                 preload=${preload}
                 aria-hidden=${decorative ? 'true' : undefined}
                 aria-label=${decorative ? undefined : alt}
                 onLoadedData=${onReady}
-                onEnded=${onEnded}></video>
+                onTimeUpdate=${handlePlaybackProgress}
+                onEnded=${handlePlaybackEnded}></video>
+        `;
+    }
+
+    if (!isVideo && !cachedImageUrl) {
+        return html`
+            <span
+                ref=${mediaRef}
+                className=${cx(className, 'is-media-deferred')}
+                aria-hidden=${decorative ? 'true' : undefined}
+                aria-label=${decorative ? undefined : alt}></span>
         `;
     }
 
     return html`
         <img
+            ref=${mediaRef}
             className=${className}
-            src=${media.publicUrl}
+            src=${cachedImageUrl}
             alt=${decorative ? '' : alt}
             aria-hidden=${decorative ? 'true' : undefined}
             loading="lazy"
@@ -1037,20 +2068,28 @@ function MediaSurface({
 }
 
 function Tile({ photo, index, onOpen }) {
+    const isVideo = isVideoMedia(photo);
+    const { revealRef, isRevealed } = useRevealOnScroll();
+
     return html`
         <button
+            ref=${revealRef}
             type="button"
-            className=${cx('gallery-tile', getPhotoShape(photo, index))}
-            style=${getPhotoSurfaceStyle(photo)}
+            className=${cx('gallery-tile gallery-reveal', isRevealed && 'is-visible', getPhotoShape(photo, index), isVideo && 'is-video-tile')}
+            style=${{
+                ...getPhotoSurfaceStyle(photo),
+                '--gallery-reveal-delay': `${Math.min(index % 6, 5) * 42}ms`
+            }}
             onClick=${() => onOpen(photo.id)}>
             <${MediaSurface}
                 media=${photo}
                 className="gallery-tile-media"
                 alt=${getPhotoTitle(photo)}
-                autoPlay=${isVideoMedia(photo)}
+                autoPlay=${false}
                 muted=${true}
                 loop=${true}
-                preload="metadata" />
+                preload="none"
+                generatePoster=${isVideo} />
             <${MediaBadge} media=${photo} />
             <div className="gallery-tile-overlay">
                 <p className="gallery-tile-title">${getPhotoTitle(photo)}</p>
@@ -1063,21 +2102,29 @@ function Tile({ photo, index, onOpen }) {
     `;
 }
 
-function CompactTile({ photo, onOpen }) {
+function CompactTile({ photo, index = 0, onOpen }) {
+    const isVideo = isVideoMedia(photo);
+    const { revealRef, isRevealed } = useRevealOnScroll();
+
     return html`
         <button
+            ref=${revealRef}
             type="button"
-            className="gallery-tile gallery-tile-compact"
-            style=${getPhotoSurfaceStyle(photo)}
+            className=${cx('gallery-tile gallery-tile-compact gallery-reveal', isRevealed && 'is-visible', isVideo && 'is-video-tile')}
+            style=${{
+                ...getPhotoSurfaceStyle(photo),
+                '--gallery-reveal-delay': `${Math.min(index % 6, 5) * 36}ms`
+            }}
             onClick=${() => onOpen(photo.id)}>
             <${MediaSurface}
                 media=${photo}
                 className="gallery-tile-media"
                 alt=${getPhotoTitle(photo)}
-                autoPlay=${isVideoMedia(photo)}
+                autoPlay=${false}
                 muted=${true}
                 loop=${true}
-                preload="metadata" />
+                preload="none"
+                generatePoster=${isVideo} />
             <${MediaBadge} media=${photo} />
             <div className="gallery-tile-overlay">
                 <p className="gallery-tile-title">${getCompactPhotoTitle(photo)}</p>
@@ -1091,18 +2138,20 @@ function CompactTile({ photo, onOpen }) {
 }
 
 function PreviewGrid({ photos, onOpenPhoto, onOpenMore }) {
-    const hasMore = photos.length > SECTION_PREVIEW_LIMIT;
-    const visiblePhotos = hasMore ? photos.slice(0, SECTION_PREVIEW_LIMIT - 1) : photos.slice(0, SECTION_PREVIEW_LIMIT);
+    const previewLimit = getSectionPreviewLimit();
+    const hasMore = photos.length > previewLimit;
+    const visiblePhotos = hasMore ? photos.slice(0, previewLimit - 1) : photos.slice(0, previewLimit);
     const remainingCount = Math.max(0, photos.length - visiblePhotos.length);
     const morePreviewPhoto = hasMore ? photos[visiblePhotos.length] || visiblePhotos[visiblePhotos.length - 1] || photos[0] : null;
 
     return html`
         <div className="gallery-grid gallery-grid-preview">
             ${visiblePhotos.map(
-                (photo) => html`
+                (photo, index) => html`
                     <${CompactTile}
                         key=${photo.id}
                         photo=${photo}
+                        index=${index}
                         onOpen=${onOpenPhoto} />
                 `
             )}
@@ -1110,7 +2159,7 @@ function PreviewGrid({ photos, onOpenPhoto, onOpenMore }) {
                 ? html`
                       <button
                           type="button"
-                          className="gallery-tile gallery-preview-more"
+                          className=${cx('gallery-tile gallery-preview-more', isVideoMedia(morePreviewPhoto) && 'is-video-tile')}
                           style=${morePreviewPhoto ? getPhotoSurfaceStyle(morePreviewPhoto) : undefined}
                           onClick=${onOpenMore}>
                           ${morePreviewPhoto
@@ -1119,10 +2168,11 @@ function PreviewGrid({ photos, onOpenPhoto, onOpenMore }) {
                                         media=${morePreviewPhoto}
                                         className="gallery-preview-more-media"
                                         decorative=${true}
-                                        autoPlay=${isVideoMedia(morePreviewPhoto)}
+                                        autoPlay=${false}
                                         muted=${true}
                                         loop=${true}
-                                        preload="metadata" />
+                                        preload="none"
+                                        generatePoster=${isVideoMedia(morePreviewPhoto)} />
                                 `
                               : null}
                           <div className="gallery-preview-more-overlay">
@@ -1170,7 +2220,7 @@ function SlideshowEmptyState({ mediaFilter, orderMode = 'latest', onReset }) {
             </p>
             <div className="gallery-upload-actions" style=${{ justifyContent: 'center', marginTop: '0.85rem' }}>
                 <button type="button" className="gallery-button primary" onClick=${onReset}>
-                    ${isPinnedMode ? 'Show latest' : 'Show videos'}
+                    ${isPinnedMode ? 'Show latest' : 'Show all media'}
                 </button>
             </div>
         </div>
@@ -1195,75 +2245,204 @@ function GalleryLoader({ label = 'Opening gallery' }) {
     `;
 }
 
-function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'videos', pausePlayback = false }) {
-    const [activeIndex, setActiveIndex] = useState(0);
-    const [videoMuted, setVideoMuted] = useState(false);
-    const photoSignature = photos.map((photo) => photo.id).join('|');
+function useRevealOnScroll(rootMargin = '0px 0px -8% 0px') {
+    const revealRef = useRef(null);
+    const [isRevealed, setIsRevealed] = useState(() => typeof IntersectionObserver === 'undefined');
 
     useEffect(() => {
-        setActiveIndex(0);
-    }, [photoSignature]);
+        const node = revealRef.current;
+        if (!node || isRevealed) {
+            return undefined;
+        }
 
-    if (!photos.length) return null;
+        if (typeof IntersectionObserver === 'undefined') {
+            setIsRevealed(true);
+            return undefined;
+        }
 
-    const activePhoto = photos[activeIndex] || photos[0];
-    const activeOrientation = getPhotoOrientation(activePhoto);
-    const activeIsVideo = isVideoMedia(activePhoto);
-    const shouldAutoplayActiveMedia = activeIsVideo;
-    const activeMediaPreload = activeIsVideo ? 'auto' : 'metadata';
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+                setIsRevealed(true);
+                observer.disconnect();
+            }
+        }, {
+            rootMargin,
+            threshold: 0.04
+        });
+
+        observer.observe(node);
+
+        return () => observer.disconnect();
+    }, [isRevealed, rootMargin]);
+
+    return { revealRef, isRevealed };
+}
+
+function LoadMoreSentinel({ busy = false, disabled = false, label = 'Load more', busyLabel = 'Loading more...', onLoadMore }) {
+    const sentinelRef = useRef(null);
+
+    useEffect(() => {
+        if (disabled || busy || !onLoadMore) {
+            return undefined;
+        }
+
+        const node = sentinelRef.current;
+        if (!node || typeof IntersectionObserver === 'undefined') {
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+                onLoadMore();
+            }
+        }, {
+            rootMargin: GALLERY_NEXT_PAGE_ROOT_MARGIN
+        });
+
+        observer.observe(node);
+
+        return () => observer.disconnect();
+    }, [busy, disabled, onLoadMore]);
+
+    return html`
+        <div className="gallery-load-more" ref=${sentinelRef}>
+            <button
+                type="button"
+                className="gallery-button gallery-load-more-button"
+                disabled=${disabled || busy}
+                onClick=${onLoadMore}>
+                ${busy ? busyLabel : label}
+            </button>
+        </div>
+    `;
+}
+
+function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'videos', pausePlayback = false }) {
+    const photoSignature = `${orderMode}:${mediaFilter}:${photos.map((photo) => photo.id).join('|')}`;
+    const activeSignatureRef = useRef(photoSignature);
+    const [activeIndex, setActiveIndex] = useState(() => readSlideshowState(photoSignature, photos.length));
+    const [videoMuted, setVideoMuted] = useState(false);
+    const [activeVideoPlaying, setActiveVideoPlaying] = useState(false);
+
+    useEffect(() => {
+        if (!photos.length) return undefined;
+
+        if (activeSignatureRef.current !== photoSignature) {
+            const storedIndex = readSlideshowState(photoSignature, photos.length);
+            activeSignatureRef.current = photoSignature;
+            setActiveIndex(storedIndex);
+            writeSlideshowState(photoSignature, storedIndex);
+            return undefined;
+        }
+
+        const nextIndex = clamp(activeIndex, 0, photos.length - 1);
+        if (nextIndex !== activeIndex) {
+            setActiveIndex(nextIndex);
+            return undefined;
+        }
+
+        writeSlideshowState(photoSignature, nextIndex);
+        return undefined;
+    }, [activeIndex, photoSignature, photos.length]);
+
+    const activePhoto = photos[activeIndex] || photos[0] || null;
+    const activeIsVideo = activePhoto ? isVideoMedia(activePhoto) : false;
+    const shouldAutoplayActiveMedia = activeIsVideo && activeVideoPlaying;
+    const activeMediaPreload = 'none';
     const slideshowLabel = getSlideshowLabel(orderMode, mediaFilter);
+    const showSlideDots = photos.length > 1 && photos.length <= 20;
     const goTo = (index) => {
+        setActiveVideoPlaying(false);
         setActiveIndex((index + photos.length) % photos.length);
     };
 
     useEffect(() => {
         if (pausePlayback) return undefined;
         if (photos.length < 2) return undefined;
-        if (activeIsVideo) return undefined;
+        if (activeVideoPlaying) return undefined;
 
         const timerId = window.setTimeout(() => {
             setActiveIndex((current) => (current + 1) % photos.length);
-        }, 4800);
+        }, activeIsVideo ? 6200 : 4800);
 
         return () => window.clearTimeout(timerId);
-    }, [activeIndex, activeIsVideo, photos.length, photoSignature, pausePlayback]);
+    }, [activeIndex, activeIsVideo, activeVideoPlaying, photos.length, photoSignature, pausePlayback]);
 
     useEffect(() => {
         setVideoMuted(false);
+        setActiveVideoPlaying(false);
     }, [activePhoto?.id]);
+
+    if (!activePhoto) return null;
+
+    const activeOrientation = getPhotoOrientation(activePhoto);
 
     return html`
         <div className="gallery-slideshow">
             <div className=${cx('gallery-slideshow-stage', `is-${activeOrientation}`, activeIsVideo && 'is-video')} style=${getPhotoSurfaceStyle(activePhoto)}>
-                <button
-                    type="button"
-                    className=${cx('gallery-slideshow-media', `is-${activeOrientation}`, activeIsVideo && 'is-video')}
-                    onClick=${() => onOpen(activePhoto.id)}>
-                    ${!activeIsVideo
-                        ? html`
+                ${activeIsVideo
+                    ? html`
+                          <div
+                              className=${cx('gallery-slideshow-media', `is-${activeOrientation}`, 'is-video', activeVideoPlaying && 'is-playing')}
+                              onClick=${activeVideoPlaying ? undefined : () => setActiveVideoPlaying(true)}>
+                              <${MediaSurface}
+                                  key=${`${activePhoto.id || activeIndex}:${activeVideoPlaying ? 'player' : 'preview'}`}
+                                  media=${activePhoto}
+                                  className=${cx('gallery-slideshow-main', `is-${activeOrientation}`)}
+                                  alt=${getPhotoTitle(activePhoto)}
+                                  lazy=${false}
+                                  playVideo=${activeVideoPlaying}
+                                  autoPlay=${shouldAutoplayActiveMedia}
+                                  attemptPlayback=${shouldAutoplayActiveMedia}
+                                  suspendPlayback=${pausePlayback}
+                                  muted=${videoMuted}
+                                  loop=${false}
+                                  controls=${activeVideoPlaying}
+                                  preload=${activeMediaPreload}
+                                  framePreview=${false}
+                                  generatePoster=${true}
+                                  onAutoplayMuted=${() => setVideoMuted(true)}
+                                  onEnded=${photos.length > 1 ? () => goTo(activeIndex + 1) : () => setActiveVideoPlaying(false)} />
+                              ${!activeVideoPlaying
+                                  ? html`
+                                        <button
+                                            type="button"
+                                            className="gallery-slideshow-play-button"
+                                            aria-label="Play video"
+                                            onClick=${(event) => {
+                                                event.stopPropagation();
+                                                setActiveVideoPlaying(true);
+                                            }}>
+                                            <span className="gallery-visually-hidden">Play video</span>
+                                        </button>
+                                    `
+                                  : null}
+                          </div>
+                      `
+                    : html`
+                          <button
+                              type="button"
+                              className=${cx('gallery-slideshow-media', `is-${activeOrientation}`)}
+                              onClick=${() => onOpen(activePhoto.id)}>
                               <${MediaSurface}
                                   media=${activePhoto}
                                   className="gallery-slideshow-backdrop"
                                   decorative=${true}
+                                  lazy=${false}
                                   muted=${true}
                                   loop=${true}
                                   preload="metadata" />
-                          `
-                        : null}
-                    <${MediaSurface}
-                        key=${activePhoto.id || activeIndex}
-                        media=${activePhoto}
-                        className=${cx('gallery-slideshow-main', `is-${activeOrientation}`)}
-                        alt=${getPhotoTitle(activePhoto)}
-                        autoPlay=${shouldAutoplayActiveMedia}
-                        attemptPlayback=${shouldAutoplayActiveMedia}
-                        suspendPlayback=${pausePlayback}
-                        muted=${activeIsVideo ? videoMuted : true}
-                        loop=${activeIsVideo ? photos.length <= 1 : true}
-                        preload=${activeMediaPreload}
-                        onAutoplayMuted=${() => setVideoMuted(true)}
-                        onEnded=${activeIsVideo && photos.length > 1 ? () => goTo(activeIndex + 1) : undefined} />
-                </button>
+                              <${MediaSurface}
+                                  key=${activePhoto.id || activeIndex}
+                                  media=${activePhoto}
+                                  className=${cx('gallery-slideshow-main', `is-${activeOrientation}`)}
+                                  alt=${getPhotoTitle(activePhoto)}
+                                  lazy=${false}
+                                  muted=${true}
+                                  loop=${true}
+                                  preload="metadata" />
+                          </button>
+                      `}
                 ${photos.length > 1
                     ? html`
                           <button
@@ -1292,7 +2471,7 @@ function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'vi
                     </div>
                 </div>
                 <div className="gallery-slideshow-footer-controls">
-                    ${photos.length > 1
+                    ${showSlideDots
                         ? html`
                               <div className="gallery-slideshow-dots" role="tablist" aria-label="Highlight slides">
                                   ${photos.map(
@@ -1309,7 +2488,7 @@ function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'vi
                               </div>
                           `
                         : null}
-                    ${activeIsVideo
+                    ${activeIsVideo && shouldAutoplayActiveMedia
                         ? html`
                               <button
                                   type="button"
@@ -1387,10 +2566,11 @@ function SectionBrowserModal({ section, onClose, onOpenPhoto }) {
 
                     <div className="gallery-grid gallery-grid-browser">
                         ${pagePhotos.map(
-                            (photo) => html`
+                            (photo, index) => html`
                                 <${CompactTile}
                                     key=${photo.id}
                                     photo=${photo}
+                                    index=${index}
                                     onOpen=${openPhoto} />
                             `
                         )}
@@ -1472,6 +2652,26 @@ function ConfirmActionModal({ action, busy, onCancel, onConfirm }) {
     `;
 }
 
+function CaptionModal({ caption, onClose }) {
+    const fullCaption = safeCaption(caption);
+
+    if (!fullCaption) return null;
+
+    return html`
+        <div className="gallery-overlay gallery-caption-overlay" role="dialog" aria-modal="true" aria-label="Full caption" onClick=${onClose}>
+            <div className="gallery-caption-modal" onClick=${(event) => event.stopPropagation()}>
+                <button type="button" className="gallery-icon-button close" onClick=${onClose} aria-label="Close caption">
+                    ${html`<${Icon} path="M6 6l12 12M18 6L6 18" />`}
+                </button>
+                <div className="gallery-caption-modal-body">
+                    <span className="gallery-kicker">Full Caption</span>
+                    <p className="gallery-caption-full-text">${fullCaption}</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function Lightbox({
     photo,
     canDelete,
@@ -1494,15 +2694,41 @@ function Lightbox({
     const [zoom, setZoom] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [dragging, setDragging] = useState(false);
+    const [captionOpen, setCaptionOpen] = useState(false);
+    const isVideoCandidate = Boolean(photo && isVideoMedia(photo));
+    const lightboxVideoCacheQueuedRef = useRef(false);
+    const generatedLightboxPosterUrl = useGeneratedVideoPosterUrl(photo, isVideoCandidate && !photo?.posterUrl);
+    const cachedLightboxVideoUrl = useCachedPlaybackUrl(photo?.publicUrl, isVideoCandidate, photo?.publicUrl);
+
+    useEffect(() => {
+        lightboxVideoCacheQueuedRef.current = false;
+    }, [photo?.publicUrl]);
 
     if (!photo) return null;
     const isVideo = isVideoMedia(photo);
+    const lightboxVideoUrl = cachedLightboxVideoUrl || photo.publicUrl;
+    const videoPosterUrl = photo.posterUrl || generatedLightboxPosterUrl || '';
     const title = getPhotoTitle(photo);
     const caption = safeCaption(photo.caption);
     const ownerName = getPhotoOwner(photo);
     const uploadedLabel = formatDisplayDate(getPhotoTimestamp(photo));
     const compactSummary = `${ownerName} / ${formatCompactDate(getPhotoTimestamp(photo))}`;
     const detailCopy = caption && caption.toLowerCase() !== title.toLowerCase() ? caption : '';
+    const titlePreview = truncateText(title, LIGHTBOX_CAPTION_PREVIEW_MAX_LENGTH);
+    const detailPreview = truncateText(detailCopy, LIGHTBOX_DESCRIPTION_PREVIEW_MAX_LENGTH);
+    const fullCaptionText = caption || title;
+    const isTitleTruncated = titlePreview !== title;
+    const isDetailTruncated = Boolean(detailCopy && detailPreview !== detailCopy);
+    const canOpenCaption = Boolean(fullCaptionText && (caption || isTitleTruncated || isDetailTruncated));
+    const handleLightboxVideoProgress = (event) => {
+        const video = event.currentTarget;
+        const duration = Number(video.duration);
+        if (!Number.isFinite(duration) || duration <= 0) return;
+
+        if (video.currentTime / duration >= 0.82) {
+            queueVideoPlaybackCache(photo, lightboxVideoCacheQueuedRef);
+        }
+    };
 
     const commitOffset = (nextOffset) => {
         offsetRef.current = nextOffset;
@@ -1550,6 +2776,7 @@ function Lightbox({
 
     useEffect(() => {
         resetView();
+        setCaptionOpen(false);
     }, [photo.id]);
 
     useEffect(() => {
@@ -1671,11 +2898,18 @@ function Lightbox({
                         ${isVideo
                             ? html`
                                   <video
+                                      key=${photo.publicUrl}
                                       className="gallery-lightbox-media is-video"
-                                      src=${photo.publicUrl}
+                                      src=${lightboxVideoUrl}
                                       controls
+                                      controlsList="nodownload noremoteplayback"
+                                      disablePictureInPicture=${true}
                                       playsInline
-                                      preload="auto"></video>
+                                      poster=${videoPosterUrl || undefined}
+                                      style=${getPhotoSurfaceStyle(photo)}
+                                      preload="none"
+                                      onTimeUpdate=${handleLightboxVideoProgress}
+                                      onEnded=${() => queueVideoPlaybackCache(photo, lightboxVideoCacheQueuedRef)}></video>
                               `
                             : html`
                                   <img
@@ -1693,10 +2927,32 @@ function Lightbox({
                 <aside className="gallery-lightbox-sidebar">
                     <div className="gallery-lightbox-heading">
                         <span className="gallery-kicker">Lynmark Memory</span>
-                        <h2>${title}</h2>
+                        <h2>
+                            ${canOpenCaption
+                                ? html`
+                                      <button
+                                          type="button"
+                                          className=${cx('gallery-lightbox-caption-trigger', isTitleTruncated && 'is-truncated')}
+                                          onClick=${() => setCaptionOpen(true)}
+                                          title=${fullCaptionText}
+                                          aria-label="View full caption">
+                                          ${titlePreview}
+                                      </button>
+                                  `
+                                : titlePreview}
+                        </h2>
                         <p className="gallery-lightbox-summary">${compactSummary}</p>
                         ${detailCopy
-                            ? html`<p className="gallery-lightbox-description">${detailCopy}</p>`
+                            ? html`
+                                  <button
+                                      type="button"
+                                      className=${cx('gallery-lightbox-description', 'gallery-lightbox-description-button', isDetailTruncated && 'is-truncated')}
+                                      onClick=${() => setCaptionOpen(true)}
+                                      title=${detailCopy}
+                                      aria-label="View full caption">
+                                      ${detailPreview}
+                                  </button>
+                              `
                             : null}
                     </div>
                     <div className="gallery-lightbox-toolbar-row">
@@ -1791,6 +3047,13 @@ function Lightbox({
                             : null}
                     </div>
                 </aside>
+                ${captionOpen
+                    ? html`
+                          <${CaptionModal}
+                              caption=${fullCaptionText}
+                              onClose=${() => setCaptionOpen(false)} />
+                      `
+                    : null}
             </div>
         </div>
     `;
@@ -1960,17 +3223,28 @@ function UploadModal({
 }
 
 function App() {
+    const [initialGalleryCache] = useState(() => readGalleryPhotoCache());
+    const [metadataPageSize] = useState(() => getGalleryMetadataPageSize());
+    const loadingMorePhotosRef = useRef(false);
     const [client, setClient] = useState(null);
     const [currentUser, setCurrentUser] = useState(() => getStoredUser());
-    const [photos, setPhotos] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+    const [photos, setPhotos] = useState(() => initialGalleryCache.photos);
+    const [loading, setLoading] = useState(() => !initialGalleryCache.photos.length);
+    const [loadingMorePhotos, setLoadingMorePhotos] = useState(false);
+    const [remoteLoadedCount, setRemoteLoadedCount] = useState(() => (
+        initialGalleryCache.isFresh ? initialGalleryCache.photos.length : 0
+    ));
+    const [hasMorePhotos, setHasMorePhotos] = useState(() => (
+        !initialGalleryCache.isFresh || initialGalleryCache.photos.length >= getGalleryMetadataPageSize()
+    ));
+    const [initialLoadComplete, setInitialLoadComplete] = useState(() => Boolean(initialGalleryCache.photos.length));
     const [errorMessage, setErrorMessage] = useState('');
     const [uploadErrorMessage, setUploadErrorMessage] = useState('');
     const [statusMessage, setStatusMessage] = useState('');
     const [viewMode, setViewMode] = useState('days');
+    const [visibleSectionLimit, setVisibleSectionLimit] = useState(() => getInitialVisibleSectionCount());
     const [slideshowOrderMode, setSlideshowOrderMode] = useState('latest');
-    const [slideshowMediaFilter, setSlideshowMediaFilter] = useState('videos');
+    const [slideshowMediaFilter, setSlideshowMediaFilter] = useState('all');
     const [slideshowShuffleSeed, setSlideshowShuffleSeed] = useState(() => Date.now());
     const [themeMode, setThemeMode] = useState(() => getStoredThemeMode());
     const [systemTheme, setSystemTheme] = useState(() => getSystemTheme());
@@ -2022,16 +3296,30 @@ function App() {
         };
     }, []);
 
-    async function refreshPhotos() {
+    async function refreshPhotos({ silent = false, preserveExisting = true } = {}) {
         if (!client) return;
 
-        setLoading(true);
+        if (!silent) {
+            setLoading(true);
+        }
         setErrorMessage('');
 
         try {
-            const rows = await listGalleryPhotos(client);
-            const nextPhotos = rows.map((photo) => enrichPhoto(client, photo));
-            const commitPhotos = () => setPhotos(nextPhotos);
+            const rows = await listGalleryPhotos(client, {
+                limit: metadataPageSize + 1,
+                offset: 0
+            });
+            const pageRows = rows.slice(0, metadataPageSize);
+            const nextPagePhotos = pageRows.map((photo) => enrichPhoto(client, photo));
+            setHasMorePhotos(rows.length > metadataPageSize);
+            setRemoteLoadedCount(pageRows.length);
+
+            const commitPhotos = () => setPhotos((previousPhotos) => {
+                const basePhotos = preserveExisting ? previousPhotos : [];
+                const nextPhotos = mergePhotoLists(nextPagePhotos, basePhotos);
+                writeGalleryPhotoCache(nextPhotos);
+                return nextPhotos;
+            });
 
             if (initialLoadComplete) {
                 startTransition(commitPhotos);
@@ -2040,17 +3328,60 @@ function App() {
             }
         } catch (error) {
             console.error('Gallery load failed:', error);
-            setErrorMessage(error.message || 'Unable to open the gallery right now.');
+            setErrorMessage(photos.length
+                ? 'Showing saved gallery. New uploads may appear after the next refresh.'
+                : error.message || 'Unable to open the gallery right now.');
         } finally {
             setLoading(false);
             setInitialLoadComplete(true);
         }
     }
 
+    async function loadMorePhotos() {
+        if (!client || loadingMorePhotos || loadingMorePhotosRef.current || !hasMorePhotos) return;
+
+        loadingMorePhotosRef.current = true;
+        setLoadingMorePhotos(true);
+        setErrorMessage('');
+
+        try {
+            const offset = remoteLoadedCount;
+            const rows = await listGalleryPhotos(client, {
+                limit: metadataPageSize + 1,
+                offset
+            });
+            const pageRows = rows.slice(0, metadataPageSize);
+            const nextPagePhotos = pageRows.map((photo) => enrichPhoto(client, photo));
+
+            setRemoteLoadedCount(offset + pageRows.length);
+            setHasMorePhotos(rows.length > metadataPageSize);
+            setPhotos((previousPhotos) => {
+                const nextPhotos = mergePhotoLists(previousPhotos, nextPagePhotos);
+                writeGalleryPhotoCache(nextPhotos);
+                return nextPhotos;
+            });
+        } catch (error) {
+            console.error('Gallery page load failed:', error);
+            setErrorMessage('Could not load more gallery items right now.');
+        } finally {
+            loadingMorePhotosRef.current = false;
+            setLoadingMorePhotos(false);
+            setInitialLoadComplete(true);
+        }
+    }
+
     useEffect(() => {
         if (!client) return;
-        refreshPhotos();
-    }, [client]);
+        if (initialGalleryCache.photos.length && initialGalleryCache.isFresh) {
+            setLoading(false);
+            setRemoteLoadedCount(initialGalleryCache.photos.length);
+            setHasMorePhotos(initialGalleryCache.photos.length >= metadataPageSize);
+            setInitialLoadComplete(true);
+            return;
+        }
+
+        refreshPhotos({ silent: initialGalleryCache.photos.length > 0 });
+    }, [client, metadataPageSize]);
 
     useEffect(() => {
         if (!activePhotoId) return;
@@ -2102,6 +3433,8 @@ function App() {
     const filteredSignature = filteredPhotos.map((photo) => photo.id).join('|');
     const daySections = buildDaySections(filteredPhotos);
     const monthSections = buildMonthSections(filteredPhotos);
+    const visibleDaySections = daySections.slice(0, visibleSectionLimit);
+    const visibleMonthSections = monthSections.slice(0, visibleSectionLimit);
     const slideshowPhotos = getSlideshowPhotos(
         filteredPhotos,
         slideshowMediaFilter,
@@ -2112,6 +3445,31 @@ function App() {
     const activeIndex = filteredPhotos.findIndex((photo) => photo.id === activePhotoId);
     const activePhoto = activeIndex >= 0 ? filteredPhotos[activeIndex] : null;
     const resolvedTheme = resolveGalleryTheme(themeMode, systemTheme);
+
+    useEffect(() => {
+        setVisibleSectionLimit(getInitialVisibleSectionCount());
+    }, [viewMode, query]);
+
+    const canRevealMoreDaySections = viewMode === 'days' && visibleDaySections.length < daySections.length;
+    const canRevealMoreMonthSections = viewMode === 'months' && visibleMonthSections.length < monthSections.length;
+    const canRevealMoreLocalSections = canRevealMoreDaySections || canRevealMoreMonthSections;
+    const canLoadMoreGalleryItems = hasMorePhotos && !loadingMorePhotos;
+    const hasMoreGalleryContent = canRevealMoreLocalSections || hasMorePhotos;
+    const loadMoreLabel = canRevealMoreDaySections
+        ? 'Show more days'
+        : canRevealMoreMonthSections
+            ? 'Show more months'
+            : 'Load more memories';
+    const handleNeedMoreGalleryContent = () => {
+        if (canRevealMoreLocalSections) {
+            setVisibleSectionLimit((current) => current + getSectionBatchSize());
+            return;
+        }
+
+        if (canLoadMoreGalleryItems) {
+            loadMorePhotos();
+        }
+    };
 
     const canUpload = Boolean(currentUser?.id);
     const canDelete = Boolean(
@@ -2219,8 +3577,9 @@ function App() {
                 activeUploadIndex = index;
                 activeUploadFile = file;
 
-                const detailsPromise = readMediaDetailsSafe(file);
                 const storagePath = buildStoragePath(currentUser, file);
+                const detailsPromise = readMediaDetailsSafe(file);
+                let posterPromise = Promise.resolve(null);
                 const uploadedAt = new Date().toISOString();
                 let lastProgressAt = performance.now();
                 let lastProgressBytes = 0;
@@ -2265,7 +3624,11 @@ function App() {
                     }
                 });
 
-                const details = await detailsPromise;
+                posterPromise = isVideoMedia(file)
+                    ? uploadVideoPoster(client, storagePath, file)
+                    : Promise.resolve(null);
+
+                const [details, posterStoragePath] = await Promise.all([detailsPromise, posterPromise]);
 
                 patchUploadProgress(index, {
                     status: 'finalizing',
@@ -2288,7 +3651,11 @@ function App() {
                     p_taken_at: uploadedAt,
                     p_width: details.width,
                     p_height: details.height,
-                    p_dominant_color: details.dominantColor
+                    p_dominant_color: details.dominantColor,
+                    p_poster_storage_path: posterStoragePath,
+                    p_video_variants: isVideoMedia(file) && details.durationSeconds
+                        ? { duration_seconds: details.durationSeconds }
+                        : {}
                 });
 
                 patchUploadProgress(index, {
@@ -2345,6 +3712,11 @@ function App() {
         try {
             await deleteGalleryPhoto(client, currentUser.id, activePhoto);
             setActivePhotoId(null);
+            setPhotos((previousPhotos) => {
+                const nextPhotos = previousPhotos.filter((photo) => photo.id !== activePhoto.id);
+                writeGalleryPhotoCache(nextPhotos);
+                return nextPhotos;
+            });
             setStatusMessage('Item removed.');
             await refreshPhotos();
         } catch (error) {
@@ -2381,11 +3753,15 @@ function App() {
 
         try {
             await setGalleryPhotoFeatured(client, currentUser.id, activePhoto.id, nextFeatured);
-            setPhotos((previous) => previous.map((photo) => (
-                photo.id === activePhoto.id
-                    ? { ...photo, is_featured: nextFeatured }
-                    : photo
-            )));
+            setPhotos((previous) => {
+                const nextPhotos = previous.map((photo) => (
+                    photo.id === activePhoto.id
+                        ? { ...photo, is_featured: nextFeatured }
+                        : photo
+                ));
+                writeGalleryPhotoCache(nextPhotos);
+                return nextPhotos;
+            });
             setStatusMessage(nextFeatured ? 'Pinned to slideshow.' : 'Removed from pinned slideshow.');
         } catch (error) {
             console.error('Pin update failed:', error);
@@ -2536,7 +3912,7 @@ function App() {
                                           orderMode=${slideshowOrderMode}
                                           onReset=${() => {
                                           setSlideshowOrderMode('latest');
-                                          setSlideshowMediaFilter('videos');
+                                          setSlideshowMediaFilter('all');
                                       }} />
                               `}
                     </article>
@@ -2710,7 +4086,7 @@ function App() {
 
                     ${!loading && filteredPhotos.length && viewMode === 'days'
                         ? html`
-                              ${daySections.map(
+                              ${visibleDaySections.map(
                                   (section) => html`
                                       <section className="gallery-section" key=${section.key}>
                                           <div className="gallery-section-header">
@@ -2727,12 +4103,22 @@ function App() {
                                       </section>
                                   `
                               )}
+                              ${hasMoreGalleryContent
+                                  ? html`
+                                        <${LoadMoreSentinel}
+                                            busy=${loadingMorePhotos}
+                                            disabled=${!hasMoreGalleryContent}
+                                            label=${loadMoreLabel}
+                                            busyLabel="Loading more memories..."
+                                            onLoadMore=${handleNeedMoreGalleryContent} />
+                                    `
+                                  : null}
                           `
                         : null}
 
                     ${!loading && filteredPhotos.length && viewMode === 'months'
                         ? html`
-                              ${monthSections.map(
+                              ${visibleMonthSections.map(
                                   (section) => html`
                                       <section className="gallery-section" key=${section.key}>
                                           <div className="gallery-section-header">
@@ -2751,6 +4137,16 @@ function App() {
                                       </section>
                                   `
                               )}
+                              ${hasMoreGalleryContent
+                                  ? html`
+                                        <${LoadMoreSentinel}
+                                            busy=${loadingMorePhotos}
+                                            disabled=${!hasMoreGalleryContent}
+                                            label=${loadMoreLabel}
+                                            busyLabel="Loading more memories..."
+                                            onLoadMore=${handleNeedMoreGalleryContent} />
+                                    `
+                                  : null}
                           `
                         : null}
                 </section>
