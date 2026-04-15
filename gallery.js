@@ -1838,12 +1838,13 @@ function MediaSurface({
                 : null}
             ${!posterUrl && includeFrame
                 ? html`
-                      <video
-                          className="gallery-video-preview-frame"
-                          src=${media.publicUrl}
-                          muted=${true}
-                          playsInline=${true}
-                          preload="metadata"
+                          <video
+                              className="gallery-video-preview-frame"
+                              src=${media.publicUrl}
+                              crossOrigin="anonymous"
+                              muted=${true}
+                              playsInline=${true}
+                              preload="metadata"
                           aria-hidden="true"
                           tabIndex="-1"
                           onLoadedMetadata=${(event) => {
@@ -2089,6 +2090,7 @@ function Tile({ photo, index, onOpen }) {
                 muted=${true}
                 loop=${true}
                 preload="none"
+                framePreview=${isVideo}
                 generatePoster=${isVideo} />
             <${MediaBadge} media=${photo} />
             <div className="gallery-tile-overlay">
@@ -2124,6 +2126,7 @@ function CompactTile({ photo, index = 0, onOpen }) {
                 muted=${true}
                 loop=${true}
                 preload="none"
+                framePreview=${isVideo}
                 generatePoster=${isVideo} />
             <${MediaBadge} media=${photo} />
             <div className="gallery-tile-overlay">
@@ -2172,6 +2175,7 @@ function PreviewGrid({ photos, onOpenPhoto, onOpenMore }) {
                                         muted=${true}
                                         loop=${true}
                                         preload="none"
+                                        framePreview=${isVideoMedia(morePreviewPhoto)}
                                         generatePoster=${isVideoMedia(morePreviewPhoto)} />
                                 `
                               : null}
@@ -2399,7 +2403,7 @@ function HeroSlideshow({ photos, onOpen, orderMode = 'latest', mediaFilter = 'vi
                                   loop=${false}
                                   controls=${activeVideoPlaying}
                                   preload=${activeMediaPreload}
-                                  framePreview=${false}
+                                  framePreview=${true}
                                   generatePoster=${true}
                                   onAutoplayMuted=${() => setVideoMuted(true)}
                                   onEnded=${photos.length > 1 ? () => goTo(activeIndex + 1) : () => setActiveVideoPlaying(false)} />

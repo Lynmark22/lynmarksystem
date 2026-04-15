@@ -1823,6 +1823,18 @@ html[data-gallery-theme='light'] .gallery-slideshow-meta {
     background: transparent;
 }
 
+.gallery-slideshow-main .gallery-video-preview-frame {
+    object-fit: contain;
+}
+
+.is-video-preview.has-frame-preview {
+    overflow: hidden;
+}
+
+.gallery-tile-media.is-video-preview.has-frame-preview {
+    padding: 0 !important;
+}
+
 .gallery-preview-more-media .gallery-video-preview-frame {
     padding: 0;
     object-fit: cover;
