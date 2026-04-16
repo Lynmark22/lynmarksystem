@@ -317,6 +317,10 @@ function canUseCacheStorage() {
     return typeof caches !== 'undefined' && typeof Request !== 'undefined' && typeof Response !== 'undefined';
 }
 
+function canUseGalleryServiceWorker() {
+    return typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
+}
+
 function getGeneratedPosterCacheUrl(media) {
     const baseUrl = typeof window === 'undefined' ? 'https://lynmark.local' : window.location.origin;
     const cacheId = hashValue(media?.id || media?.storage_path || media?.publicUrl || '');
@@ -1632,7 +1636,7 @@ function useCachedMediaUrl(sourceUrl, enabled, cacheKey = sourceUrl) {
             return undefined;
         }
 
-        if (isConstrainedGalleryDevice()) {
+        if (isConstrainedGalleryDevice() || canUseGalleryServiceWorker()) {
             setResolvedUrl(sourceUrl);
             return undefined;
         }
@@ -1690,7 +1694,7 @@ function useCachedPlaybackUrl(sourceUrl, enabled, cacheKey = sourceUrl) {
 
         setCachedUrl('');
 
-        if (!sourceUrl || !enabled || isConstrainedGalleryDevice() || !canUseCacheStorage()) {
+        if (!sourceUrl || !enabled || isConstrainedGalleryDevice() || canUseGalleryServiceWorker() || !canUseCacheStorage()) {
             return undefined;
         }
 
@@ -1726,16 +1730,36 @@ function useCachedPlaybackUrl(sourceUrl, enabled, cacheKey = sourceUrl) {
 
 function queueVideoPlaybackCache(media, queuedRef) {
     if (!media?.publicUrl || !isVideoMedia(media)) return;
-    if (isConstrainedGalleryDevice()) return;
     if (queuedRef?.current) return;
+
+    const connection = typeof navigator === 'undefined'
+        ? null
+        : navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection?.saveData) return;
 
     if (queuedRef) {
         queuedRef.current = true;
     }
 
-    scheduleMediaCacheFetch(media.publicUrl, media.publicUrl).catch((error) => {
-        console.warn('Video playback cache failed:', error?.message || error);
-    });
+    const startCache = () => {
+        scheduleMediaCacheFetch(media.publicUrl, media.publicUrl).catch((error) => {
+            console.warn('Video playback cache failed:', error?.message || error);
+        });
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(startCache, {
+            timeout: isConstrainedGalleryDevice() ? 7000 : 3000
+        });
+        return;
+    }
+
+    if (typeof window !== 'undefined') {
+        window.setTimeout(startCache, isConstrainedGalleryDevice() ? 2600 : 800);
+        return;
+    }
+
+    startCache();
 }
 
 function useGeneratedVideoPosterUrl(media, enabled) {
