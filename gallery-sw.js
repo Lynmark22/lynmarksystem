@@ -1,4 +1,4 @@
-const GALLERY_SW_VERSION = '20260416.10';
+const GALLERY_SW_VERSION = '20260416.11';
 const GALLERY_MEDIA_CACHE = 'lynmark-gallery-media-v1';
 const GALLERY_STATIC_CACHE = `lynmark-gallery-static-${GALLERY_SW_VERSION}`;
 const GALLERY_MAX_MEDIA_ENTRIES = 220;
@@ -16,6 +16,61 @@ function isStaticGalleryAsset(url) {
     return /\.(?:css|js|png|jpg|jpeg|webp|ico|svg|woff2?)$/i.test(url.pathname)
         || url.pathname.endsWith('/vendor/supabase-js.umd.js')
         || url.pathname.endsWith('/normalize.css');
+}
+
+function getMediaCacheLookupRequests(request) {
+    const url = new URL(request.url);
+    const lookupUrls = [request.url];
+
+    if (url.searchParams.has('download')) {
+        url.searchParams.delete('download');
+        lookupUrls.push(url.toString());
+    }
+
+    return lookupUrls.map((lookupUrl) => new Request(lookupUrl, {
+        method: 'GET',
+        mode: request.mode,
+        credentials: request.credentials,
+        redirect: request.redirect,
+        referrer: request.referrer,
+        referrerPolicy: request.referrerPolicy,
+        integrity: request.integrity
+    }));
+}
+
+async function matchCachedMedia(cache, request) {
+    const lookupRequests = getMediaCacheLookupRequests(request);
+
+    for (const lookupRequest of lookupRequests) {
+        const cachedResponse = await cache.match(lookupRequest);
+        if (cachedResponse) return cachedResponse;
+    }
+
+    return null;
+}
+
+function shouldNormalizeMediaCacheKey(request) {
+    const url = new URL(request.url);
+    return url.searchParams.has('download');
+}
+
+function getNormalizedMediaCacheRequest(request) {
+    const url = new URL(request.url);
+    url.searchParams.delete('download');
+
+    if (!shouldNormalizeMediaCacheKey(request)) return request;
+
+    return new Request(url.toString(), {
+        method: 'GET',
+        headers: request.headers,
+        mode: request.mode,
+        credentials: request.credentials,
+        cache: request.cache,
+        redirect: request.redirect,
+        referrer: request.referrer,
+        referrerPolicy: request.referrerPolicy,
+        integrity: request.integrity
+    });
 }
 
 async function trimCache(cacheName, maxEntries) {
@@ -63,14 +118,14 @@ async function cacheFirstMedia(request) {
     const cache = await caches.open(GALLERY_MEDIA_CACHE);
 
     if (request.headers.has('range')) {
-        const cachedFullResponse = await cache.match(request.url);
+        const cachedFullResponse = await matchCachedMedia(cache, request);
         const rangeResponse = await createRangeResponse(request, cachedFullResponse);
         if (rangeResponse) return rangeResponse;
 
         return fetch(request);
     }
 
-    const cachedResponse = await cache.match(request.url);
+    const cachedResponse = await matchCachedMedia(cache, request);
     if (cachedResponse) return cachedResponse;
 
     const response = await fetch(request);
@@ -79,7 +134,7 @@ async function cacheFirstMedia(request) {
         && (response.ok || response.type === 'opaque');
 
     if (isCacheable) {
-        cache.put(request, response.clone())
+        cache.put(getNormalizedMediaCacheRequest(request), response.clone())
             .then(() => trimCache(GALLERY_MEDIA_CACHE, GALLERY_MAX_MEDIA_ENTRIES))
             .catch(() => {});
     }

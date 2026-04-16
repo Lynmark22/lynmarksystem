@@ -1323,44 +1323,36 @@ function getPhotoDownloadName(photo) {
     return `${sanitizeFileName(getPhotoTitle(photo) || 'gallery-item')}.${extension}`;
 }
 
+function getDirectPhotoDownloadUrl(client, photo) {
+    const publicUrl = photo?.publicUrl || getPhotoUrl(client, photo);
+    if (!publicUrl) return '';
+
+    try {
+        const url = new URL(publicUrl);
+        url.searchParams.set('download', getPhotoDownloadName(photo));
+        return url.toString();
+    } catch (_error) {
+        const separator = publicUrl.includes('?') ? '&' : '?';
+        return `${publicUrl}${separator}download=${encodeURIComponent(getPhotoDownloadName(photo))}`;
+    }
+}
+
 async function downloadGalleryPhoto(client, photo) {
     if (!photo) return;
 
-    let blob = null;
-
-    if (photo.storage_path && client?.storage) {
-        const result = await client.storage
-            .from(photo.bucket_name || GALLERY_BUCKET)
-            .download(photo.storage_path);
-
-        if (result.error) {
-            throw result.error;
-        }
-
-        blob = result.data || null;
+    const downloadUrl = getDirectPhotoDownloadUrl(client, photo);
+    if (!downloadUrl) {
+        throw new Error('Unable to open this file for download right now.');
     }
 
-    if (!blob && photo.publicUrl) {
-        const response = await fetch(photo.publicUrl);
-        if (!response.ok) {
-            throw new Error('Unable to download this file right now.');
-        }
-        blob = await response.blob();
-    }
-
-    if (!blob) {
-        throw new Error('Unable to prepare this file for download.');
-    }
-
-    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = objectUrl;
+    link.href = downloadUrl;
     link.download = getPhotoDownloadName(photo);
     link.rel = 'noopener';
+    link.target = '_blank';
     document.body.appendChild(link);
     link.click();
     link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
 function buildDaySections(photos) {
