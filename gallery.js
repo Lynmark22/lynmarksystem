@@ -13,17 +13,17 @@ const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 const RESUMABLE_UPLOAD_CHUNK_BYTES = 6 * 1024 * 1024;
 const RESUMABLE_UPLOAD_RETRY_DELAYS = [0, 3000, 5000, 10000, 20000];
 const SECTION_PREVIEW_LIMIT = 9;
-const CONSTRAINED_SECTION_PREVIEW_LIMIT = 6;
+const CONSTRAINED_SECTION_PREVIEW_LIMIT = 4;
 const INITIAL_VISIBLE_SECTION_COUNT = 10;
-const CONSTRAINED_VISIBLE_SECTION_COUNT = 4;
+const CONSTRAINED_VISIBLE_SECTION_COUNT = 2;
 const SECTION_BATCH_SIZE = 10;
-const CONSTRAINED_SECTION_BATCH_SIZE = 4;
+const CONSTRAINED_SECTION_BATCH_SIZE = 2;
 const DEFAULT_SLIDESHOW_LIMIT = 360;
-const SECTION_BROWSER_PAGE_SIZE_CONSTRAINED = 6;
+const SECTION_BROWSER_PAGE_SIZE_CONSTRAINED = 4;
 const SECTION_BROWSER_PAGE_SIZE_MOBILE = 9;
 const SECTION_BROWSER_PAGE_SIZE_DESKTOP = 12;
 const GALLERY_METADATA_PAGE_SIZE = 48;
-const GALLERY_METADATA_PAGE_SIZE_CONSTRAINED = 24;
+const GALLERY_METADATA_PAGE_SIZE_CONSTRAINED = 12;
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'm4v', 'ogv', 'ogg']);
 const GALLERY_THEME_STORAGE_KEY = 'gallery_theme_mode';
 const GALLERY_PHOTOS_CACHE_KEY = 'gallery_photos_cache_v6';
@@ -1555,7 +1555,7 @@ function useVideoDurationLabel(media, enabled = true) {
     }, [cacheId, isEnabledVideo, media?.publicUrl]);
 
     useEffect(() => {
-        if (!isEnabledVideo || duration || !media?.publicUrl) {
+        if (!isEnabledVideo || duration || !media?.publicUrl || isConstrainedGalleryDevice()) {
             return undefined;
         }
 
@@ -1580,7 +1580,7 @@ function useVideoDurationLabel(media, enabled = true) {
     }, [cacheId, duration, isEnabledVideo, media?.publicUrl]);
 
     useEffect(() => {
-        if (!isEnabledVideo || duration || !isNearViewport || !media?.publicUrl) {
+        if (!isEnabledVideo || duration || !isNearViewport || !media?.publicUrl || isConstrainedGalleryDevice()) {
             return undefined;
         }
 
@@ -1629,6 +1629,11 @@ function useCachedMediaUrl(sourceUrl, enabled, cacheKey = sourceUrl) {
         setResolvedUrl('');
 
         if (!sourceUrl || !enabled) {
+            return undefined;
+        }
+
+        if (isConstrainedGalleryDevice()) {
+            setResolvedUrl(sourceUrl);
             return undefined;
         }
 
@@ -1685,7 +1690,7 @@ function useCachedPlaybackUrl(sourceUrl, enabled, cacheKey = sourceUrl) {
 
         setCachedUrl('');
 
-        if (!sourceUrl || !enabled || !canUseCacheStorage()) {
+        if (!sourceUrl || !enabled || isConstrainedGalleryDevice() || !canUseCacheStorage()) {
             return undefined;
         }
 
@@ -1721,6 +1726,7 @@ function useCachedPlaybackUrl(sourceUrl, enabled, cacheKey = sourceUrl) {
 
 function queueVideoPlaybackCache(media, queuedRef) {
     if (!media?.publicUrl || !isVideoMedia(media)) return;
+    if (isConstrainedGalleryDevice()) return;
     if (queuedRef?.current) return;
 
     if (queuedRef) {
@@ -1817,6 +1823,7 @@ function MediaSurface({
     const cachedPlaybackUrl = useCachedPlaybackUrl(media?.publicUrl, shouldRenderVideo && shouldLoadMedia, media?.publicUrl);
     const videoPosterUrl = media?.posterUrl ? cachedPosterUrl : generatedPosterUrl;
     const playbackUrl = cachedPlaybackUrl || media?.publicUrl;
+    const allowFramePreview = Boolean(framePreview && !isConstrainedGalleryDevice());
     const renderVideoPreview = (posterUrl = '', extraClassName = '', includeFrame = false) => html`
         <span
             ref=${mediaRef}
@@ -2005,7 +2012,7 @@ function MediaSurface({
             return renderVideoPreview(videoPosterUrl);
         }
 
-        return renderVideoPreview('', '', framePreview);
+        return renderVideoPreview('', '', allowFramePreview);
     }
 
     if (shouldRenderVideo) {
@@ -2280,6 +2287,40 @@ function useRevealOnScroll(rootMargin = '0px 0px -8% 0px') {
     }, [isRevealed, rootMargin]);
 
     return { revealRef, isRevealed };
+}
+
+function useScrollCooling(enabled = true) {
+    const scrollTimeoutRef = useRef(null);
+    const [isScrolling, setIsScrolling] = useState(false);
+
+    useEffect(() => {
+        if (!enabled || typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const onScroll = () => {
+            setIsScrolling(true);
+
+            if (scrollTimeoutRef.current) {
+                window.clearTimeout(scrollTimeoutRef.current);
+            }
+
+            scrollTimeoutRef.current = window.setTimeout(() => {
+                setIsScrolling(false);
+            }, isConstrainedGalleryDevice() ? 360 : 180);
+        };
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            if (scrollTimeoutRef.current) {
+                window.clearTimeout(scrollTimeoutRef.current);
+            }
+        };
+    }, [enabled]);
+
+    return isScrolling;
 }
 
 function LoadMoreSentinel({ busy = false, disabled = false, label = 'Load more', busyLabel = 'Loading more...', onLoadMore }) {
@@ -3268,6 +3309,7 @@ function App() {
     });
 
     const deferredSearch = useDeferredValue(search);
+    const isScrollCooling = useScrollCooling(isConstrainedGalleryDevice());
 
     useEffect(() => {
         try {
@@ -3907,7 +3949,7 @@ function App() {
                                       photos=${slideshowPhotos}
                                       orderMode=${slideshowOrderMode}
                                       mediaFilter=${slideshowMediaFilter}
-                                      pausePlayback=${Boolean(activePhoto)}
+                                      pausePlayback=${Boolean(activePhoto) || isScrollCooling}
                                       onOpen=${(photoId) => setActivePhotoId(photoId)} />
                               `
                             : html`

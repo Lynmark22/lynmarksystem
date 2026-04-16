@@ -2108,11 +2108,9 @@ html[data-gallery-theme='light'] .gallery-slideshow-meta {
 
 @media (max-width: 640px) and (prefers-reduced-motion: no-preference) {
     .gallery-reveal {
-        opacity: 0;
-        transform: translate3d(0, 10px, 0);
-        transition:
-            opacity 240ms ease,
-            transform 280ms ease;
+        opacity: 1;
+        transform: none;
+        transition: none;
         transition-delay: 0ms;
     }
 
