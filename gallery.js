@@ -13,17 +13,17 @@ const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 const RESUMABLE_UPLOAD_CHUNK_BYTES = 6 * 1024 * 1024;
 const RESUMABLE_UPLOAD_RETRY_DELAYS = [0, 3000, 5000, 10000, 20000];
 const SECTION_PREVIEW_LIMIT = 9;
-const CONSTRAINED_SECTION_PREVIEW_LIMIT = 4;
+const CONSTRAINED_SECTION_PREVIEW_LIMIT = 6;
 const INITIAL_VISIBLE_SECTION_COUNT = 10;
-const CONSTRAINED_VISIBLE_SECTION_COUNT = 2;
+const CONSTRAINED_VISIBLE_SECTION_COUNT = 3;
 const SECTION_BATCH_SIZE = 10;
-const CONSTRAINED_SECTION_BATCH_SIZE = 2;
+const CONSTRAINED_SECTION_BATCH_SIZE = 3;
 const DEFAULT_SLIDESHOW_LIMIT = 360;
 const SECTION_BROWSER_PAGE_SIZE_CONSTRAINED = 4;
 const SECTION_BROWSER_PAGE_SIZE_MOBILE = 9;
 const SECTION_BROWSER_PAGE_SIZE_DESKTOP = 12;
 const GALLERY_METADATA_PAGE_SIZE = 48;
-const GALLERY_METADATA_PAGE_SIZE_CONSTRAINED = 12;
+const GALLERY_METADATA_PAGE_SIZE_CONSTRAINED = 18;
 const VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'mov', 'm4v', 'ogv', 'ogg']);
 const GALLERY_THEME_STORAGE_KEY = 'gallery_theme_mode';
 const GALLERY_PHOTOS_CACHE_KEY = 'gallery_photos_cache_v6';
@@ -1823,7 +1823,7 @@ function MediaSurface({
     const cachedPlaybackUrl = useCachedPlaybackUrl(media?.publicUrl, shouldRenderVideo && shouldLoadMedia, media?.publicUrl);
     const videoPosterUrl = media?.posterUrl ? cachedPosterUrl : generatedPosterUrl;
     const playbackUrl = cachedPlaybackUrl || media?.publicUrl;
-    const allowFramePreview = Boolean(framePreview && !isConstrainedGalleryDevice());
+    const allowFramePreview = Boolean(framePreview);
     const renderVideoPreview = (posterUrl = '', extraClassName = '', includeFrame = false) => html`
         <span
             ref=${mediaRef}
