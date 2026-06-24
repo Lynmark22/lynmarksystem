@@ -4675,15 +4675,11 @@ window.handleGalleryClick = async function (event) {
     link.classList.add('is-loading');
 
     try {
-        const SUPABASE_URL = 'https://jlbvoiqexugdobzgpvyb.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsYnZvaXFleHVnZG9iemdwdnliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3NTU1MzAsImV4cCI6MjA4MDMzMTUzMH0.2RVENuR1AVPbjM5vBG7c2_fppn3D4zAZCuBFVCI08SA';
-
-        if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
-            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-                auth: { persistSession: false, autoRefreshToken: false }
-            });
-
-            const { data, error } = await client.rpc('get_payment_settings');
+        const client = state.client;
+        if (!client) {
+            window.location.href = 'gallery.html';
+            return;
+        }
 
             if (!error && data && data.length > 0) {
                 const isEnabled = data[0].gallery_enabled !== false;
