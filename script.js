@@ -4576,6 +4576,7 @@
 			state.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 				auth: { persistSession: false, autoRefreshToken: false }
 			});
+			window.__supabaseClient = state.client;
 
 			if (state.isAdmin) {
 				wireAdminEvents();
@@ -4681,13 +4682,14 @@ window.handleGalleryClick = async function (event) {
             return;
         }
 
-            if (!error && data && data.length > 0) {
-                const isEnabled = data[0].gallery_enabled !== false;
-                if (!isEnabled) {
-                    showGalleryUnavailable();
-                    link.classList.remove('is-loading');
-                    return;
-                }
+        const { data, error } = await client.rpc('get_payment_settings');
+
+        if (!error && data && data.length > 0) {
+            const isEnabled = data[0].gallery_enabled !== false;
+            if (!isEnabled) {
+                showGalleryUnavailable();
+                link.classList.remove('is-loading');
+                return;
             }
         }
 

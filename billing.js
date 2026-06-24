@@ -99,7 +99,7 @@ function queueRealtimeBillingRefresh(force = false) {
 document.addEventListener('DOMContentLoaded', async () => {
     initBillingTableInteractionTracking();
     if (typeof window.supabase !== 'undefined') {
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        supabaseClient = window.__supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         await checkSession();
     } else {
         console.error('Supabase SDK not loaded');
