@@ -3843,3 +3843,102 @@ body.is-instant::after {
 		opacity: 1;
 	}
 }
+
+/* ================================================== */
+/* GALLERY UNAVAILABLE MODAL                          */
+/* ================================================== */
+
+.gallery-unavailable-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: galleryFadeIn 0.2s ease;
+}
+
+@keyframes galleryFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.gallery-unavailable-modal {
+    background: #1a1d2e;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    padding: 32px 28px 24px;
+    max-width: 340px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    animation: gallerySlideUp 0.25s ease;
+}
+
+@keyframes gallerySlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.gallery-unavailable-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 165, 0, 0.12);
+    color: #ffa500;
+}
+
+.gallery-unavailable-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.gallery-unavailable-msg {
+    margin: 0 0 20px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.4;
+}
+
+.gallery-unavailable-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+    min-height: 38px;
+    padding: 8px 22px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #22b861 0%, #31ce9f 100%);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gallery-unavailable-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(34, 184, 97, 0.3);
+}
+
+.gallery-unavailable-btn:focus-visible {
+    outline: 2px solid rgba(0, 210, 255, 0.7);
+    outline-offset: 2px;
+}
+
+.gallery-link.n06.is-loading,
+a#gallery-link.is-loading {
+    opacity: 0.6;
+    pointer-events: none;
+    cursor: progress;
+}

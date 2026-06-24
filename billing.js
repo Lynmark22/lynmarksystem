@@ -509,6 +509,7 @@ if (registerForm) {
         const answer2 = (document.getElementById('reg-security-answer-2')?.value || '').trim();
         const birthdate = document.getElementById('reg-birthdate')?.value || null;
         const tenantLocation = (document.getElementById('reg-tenant-location')?.value || '').trim();
+        const tenantPassword = document.getElementById('reg-tenant-password')?.value || '';
 
         const usernamePattern = /^[A-Za-z0-9_.-]{3,50}$/;
         if (!usernamePattern.test(username)) {
@@ -536,6 +537,16 @@ if (registerForm) {
             return;
         }
 
+        if (!tenantLocation) {
+            setFormError('auth-register-error-msg', 'Your Door/Room/Residence is required.');
+            return;
+        }
+
+        if (!tenantPassword) {
+            setFormError('auth-register-error-msg', 'Room password is required.');
+            return;
+        }
+
         const normalizedQuestions = [question1, question2].map(value => value.toLowerCase());
         if (new Set(normalizedQuestions).size !== 2) {
             setFormError('auth-register-error-msg', 'Please choose 2 different security questions.');
@@ -553,7 +564,8 @@ if (registerForm) {
                 p_last_name: lastName,
                 p_contact_info: contactInfo,
                 p_birthdate: birthdate || null,
-                p_tenant_location: tenantLocation || null,
+                p_tenant_location: tenantLocation,
+                p_tenant_password: tenantPassword,
                 p_security_question_1: question1,
                 p_security_answer_1: answer1,
                 p_security_question_2: question2,
@@ -1492,7 +1504,124 @@ document.addEventListener('click', function (e) {
     if (wrapper && dropdown && !wrapper.contains(e.target)) {
         dropdown.style.display = 'none';
     }
+    // Also hide registration room dropdown
+    const regWrapper = document.querySelector('.register-field .room-dropdown-wrapper');
+    const regDropdown = document.getElementById('reg-room-dropdown');
+    if (regWrapper && regDropdown && !regWrapper.contains(e.target)) {
+        regDropdown.style.display = 'none';
+    }
 });
+
+async function loadPublicRoomSuggestions() {
+    try {
+        const { data, error } = await supabaseClient.rpc('get_tenant_location_names');
+        if (error) throw error;
+        const result = data ? (typeof data === 'string' ? JSON.parse(data) : data) : null;
+        const rooms = result?.rooms || [];
+        const deduped = new Map();
+        rooms.forEach((room) => {
+            const name = (room.name || '').trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (!deduped.has(key)) deduped.set(key, { name, category: room.category || 'Door' });
+        });
+        allRooms = sortRoomListSmart(Array.from(deduped.values()));
+        availableRooms = [...allRooms];
+    } catch (_) {
+        availableRooms = [];
+    }
+}
+
+// Registration form room dropdown
+window.showRegRoomDropdown = async function () {
+    await loadPublicRoomSuggestions();
+    const dropdown = document.getElementById('reg-room-dropdown');
+    if (!dropdown) return;
+    if (availableRooms.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+    }
+    renderRegRoomDropdown(availableRooms);
+    dropdown.style.display = 'block';
+};
+
+function renderRegRoomDropdown(rooms) {
+    const dropdown = document.getElementById('reg-room-dropdown');
+    if (!dropdown) return;
+    if (rooms.length === 0) {
+        dropdown.innerHTML = '<div class="room-option" style="color: #888; cursor: default;">No rooms found.</div>';
+        return;
+    }
+    const input = (document.getElementById('reg-tenant-location')?.value || '').toLowerCase();
+    const groupedMap = {};
+    rooms.forEach((r) => {
+        const cat = r.category || 'Door';
+        if (!groupedMap[cat]) groupedMap[cat] = [];
+        groupedMap[cat].push(r);
+    });
+    Object.values(groupedMap).forEach((list) => {
+        list.sort((a, b) => {
+            if (input) {
+                const aStarts = a.name.toLowerCase().startsWith(input) ? 0 : 1;
+                const bStarts = b.name.toLowerCase().startsWith(input) ? 0 : 1;
+                if (aStarts !== bStarts) return aStarts - bStarts;
+            }
+            return ROOM_NAME_COLLATOR.compare(a.name, b.name);
+        });
+    });
+    const catRelevance = {};
+    Object.keys(groupedMap).forEach((cat) => {
+        catRelevance[cat] = groupedMap[cat].reduce((sum, r) => {
+            return sum + (input && r.name.toLowerCase().startsWith(input) ? 1 : 0);
+        }, 0);
+    });
+    const categoryOrder = ['Door', 'Room', 'Unit', 'Other'];
+    const sortedCats = Object.keys(groupedMap).sort((a, b) => {
+        if (input) {
+            if (catRelevance[b] !== catRelevance[a]) return catRelevance[b] - catRelevance[a];
+        }
+        const ai = categoryOrder.indexOf(a);
+        const bi = categoryOrder.indexOf(b);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+    const html = sortedCats.map((cat) => {
+        const items = groupedMap[cat].map(r =>
+            `<div class="room-option" onclick="selectRegRoom(decodeURIComponent('${encodeURIComponent(r.name)}'))">${escapeHtmlText(r.name)}</div>`
+        ).join('');
+        return `<div class="room-category-label">${escapeHtmlText(cat)}</div>${items}`;
+    }).join('');
+    dropdown.innerHTML = html;
+}
+
+let regRoomsLoaded = false;
+
+window.filterRegRoomDropdown = async function () {
+    const raw = document.getElementById('reg-tenant-location')?.value || '';
+    const input = raw.toLowerCase();
+    const dropdown = document.getElementById('reg-room-dropdown');
+    if (!dropdown) return;
+    if (!input) {
+        dropdown.style.display = 'none';
+        return;
+    }
+    if (!regRoomsLoaded) {
+        await loadPublicRoomSuggestions();
+        regRoomsLoaded = true;
+    }
+    const filtered = availableRooms.filter(r => r.name.toLowerCase().includes(input));
+    if (filtered.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+    }
+    renderRegRoomDropdown(filtered);
+    dropdown.style.display = 'block';
+};
+
+window.selectRegRoom = function (name) {
+    document.getElementById('reg-tenant-location').value = name;
+    const dropdown = document.getElementById('reg-room-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+};
 
 window.closeAdminModal = function () {
     const modal = document.getElementById('admin-modal');
@@ -2140,9 +2269,41 @@ async function loadPaymentSettings() {
                 const qrBanner = document.getElementById('qr-banner-section');
                 if (qrBanner) qrBanner.style.display = 'flex';
             }
+
+            // Gallery toggle state
+            const galleryToggle = document.getElementById('gallery-toggle');
+            if (galleryToggle) {
+                const isEnabled = settings.gallery_enabled !== false;
+                galleryToggle.checked = isEnabled;
+            }
         }
     } catch (err) {
         console.error('Failed to load payment settings:', err);
+    }
+}
+
+// Save gallery toggle (Admin)
+window.saveGalleryToggle = async function (checkbox) {
+    if (!currentUser || currentUser.role !== 'admin') {
+        showToast('You must be an admin to change this setting.', 'error');
+        if (checkbox) checkbox.checked = !checkbox.checked;
+        return;
+    }
+
+    const enabled = checkbox ? checkbox.checked : true;
+
+    try {
+        const { error } = await supabaseClient.rpc('update_gallery_enabled', {
+            p_enabled: enabled
+        });
+
+        if (error) throw error;
+
+        showToast(enabled ? 'Gallery is now enabled.' : 'Gallery is now disabled.', 'success');
+    } catch (err) {
+        console.error('Error saving gallery toggle:', err);
+        showToast('Error saving setting: ' + err.message, 'error');
+        if (checkbox) checkbox.checked = !checkbox.checked;
     }
 }
 

@@ -808,6 +808,22 @@ h3.billing-header {
     border-bottom: none;
 }
 
+.room-category-label {
+    padding: 6px 10px 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #d97a2b;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    user-select: none;
+    cursor: default;
+}
+
 /* --- Buttons --- */
 .billing-btn {
     border: none;
@@ -4207,6 +4223,136 @@ h3.billing-header {
     .modern-form-v2 .submit-side-stack>.compact-upload-zone,
     .modern-form-v2 .compact-submit-btn {
         animation: none !important;
+    }
+}
+
+/* ================================================== */
+/* GALLERY TOGGLE SETTINGS (ADMIN PANEL)              */
+/* ================================================== */
+
+.admin-gallery-panel {
+    margin-top: 12px;
+    padding: 16px 18px;
+    border-radius: 14px;
+    background: linear-gradient(165deg, rgba(20, 21, 32, 0.92) 0%, rgba(16, 17, 27, 0.9) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.admin-gallery-heading {
+    margin-bottom: 14px;
+}
+
+.admin-gallery-title {
+    font-size: 0.95rem !important;
+    margin: 0 0 3px !important;
+}
+
+.admin-gallery-subtitle {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.admin-gallery-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-gallery-toggle-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.admin-gallery-toggle-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.admin-gallery-toggle-hint {
+    font-size: 0.64rem;
+    color: rgba(255, 255, 255, 0.52);
+    line-height: 1.3;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-flex;
+    width: 46px;
+    height: 26px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    transition: background 0.22s ease, box-shadow 0.22s ease;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.22s ease, background 0.22s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: linear-gradient(135deg, #22b861 0%, #31ce9f 100%);
+    box-shadow: 0 0 8px rgba(34, 184, 97, 0.35);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(20px);
+}
+
+.toggle-switch input:focus-visible + .toggle-slider {
+    outline: 2px solid rgba(0, 210, 255, 0.7);
+    outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+    .admin-gallery-panel {
+        padding: 12px 14px;
+    }
+
+    .admin-gallery-toggle-row {
+        padding: 8px 12px;
+    }
+
+    .admin-gallery-toggle-label {
+        font-size: 0.78rem;
+    }
+
+    .admin-gallery-toggle-hint {
+        font-size: 0.6rem;
     }
 }
 

@@ -390,10 +390,20 @@
                     </div>
 
                     <div class="register-field">
-                        <label class="register-field-label" for="reg-tenant-location">Tenant Location (Optional)</label>
-                        <div class="input-group no-icon">
+                        <label class="register-field-label required" for="reg-tenant-location">Your Door/Room/Residence</label>
+                        <div class="input-group no-icon room-dropdown-wrapper">
                             <input type="text" id="reg-tenant-location" class="login-input"
-                                placeholder="Room or location" maxlength="255">
+                                placeholder="Select or type your room" maxlength="255" required
+                                autocomplete="off" oninput="filterRegRoomDropdown()" onblur="setTimeout(function(){var d=document.getElementById('reg-room-dropdown');if(d)d.style.display='none';},200)">
+                            <div id="reg-room-dropdown" class="room-dropdown" style="display:none;"></div>
+                        </div>
+                    </div>
+
+                    <div class="register-field">
+                        <label class="register-field-label required" for="reg-tenant-password">Room Password</label>
+                        <div class="input-group no-icon">
+                            <input type="password" id="reg-tenant-password" class="login-input"
+                                placeholder="Enter room password" maxlength="255" required>
                         </div>
                     </div>
 
@@ -596,10 +606,28 @@
                         </div>
 
                     </div>
-                </div>
             </div>
 
-                <!-- Shared Payment Container (Visible for Public & Tenants) -->
+            <!-- Lynmark Gallery Settings (Admin only) -->
+            <div class="glass-panel admin-gallery-panel">
+                <div class="admin-gallery-heading">
+                    <h3 class="billing-header admin-gallery-title">Lynmark Gallery</h3>
+                    <p class="admin-gallery-subtitle">Control tenant access to the gallery feature</p>
+                </div>
+                <div class="admin-gallery-toggle-row">
+                    <div class="admin-gallery-toggle-copy">
+                        <span class="admin-gallery-toggle-label">Gallery Access</span>
+                        <span class="admin-gallery-toggle-hint" id="gallery-toggle-hint">When disabled, users will see an "unavailable" message.</span>
+                    </div>
+                    <label class="toggle-switch" title="Toggle gallery availability">
+                        <input type="checkbox" id="gallery-toggle" onchange="saveGalleryToggle(this)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+            <!-- Shared Payment Container (Visible for Public & Tenants) -->
                 <div id="shared-payment-container" style="display: none;">
                     <div id="payment-lazy-placeholder" class="payment-lazy-placeholder" role="status" aria-live="polite">
                         <div class="payment-skeleton-list" aria-hidden="true">
